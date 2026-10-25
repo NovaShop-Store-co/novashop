@@ -156,5 +156,34 @@
   if(error)throw error;
   return data;
  }
-;
+
+ async function adminCall(body){
+  if(!client)throw new Error("Supabase no está conectado.");
+  const {data:{session}}=await client.auth.getSession();
+  if(!session)throw new Error("Inicia sesión con tu cuenta administrativa.");
+  const {data,error}=await client.functions.invoke("admin-products",{body,headers:{Authorization:"Bearer "+session.access_token}});
+  if(error)throw error;
+  if(data?.error)throw new Error(data.error);
+  return data;
+ }
+ async function fulfillPrintfulOrder(orderId){
+  if(!client)throw new Error("Supabase no está conectado.");
+  const {data:{session}}=await client.auth.getSession();
+  if(!session?.access_token)throw new Error("Inicia sesión con tu cuenta administrativa.");
+  const {data,error}=await client.functions.invoke("printful-fulfill-order",{
+   body:{order_id:String(orderId||"")},
+   headers:{Authorization:"Bearer "+session.access_token}
+  });
+  if(error)throw error;
+  if(data?.error)throw new Error(data.error);
+  return data;
+ }
+ window.NovaShopDB={
+  isConfigured:()=>configured&&!!client,
+  client,
+  getSession:async()=>client?(await client.auth.getSession()).data.session:null,
+  createOrder,createBoldCheckout,verifyBoldPayment,checkBoldConfigured,
+  syncCatalog,prefillCheckout,adminCall,fulfillPrintfulOrder,loginWithIdentifier,
+  getFavoriteIds,toggleFavorite
+ };
 })();
