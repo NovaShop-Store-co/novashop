@@ -219,6 +219,7 @@ body.product-editor-open{overflow:hidden}
 <label>Video del producto (opcional)<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime"><span class="admin-help">MP4, WEBM o MOV, máximo 50 MB. Puedes reemplazar o quitar el video existente.</span></label><div id="adminCurrentVideo" class="admin-current-video" hidden></div>
 <label>Texto corto / etiqueta<input name="tag" maxlength="30" placeholder="NUEVO, DESTACADO…"></label>
 <label>Información de envío o entrega<textarea name="shipping" rows="2" maxlength="500" placeholder="Qué debe saber el cliente sobre la entrega"></textarea></label>
+<div class="admin-printful-panel" style="border:1px solid #d8e5ef;background:#f5f9fc;border-radius:12px;padding:14px;display:grid;gap:10px"><div><strong>Integración con Printful</strong><p class="admin-help" style="margin:4px 0 0">Para productos bajo demanda, vincula la variante de Printful que corresponde a este producto y su talla/color. El ID se obtiene de tu tienda API de Printful.</p></div><label>Printful Sync Variant ID (opcional)<input name="printful_sync_variant_id" type="number" min="1" step="1" placeholder="Ej. 123456789"></label><label style="display:flex;align-items:flex-start;gap:8px;font-weight:650"><input name="printful_enabled" type="checkbox" style="width:16px;height:16px;margin-top:2px"> Enviar automáticamente a Printful cuando el pago Bold esté aprobado</label><p class="admin-help" style="margin:0">No actives esta opción para productos no configurados en Printful. Printful cobrará producción y envío a tu cuenta según sus tarifas; revisa saldo y método de pago antes de activar pedidos reales.</p></div>
 <label style="display:flex;align-items:center;gap:8px;font-weight:650"><input name="is_active" type="checkbox" checked style="width:16px;height:16px"> Producto visible en la tienda</label>
 <div class="admin-buttons"><button class="btn btn-primary" type="submit">Guardar producto</button><button class="btn btn-ghost" id="resetAdminForm" type="button">Limpiar</button></div>
 </form></section>
@@ -232,5 +233,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=28"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=10"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=28"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=11"></script>
 </body></html>
