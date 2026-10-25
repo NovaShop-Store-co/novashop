@@ -330,8 +330,8 @@ function renderAdminOrders(){
    const subtotal=Number(order.subtotal_cop)||0,discount=Number(order.discount_cop)||0,total=Number(order.total_cop??(subtotal-discount));
    const printfulLabels={pending:"Pendiente de envío",processing:"Enviando…",submitted:"Enviado a Printful",partial:"Enviado parcialmente",failed:"Error al enviar",not_applicable:"No aplica"};
    const printfulSummary=order.printful_status&&order.printful_status!=="not_applicable"?'<div class="admin-order-meta">Printful: <strong>'+esc(printfulLabels[order.printful_status]||order.printful_status)+'</strong>'+(order.printful_order_id?' · Orden Printful #'+esc(order.printful_order_id):"")+(order.printful_error?'<div class="admin-order-meta">'+esc(order.printful_error)+'</div>':"")+((["pending","failed"].includes(order.printful_status)&&order.payment_provider==="bold"&&order.payment_status==="approved")?'<div style="margin-top:8px"><button type="button" data-printful-submit="'+esc(order.id)+'">'+(order.printful_status==="failed"?"Reintentar envío a Printful":"Enviar a Printful")+"</button></div>":"")+"</div>":"";
-   const shippingSummary=order.delivery_type==="digital"?"
-    :(order.payment_provider==="bold"
+   const shippingSummary=order.delivery_type==="digital"?"":
+    (order.payment_provider==="bold"
       ?'<div class="admin-order-meta">Envío: <strong>Gratis con pago Bold</strong></div>'
       :'<div class="admin-order-meta">Flete transportadora: <strong>'+(order.shipping_fee_cop==null?'Pendiente de cotizar':money(order.shipping_fee_cop))+'</strong> · '+(order.shipping_payment_status==="approved"?'Pagado por anticipado':'Pendiente de pago previo')+'</div>');
    const priceInfo=(order.coupon_code?'<div class="admin-order-meta">Cupón: <strong>'+esc(order.coupon_code)+'</strong> · Descuento: '+money(discount)+'</div>':(discount>0?'<div class="admin-order-meta">Descuento: '+money(discount)+'</div>':""));
