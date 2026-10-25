@@ -328,7 +328,9 @@ function renderAdminOrders(){
    const email=order.customer_email?'<div>Correo: <a href="mailto:'+esc(order.customer_email)+'">'+esc(order.customer_email)+'</a></div>':"";
    const phone=order.customer_phone?'<div>Teléfono: <a href="tel:'+esc(String(order.customer_phone).replace(/[^+\d]/g,""))+'">'+esc(order.customer_phone)+'</a> '+(wa?'<a target="_blank" rel="noopener noreferrer" href="'+wa+'">WhatsApp ↗</a>':"")+'</div>':"";
    const subtotal=Number(order.subtotal_cop)||0,discount=Number(order.discount_cop)||0,total=Number(order.total_cop??(subtotal-discount));
-   const shippingSummary=order.delivery_type==="digital"?""
+   const printfulLabels={pending:"Pendiente de envío",processing:"Enviando…",submitted:"Enviado a Printful",partial:"Enviado parcialmente",failed:"Error al enviar",not_applicable:"No aplica"};
+   const printfulSummary=order.printful_status&&order.printful_status!=="not_applicable"?'<div class="admin-order-meta">Printful: <strong>'+esc(printfulLabels[order.printful_status]||order.printful_status)+'</strong>'+(order.printful_order_id?' · Orden Printful #'+esc(order.printful_order_id):"")+(order.printful_error?'<div class="admin-order-meta">'+esc(order.printful_error)+'</div>':"")+((["pending","failed"].includes(order.printful_status)&&order.payment_provider==="bold"&&order.payment_status==="approved")?'<div style="margin-top:8px"><button type="button" data-printful-submit="'+esc(order.id)+'">'+(order.printful_status==="failed"?"Reintentar envío a Printful":"Enviar a Printful")+"</button></div>":"")+"</div>":"";
+   const shippingSummary=order.delivery_type==="digital"?"
     :(order.payment_provider==="bold"
       ?'<div class="admin-order-meta">Envío: <strong>Gratis con pago Bold</strong></div>'
       :'<div class="admin-order-meta">Flete transportadora: <strong>'+(order.shipping_fee_cop==null?'Pendiente de cotizar':money(order.shipping_fee_cop))+'</strong> · '+(order.shipping_payment_status==="approved"?'Pagado por anticipado':'Pendiente de pago previo')+'</div>');
@@ -355,11 +357,12 @@ function renderAdminOrders(){
      <div class="admin-shipping-current">${order.tracking_number?'Guía guardada: <strong>'+esc(order.tracking_number)+'</strong> · ':''}${order.shipping_carrier?'Transportadora: '+esc(order.shipping_carrier)+' · ':''}${order.estimated_delivery_date?'Fecha estimada: '+esc(String(order.estimated_delivery_date).slice(0,10)):''}</div>
      <div class="admin-shipping-actions"><button type="button" data-shipping-save="${esc(order.id)}">Guardar flete y envío</button>${(wa&&order.tracking_number)?'<a class="admin-order-open-link admin-shipping-notify" target="_blank" rel="noopener noreferrer" href="'+whatsappShippingHref(order)+'">Avisar por WhatsApp ↗</a>':""}</div>
    </div>`:'<div class="admin-shipping-current">Este pedido es digital; no requiere seguimiento de transportadora.</div>';
-   return '<article class="admin-order-card" data-order-card="'+esc(order.id)+'"><div class="admin-order-top"><div><div class="admin-order-id">'+esc(order.order_number||order.id)+'</div><div class="admin-order-date">'+esc(formatDate(order.created_at))+'</div></div><div class="admin-order-badges">'+badges+'</div></div><div class="admin-order-grid"><section><div class="admin-order-label">Datos del comprador</div><div class="admin-order-customer">'+esc(customer)+'</div><div class="admin-order-meta">'+email+phone+(address?'<div>Dirección: '+esc(address)+'</div>':'<div>Dirección: No indicada</div>')+(order.delivery_reference?'<div>Referencia: '+esc(order.delivery_reference)+'</div>':"")+(order.preferred_payment_method?'<div>Pago elegido: '+esc(order.preferred_payment_method)+'</div>':"")+(coords?'<div>'+coords+'</div>':"")+(order.customer_note?'<div>Nota: '+esc(order.customer_note)+'</div>':"")+'</div></section><section><div class="admin-order-label">Resumen del pedido · '+esc(order.delivery_type||"")+'</div><ul class="admin-order-lines">'+(itemRows||'<li>Detalle de productos no disponible.</li>')+'</ul>'+priceInfo+shippingSummary+'<div class="admin-order-total"><span>'+(discount?'Total con descuento':'Total del pedido')+'</span><strong>'+money(total)+'</strong></div></section></div><div class="admin-order-foot"><div class="admin-order-meta">Última actualización: '+esc(formatDate(order.updated_at||order.created_at))+'</div><div class="admin-order-update"><label>Actualizar estado<select data-order-status="'+esc(order.id)+'">'+options+'</select></label><button type="button" data-order-update="'+esc(order.id)+'">Guardar estado</button></div></div>'+shipping+'</article>';
+   return '<article class="admin-order-card" data-order-card="'+esc(order.id)+'"><div class="admin-order-top"><div><div class="admin-order-id">'+esc(order.order_number||order.id)+'</div><div class="admin-order-date">'+esc(formatDate(order.created_at))+'</div></div><div class="admin-order-badges">'+badges+'</div></div><div class="admin-order-grid"><section><div class="admin-order-label">Datos del comprador</div><div class="admin-order-customer">'+esc(customer)+'</div><div class="admin-order-meta">'+email+phone+(address?'<div>Dirección: '+esc(address)+'</div>':'<div>Dirección: No indicada</div>')+(order.delivery_reference?'<div>Referencia: '+esc(order.delivery_reference)+'</div>':"")+(order.preferred_payment_method?'<div>Pago elegido: '+esc(order.preferred_payment_method)+'</div>':"")+(coords?'<div>'+coords+'</div>':"")+(order.customer_note?'<div>Nota: '+esc(order.customer_note)+'</div>':"")+'</div></section><section><div class="admin-order-label">Resumen del pedido · '+esc(order.delivery_type||"")+'</div><ul class="admin-order-lines">'+(itemRows||'<li>Detalle de productos no disponible.</li>')+'</ul>'+priceInfo+shippingSummary+printfulSummary+'<div class="admin-order-total"><span>'+(discount?'Total con descuento':'Total del pedido')+'</span><strong>'+money(total)+'</strong></div></section></div><div class="admin-order-foot"><div class="admin-order-meta">Última actualización: '+esc(formatDate(order.updated_at||order.created_at))+'</div><div class="admin-order-update"><label>Actualizar estado<select data-order-status="'+esc(order.id)+'">'+options+'</select></label><button type="button" data-order-update="'+esc(order.id)+'">Guardar estado</button></div></div>'+shipping+'</article>';
   }).join("");
  }
  const more=$("#loadMoreOrders");if(more){more.hidden=!ordersHasMore;more.disabled=ordersLoading;}
  box.querySelectorAll("[data-order-update]").forEach(button=>button.addEventListener("click",()=>updateOrderStatus(button.dataset.orderUpdate,button)));
+ box.querySelectorAll("[data-printful-submit]").forEach(button=>button.addEventListener("click",()=>submitPrintfulOrder(button.dataset.printfulSubmit,button)));
  box.querySelectorAll("[data-shipping-save]").forEach(button=>button.addEventListener("click",()=>saveOrderShipping(button.dataset.shippingSave,button)));
 }
 function whatsappShippingHref(order){
@@ -386,6 +389,18 @@ async function saveOrderShipping(orderId,button){
   orderStatusNotice(result.message||"Datos de envío guardados.","success");renderAdminOrders();
  }catch(error){orderStatusNotice(error.message||"No pudimos guardar el seguimiento.","error");}
  finally{button.disabled=false;button.textContent="Guardar flete y envío";}
+}
+async function submitPrintfulOrder(orderId,button){
+ if(!["owner","admin"].includes(currentRole)){orderStatusNotice("Solo el propietario o administrador puede enviar pedidos a Printful.","error");return;}
+ button.disabled=true;button.textContent="Procesando…";
+ try{
+  const result=await db.fulfillPrintfulOrder(orderId);
+  orderStatusNotice(result.message||"Solicitud enviada a Printful.","success");
+  await loadAdminOrders(true);
+ }catch(error){
+  orderStatusNotice(error.message||"No pudimos enviar el pedido a Printful.","error");
+  await loadAdminOrders(true);
+ }
 }
 function csvCell(value){
  const text=String(value??"");
