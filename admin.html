@@ -109,13 +109,31 @@ body.product-editor-open{overflow:hidden}
 .admin-shipping-paid-control input:disabled{opacity:.55}
 .admin-shipping-editor input[readonly]{background:#f2f5f7;color:#647481}
 @media(max-width:520px){.admin-shipping-freight{grid-template-columns:1fr}}
+
+/* Admin navigation: separated work areas, compact and responsive. */
+[hidden]{display:none!important}
+.admin-section-nav{display:flex;gap:8px;overflow-x:auto;padding:8px;margin:0 0 18px;border:1px solid #e2e8ed;border-radius:16px;background:#f7f9fb;scrollbar-width:thin}
+.admin-section-tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:11px 14px;border:1px solid transparent;border-radius:11px;background:transparent;color:#4b5c6b;font:700 12px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap;transition:background .18s ease,color .18s ease,box-shadow .18s ease}
+.admin-section-tab:hover{background:#fff;border-color:#dce4ea}.admin-section-tab[aria-current="page"]{background:#142b40;color:#fff;box-shadow:0 5px 15px #142b4026}
+.admin-section-panel:not(.admin-panel-active){display:none!important}.admin-section-panel[hidden]{display:none!important}
+.admin-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 18px}.admin-section-heading h2{font-size:23px;letter-spacing:-.04em;margin:0}.admin-section-heading p{font-size:13px;line-height:1.6;color:#687885;margin:5px 0 0}
+.admin-editor-card[hidden]{display:none!important}.admin-video-editor-preview{width:100%;max-height:420px;aspect-ratio:16/9;object-fit:contain;background:#07111d;border-radius:11px;display:block;margin:0 0 10px}.admin-current-video video{width:100%;max-height:420px;aspect-ratio:16/9;object-fit:contain;background:#07111d;border-radius:11px;display:block;margin:0 0 10px}.admin-current-video-meta{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 0}.admin-current-video-meta span{font-size:11px;color:#586875;line-height:1.5}.admin-current-video-meta button{border:1px solid #dce3e9;background:#fff;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:800;cursor:pointer}
+@media(max-width:600px){.admin-section-nav{margin-left:-4px;margin-right:-4px}.admin-section-tab{padding:10px 12px}.admin-section-heading h2{font-size:20px}}
 </style></head><body>
 <div class="announcement" role="region" aria-label="Administración NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🔐 Panel de administración</span><b>•</b><span>Gestiona tu catálogo</span><b>•</b><span>Solo usuarios autorizados</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🔐 Panel de administración</span><b>•</b><span>Gestiona tu catálogo</span><b>•</b><span>Solo usuarios autorizados</span><b>•</b></div></div></div></div>
 <header class="site-header"><div class="container nav-wrap"><a class="brand" href="index.html"><span class="brand-mark">N</span><span>Nova<span>Shop</span></span></a><nav class="main-nav"><a href="index.html">Tienda</a><a href="streaming.html">Streaming</a></nav><div class="header-actions account-actions"><a class="account-btn auth-nav-link" data-auth-nav="login" href="cuenta.html?tab=login">Iniciar sesión</a><a class="account-btn auth-nav-link" data-auth-nav="register" href="cuenta.html?tab=register">Crear cuenta</a><a class="account-btn auth-nav-link" data-auth-nav="account" href="cuenta.html" hidden>Mi cuenta</a></div></div></header>
 <main class="admin-page-wrap">
 <div class="admin-title"><div><span class="eyebrow">PANEL PRIVADO</span><h1>Administración de NovaShop</h1><p>Gestiona pedidos, compradores, catálogo e inventario desde un solo lugar.</p></div><a href="index.html" class="btn btn-ghost">← Volver a la tienda</a></div>
 <div id="adminStatus" class="admin-status" role="status">Comprobando sesión y permisos…</div>
-<section id="adminOrdersWrap" class="admin-orders-wrap" hidden>
+<nav id="adminSectionNav" class="admin-section-nav" aria-label="Secciones de administración" hidden>
+ <button type="button" class="admin-section-tab" data-admin-tab="overview" aria-current="false">▦ Resumen</button>
+ <button type="button" class="admin-section-tab" data-admin-tab="orders" aria-current="false">▤ Ventas y pedidos</button>
+ <button type="button" class="admin-section-tab" data-admin-tab="catalog" aria-current="false">▣ Catálogo e inventario</button>
+ <button type="button" class="admin-section-tab" data-admin-tab="coupons" aria-current="false">％ Promociones</button>
+ <button type="button" class="admin-section-tab" data-admin-tab="reviews" aria-current="false">☆ Reseñas</button>
+ <button type="button" class="admin-section-tab" data-admin-tab="users" aria-current="false">♙ Usuarios y roles</button>
+</nav>
+<section id="adminOrdersWrap" class="admin-orders-wrap admin-section-panel" data-admin-section="orders" hidden>
  <div class="admin-orders-heading">
   <div><h2>Pedidos y compradores <span id="adminOrdersCount" class="admin-pill">—</span></h2><p>Consulta compras registradas, datos de entrega y actualiza cada estado. La búsqueda revisa los pedidos cargados; usa «Cargar más» para revisar pedidos anteriores. Confirma un pago solo cuando lo hayas verificado.</p></div>
   <div class="admin-orders-top-actions"><button type="button" class="btn btn-ghost" id="exportAdminOrders">Exportar pedidos cargados CSV</button><button type="button" class="btn btn-ghost" id="refreshAdminOrders">Actualizar pedidos</button></div>
@@ -132,7 +150,7 @@ body.product-editor-open{overflow:hidden}
  <button type="button" class="btn btn-ghost admin-orders-loadmore" id="loadMoreOrders" hidden>Cargar más pedidos</button>
 </section>
 
-<section id="adminCouponsWrap" class="admin-coupons-wrap admin-card" hidden>
+<section id="adminCouponsWrap" class="admin-coupons-wrap admin-card admin-section-panel" data-admin-section="coupons" hidden>
  <div class="admin-orders-heading"><div><h2>Cupones y promociones</h2><p>Crea códigos de descuento. La validez se vuelve a comprobar en el servidor al registrar cada pedido.</p></div><button type="button" class="btn btn-ghost" id="refreshAdminCoupons">Actualizar cupones</button></div>
  <div id="adminCouponsStatus" class="admin-status" role="status">Carga los cupones para gestionarlos.</div>
  <div class="admin-coupon-layout">
@@ -151,13 +169,13 @@ body.product-editor-open{overflow:hidden}
  </div>
 </section>
 
-<section id="adminReviewsWrap" class="admin-card admin-reviews-wrap" hidden>
+<section id="adminReviewsWrap" class="admin-card admin-reviews-wrap admin-section-panel" data-admin-section="reviews" hidden>
  <div class="admin-orders-heading"><div><h2>Reseñas de productos</h2><p>Las reseñas nuevas quedan pendientes hasta que las apruebes. Solo clientes con un pedido entregado pueden enviarlas.</p></div><button type="button" class="btn btn-ghost" id="refreshAdminReviews">Actualizar reseñas</button></div>
  <div id="adminReviewsStatus" class="admin-status" role="status">Carga las reseñas para moderarlas.</div>
  <div id="adminReviewsList" class="admin-reviews-list"><p class="admin-help">Todavía no hay reseñas.</p></div>
 </section>
 
-<section class="admin-metrics-wrap">
+<section class="admin-metrics-wrap admin-section-panel" data-admin-section="overview">
   <div class="admin-metrics-heading"><div><h2>Ventas e inventario</h2><p>Ingresos netos después de descuentos. Las ventas cuentan solo pedidos con pago confirmado.</p></div>
     <div class="admin-metrics-filters"><label>Desde<input id="adminMetricsStartDate" type="date"></label><label>Hasta<input id="adminMetricsEndDate" type="date"></label><button type="button" class="btn btn-ghost" id="refreshAdminMetrics">Aplicar fechas</button></div>
   </div>
@@ -169,7 +187,7 @@ body.product-editor-open{overflow:hidden}
   <p class="admin-metrics-note">Nota: mientras los pedidos se gestionen por WhatsApp sin confirmación automática de pago, las ventas pagadas no se registrarán solas. Integraremos el proveedor de pagos para automatizarlo.</p>
 </section>
 
-<section id="adminUsersWrap" class="admin-users-wrap" hidden>
+<section id="adminUsersWrap" class="admin-users-wrap admin-section-panel" data-admin-section="users" hidden>
   <div class="admin-users-heading">
     <div><h2>Usuarios y roles</h2><p>Administra perfiles, permisos y acceso. Las eliminaciones se aplican en Supabase Authentication y conservan el historial de pedidos.</p></div>
     <button type="button" class="btn btn-ghost" id="refreshAdminUsers">Actualizar usuarios</button>
@@ -204,9 +222,9 @@ body.product-editor-open{overflow:hidden}
   </div>
 </section>
 
-<div class="admin-grid">
+<div class="admin-grid admin-section-panel" data-admin-section="catalog">
 <div id="productEditorPlaceholder" hidden></div>
-<section class="admin-card"><h2 id="adminFormTitle">Añadir nuevo producto</h2>
+<section class="admin-card admin-editor-card" hidden><h2 id="adminFormTitle">Añadir nuevo producto</h2>
 <form id="adminProductForm" class="admin-form">
 <input name="id" type="hidden">
 <label>Nombre del producto *<input name="name" required maxlength="140" placeholder="Ej. Lámpara minimalista"></label>
@@ -216,16 +234,16 @@ body.product-editor-open{overflow:hidden}
 <label>Descripción *<textarea name="description" required maxlength="4000" placeholder="Describe claramente qué recibe el cliente, compatibilidad, tamaño, vigencia, etc."></textarea></label>
 <label>Características (una por línea)<textarea name="features" rows="4" placeholder="Característica 1&#10;Característica 2"></textarea></label>
 <label>Fotos del producto *<input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple><span class="admin-help">Hasta 8 fotos por producto, máximo 12 MB cada una. En edición puedes quitar fotos anteriores o añadir nuevas.</span></label><div id="adminCurrentImages" class="admin-current-media" hidden></div>
-<label>Video del producto (opcional)<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime"><span class="admin-help">MP4, WEBM o MOV, máximo 50 MB. Puedes reemplazar o quitar el video existente.</span></label><div id="adminCurrentVideo" class="admin-current-video" hidden></div>
+<label>Video del producto (opcional)<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime"><span class="admin-help">MP4 (recomendado, H.264), WEBM o MOV, máximo 50 MB. La vista previa se adapta automáticamente a 16:9; el archivo no se convierte de formato automáticamente. Puedes reemplazarlo o quitarlo.</span></label><div id="adminCurrentVideo" class="admin-current-video" hidden></div>
 <label>Texto corto / etiqueta<input name="tag" maxlength="30" placeholder="NUEVO, DESTACADO…"></label>
 <label>Información de envío o entrega<textarea name="shipping" rows="2" maxlength="500" placeholder="Qué debe saber el cliente sobre la entrega"></textarea></label>
 <div class="admin-printful-panel" style="border:1px solid #d8e5ef;background:#f5f9fc;border-radius:12px;padding:14px;display:grid;gap:10px"><div><strong>Integración con Printful</strong><p class="admin-help" style="margin:4px 0 0">Para productos bajo demanda, vincula la variante de Printful que corresponde a este producto y su talla/color. El ID se obtiene de tu tienda API de Printful.</p></div><label>Printful Sync Variant ID (opcional)<input name="printful_sync_variant_id" type="number" min="1" step="1" placeholder="Ej. 123456789"></label><label style="display:flex;align-items:flex-start;gap:8px;font-weight:650"><input name="printful_enabled" type="checkbox" style="width:16px;height:16px;margin-top:2px"> Enviar automáticamente a Printful cuando el pago Bold esté aprobado</label><p class="admin-help" style="margin:0">No actives esta opción para productos no configurados en Printful. Printful cobrará producción y envío a tu cuenta según sus tarifas; revisa saldo y método de pago antes de activar pedidos reales.</p></div>
 <label style="display:flex;align-items:center;gap:8px;font-weight:650"><input name="is_active" type="checkbox" checked style="width:16px;height:16px"> Producto visible en la tienda</label>
 <div class="admin-buttons"><button class="btn btn-primary" type="submit">Guardar producto</button><button class="btn btn-ghost" id="resetAdminForm" type="button">Limpiar</button></div>
 </form></section>
-<section class="admin-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><h2 style="margin:0">Catálogo</h2><button type="button" class="btn btn-ghost" id="refreshAdminProducts">Actualizar</button></div><div id="adminProductList" class="admin-list"><p class="admin-help">Los productos aparecerán cuando hayas iniciado sesión con una cuenta autorizada.</p></div></section>
+<section class="admin-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap"><div><h2 style="margin:0">Catálogo</h2><p class="admin-help" style="margin:5px 0 0">Administra fichas, precios, fotos, videos y disponibilidad.</p></div><div class="admin-buttons"><button type="button" class="btn btn-ghost" id="refreshAdminProducts">Actualizar</button><button type="button" class="btn btn-primary" id="addAdminProduct">+ Añadir producto</button></div></div><div id="adminProductList" class="admin-list"><p class="admin-help">Los productos aparecerán cuando hayas iniciado sesión con una cuenta autorizada.</p></div></section>
 </div>
-<p class="admin-help" style="margin-top:18px">Las fotos y videos se guardan en el bucket público de medios para que los clientes puedan verlos. Solo un administrador autorizado puede subir o editar archivos. Nunca introduzcas claves secretas de Supabase en esta página.</p>
+<p class="admin-help admin-section-panel" data-admin-section="catalog" style="margin-top:18px">Las fotos y videos se guardan en el bucket público de medios para que los clientes puedan verlos. Solo un administrador autorizado puede subir o editar archivos. Nunca introduzcas claves secretas de Supabase en esta página.</p>
 <div id="productEditorModal" class="product-editor-modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="productEditorModalTitle">
  <div class="product-editor-dialog" role="document">
   <div class="product-editor-modal-head"><div><span>Editor de catálogo</span><h2 id="productEditorModalTitle">Editar producto</h2></div><button type="button" id="closeProductEditor" class="product-editor-modal-close" aria-label="Cerrar editor">×</button></div>
@@ -233,5 +251,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=30"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=12"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=30"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=13"></script>
 </body></html>
