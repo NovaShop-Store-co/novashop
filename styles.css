@@ -28,6 +28,10 @@
 .product-color-swatch span:first-child{width:23px;height:23px;border-radius:50%;border:1px solid #cbd3da;display:inline-block;flex:0 0 auto}
 .product-color-swatch .product-color-check{font-size:11px;color:#1f6c3d}
 .product-color-help{font-size:11px;line-height:1.5;color:#697885;margin:0}
+.product-card-colors{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:11px 0 1px;color:#5c6e7c;font-size:10px;font-weight:800;flex-wrap:wrap}
+.product-card-colors>div{display:flex;gap:5px;align-items:center}
+.product-card-colors i{display:inline-block;width:16px;height:16px;border-radius:50%;border:1px solid #c9d2d9;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+
 .thumbnail{position:relative}
 .product-thumbnail-label{position:absolute;inset:auto 0 0;padding:13px 6px 6px;background:linear-gradient(180deg,transparent,rgba(5,14,23,.83));color:#fff;text-align:center;font-size:10px;font-weight:850;letter-spacing:.02em;pointer-events:none}
 .cart-item-variant{font-size:11px!important;color:#4f6b7d!important;font-weight:800;margin:4px 0!important}
