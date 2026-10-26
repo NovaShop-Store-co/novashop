@@ -1,4 +1,4 @@
-/* Optional delivery pin picker for guest checkout. Leaflet + OpenStreetMap; no map API key. */
+/* Delivery pin picker for checkout. Physical orders must include coordinates; Leaflet + OpenStreetMap needs no API key. */
 (() => {
  const maps={};
  function init({mapId,formId,latId,lngId,statusId,coordsId,useButtonId}){
@@ -10,14 +10,14 @@
   function point(lat,lng,zoom=16){
    lat=Number(lat);lng=Number(lng);
    if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return;
-   const latField=form.elements[latId],lngField=form.elements[lngId];
+   const latField=form.querySelector('input[name="'+latId+'"]'),lngField=form.querySelector('input[name="'+lngId+'"]');
    if(!latField||!lngField)return;
    latField.value=lat.toFixed(7);lngField.value=lng.toFixed(7);
    if(!marker)marker=L.marker([lat,lng],{draggable:true}).addTo(map);else marker.setLatLng([lat,lng]);
    marker.off("dragend").on("dragend",()=>{const p=marker.getLatLng();point(p.lat,p.lng,16);});
    map.setView([lat,lng],zoom);
    const status=document.getElementById(statusId),coords=document.getElementById(coordsId);
-   if(status)status.textContent="Pin seleccionado. Puedes arrastrarlo hasta la entrada correcta.";
+   if(status)status.textContent="Ubicación marcada. Puedes arrastrar el pin para precisar la entrada.";
    if(coords)coords.textContent=lat.toFixed(6)+", "+lng.toFixed(6);
   }
   map.on("click",e=>point(e.latlng.lat,e.latlng.lng));
