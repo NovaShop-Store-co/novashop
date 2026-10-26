@@ -11,6 +11,7 @@ let currentProduct = products.find(p => p.id === productId) || products[0];
 const $ = (selector) => document.querySelector(selector);
 let quantity = 1;
 let productFavoriteIds = new Set();
+let selectedColorVariant = null;
 
 function cartData() {
   return JSON.parse(localStorage.getItem('novashop-cart') || '[]');
@@ -44,7 +45,10 @@ function showToast(message) {
 
 function addCurrentProduct(amount = quantity) {
   const cart = cartData();
-  const existing = cart.find(item => item.id === currentProduct.id);
+  const variants=Array.isArray(currentProduct.colorVariants)?currentProduct.colorVariants:[];
+  if(variants.length&&!selectedColorVariant){showToast("Selecciona el color que quieres comprar.");return;}
+  const selectedVariant=selectedColorVariant?.name||null;
+  const existing = cart.find(item => Number(item.id) === Number(currentProduct.id) && (item.selectedVariant||null)===selectedVariant);
   if(currentProduct.stockQuantity!=null&&Number(currentProduct.stockQuantity)<=0){showToast('Este producto está agotado');return;}
   if(existing&&currentProduct.stockQuantity!=null&&existing.qty+amount>Number(currentProduct.stockQuantity)){showToast('No hay más unidades disponibles');return;}
   if(existing) {
@@ -54,14 +58,15 @@ function addCurrentProduct(amount = quantity) {
       id: currentProduct.id,
       name: currentProduct.name,
       price: currentProduct.price,
-      image: currentProduct.images[0],
+      image: selectedColorVariant?.images?.[0]||currentProduct.images[0],
+      selectedVariant,
       qty: amount
     });
   }
 
   saveCart(cart);
   updateCartCount();
-  showToast(`${currentProduct.name} añadido al carrito`);
+  showToast(`${currentProduct.name}${selectedVariant?" · "+selectedVariant:""} añadido al carrito`);
 }
 
 function cleanField(value) {
@@ -206,7 +211,7 @@ function renderProductCheckoutSummary() {
   summary.innerHTML = `
     <div class="checkout-summary-title"><strong>🛍️ Tu compra</strong><span>${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}</span></div>
     <ul class="checkout-summary-list">
-      <li>${currentProduct.name} ×${quantity} — <strong>${money(total)}</strong></li>
+      <li>${escProduct(currentProduct.name)}${selectedColorVariant?" · Color: "+escProduct(selectedColorVariant.name):""} ×${quantity} — <strong>${money(total)}</strong></li>
     </ul>
     <div class="checkout-summary-total"><span>Subtotal de productos</span><strong>${money(total)}</strong></div>
   `;
@@ -363,6 +368,8 @@ async function submitProductCheckout(event) {
     showToast("La contraentrega solo está disponible para productos físicos. Para servicios digitales, paga con Bold.");return;
   }
   data.paymentMethod=useBold?"Pago en línea con Bold":"Contraentrega";
+  const configuredVariants=productColorVariants();
+  if(configuredVariants.length&&!configuredVariants.some(v=>v.name===data.selected_variant||v.name===selectedColorVariant?.name)){showToast("Selecciona un color para continuar.");return;}
   if(currentProduct.deliveryType!=="digital"&&(!data.address||!data.neighborhood||!data.city||!data.department)){
     showToast("Para productos físicos, completa dirección, barrio, ciudad y departamento.");return;
   }
@@ -385,7 +392,7 @@ async function submitProductCheckout(event) {
   const button=form.querySelector('button[type="submit"]');
   if(button){button.disabled=true;button.textContent="Registrando pedido…";}
   try{
-    savedOrder=await window.NovaShopDB.createOrder(data,[{product_id:Number(currentProduct.id),quantity:Number(quantity)}]);
+    savedOrder=await window.NovaShopDB.createOrder(data,[{product_id:Number(currentProduct.id),quantity:Number(quantity),selected_variant:selectedColorVariant?.name||null}]);
   }catch(error){
     showToast(error?.message||"No pudimos registrar el pedido. Inténtalo de nuevo.");
     if(button){button.disabled=false;button.type="submit";button.textContent="Confirmar pedido";}
@@ -413,6 +420,48 @@ async function submitProductCheckout(event) {
     window.NovaShopBold?.setMessage(form,(error?.message||"No pudimos preparar el pago.")+" Tu pedido está guardado; al reintentar no se creará otro pedido.");
     showToast(error?.message||"No pudimos preparar el pago con Bold.");
   }
+}
+
+
+function productColorVariants(){
+ return Array.isArray(currentProduct?.colorVariants)?currentProduct.colorVariants.filter(v=>v&&typeof v.name==="string"&&v.name.trim()):[];
+}
+function renderProductColorOptions(){
+ const box=$("#productColorOptions");if(!box)return;
+ const variants=productColorVariants();
+ if(!variants.length){box.hidden=true;box.innerHTML="";selectedColorVariant=null;return;}
+ if(!selectedColorVariant||!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=variants[0];
+ const safeHex=value=>/^#[0-9a-f]{6}$/i.test(String(value||""))?String(value):"#d1d5db";
+ box.hidden=false;
+ box.innerHTML='<div class="product-color-options-head"><strong>Elige un color</strong><span>'+escProduct(selectedColorVariant?.name||"")+'</span></div><div class="product-color-swatch-list">'+variants.map((variant,index)=>{
+  const active=variant.name===selectedColorVariant?.name;
+  return '<button type="button" class="product-color-swatch" data-color-variant="'+index+'" aria-pressed="'+(active?"true":"false")+'" aria-label="Seleccionar color '+escProduct(variant.name)+'"><span style="background:'+safeHex(variant.hex)+'"></span><span>'+escProduct(variant.name)+'</span>'+(active?'<span class="product-color-check" aria-hidden="true">✓</span>':'')+'</button>';
+ }).join("")+'</div><p class="product-color-help">Las imágenes cambian según el color seleccionado. Revisa las vistas frontal y trasera en las miniaturas.</p>';
+ box.querySelectorAll("[data-color-variant]").forEach(button=>button.addEventListener("click",()=>{
+  const variant=variants[Number(button.dataset.colorVariant)];if(!variant)return;
+  selectedColorVariant=variant;
+  renderProductColorOptions();renderProductMedia();renderProductCheckoutSummary();
+ }));
+}
+function renderProductMedia(){
+ const mainImage=$("#productMainImage"),mainVideo=$("#productMainVideo"),mediaFrame=$("#productMediaFrame");
+ const variants=productColorVariants();
+ const variantImages=selectedColorVariant&&Array.isArray(selectedColorVariant.images)?selectedColorVariant.images.filter(Boolean).slice(0,2):[];
+ const galleryImages=variantImages.length?variantImages:(Array.isArray(currentProduct.images)?currentProduct.images:[]);
+ const titlePrefix=selectedColorVariant?currentProduct.name+" · "+selectedColorVariant.name:currentProduct.name;
+ const firstImage=galleryImages[0]||"images/streaming-placeholder.svg";
+ mainImage.hidden=false;mainImage.src=firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?" · vista frontal":"");
+ mainVideo.pause();mainVideo.hidden=true;mainVideo.removeAttribute("src");mainVideo.removeAttribute("poster");mainVideo.load();mediaFrame?.classList.remove("is-video");
+ if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=firstImage;}
+ $("#productThumbnails").innerHTML=galleryImages.map((image,index)=>{
+  const label=selectedColorVariant?(index===0?"Vista frontal":"Vista trasera"):("Ver imagen "+(index+1));
+  return '<button class="thumbnail '+(index===0?"active":"")+'" type="button" data-index="'+index+'" aria-label="'+escProduct(label+(selectedColorVariant?" del color "+selectedColorVariant.name:""))+'"><img src="'+escProduct(image)+'" alt="'+escProduct(titlePrefix+" · "+label)+'"></button>';
+ }).join("")+(currentProduct.videoUrl?'<button class="thumbnail video-thumbnail" type="button" data-video="true" aria-label="Reproducir video del producto"><span>▶</span><small>Ver video</small></button>':"");
+ $("#productThumbnails").querySelectorAll(".thumbnail").forEach(button=>button.addEventListener("click",()=>{
+  $("#productThumbnails").querySelectorAll(".thumbnail").forEach(item=>item.classList.remove("active"));button.classList.add("active");
+  if(button.dataset.video==="true"){mainImage.hidden=true;mainVideo.hidden=false;mediaFrame?.classList.add("is-video");mainVideo.play().catch(()=>{});}
+  else{mainVideo.pause();mainVideo.hidden=true;mainImage.hidden=false;mediaFrame?.classList.remove("is-video");const imageIndex=Number(button.dataset.index);mainImage.src=galleryImages[imageIndex]||firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?(imageIndex===0?" · vista frontal":" · vista trasera"):" · imagen "+(imageIndex+1));}
+ }));
 }
 
 function renderProduct() {
@@ -477,28 +526,11 @@ function renderProduct() {
 
   $('#productRatingStars').textContent = '';
 
-  const mainImage=$('#productMainImage'),mainVideo=$('#productMainVideo');
-  mainImage.hidden=false;mainImage.src=currentProduct.images?.[0]||'images/streaming-placeholder.svg';mainImage.alt=currentProduct.name;
-  mainVideo.pause();mainVideo.hidden=true;mainVideo.removeAttribute('src');mainVideo.removeAttribute('poster');mainVideo.load();
-  const mediaFrame=$("#productMediaFrame");mediaFrame?.classList.remove("is-video");
-  if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=currentProduct.images?.[0]||"";}
-  $('#productThumbnails').innerHTML = (currentProduct.images||[]).map((image,index)=>`
-    <button class="thumbnail ${index===0?'active':''}" type="button" data-index="${index}" aria-label="Ver imagen ${index+1}">
-      <img src="${image}" alt="${currentProduct.name} imagen ${index+1}">
-    </button>`).join('') + (currentProduct.videoUrl ? '<button class="thumbnail video-thumbnail" type="button" data-video="true" aria-label="Reproducir video del producto"><span>▶</span><small>Ver video</small></button>' : '');
-  document.querySelectorAll('.thumbnail').forEach(button=>{
-    button.addEventListener('click',()=>{
-      document.querySelectorAll('.thumbnail').forEach(item=>item.classList.remove('active'));
-      button.classList.add('active');
-      if(button.dataset.video==='true'){
-        mainImage.hidden=true;mainVideo.hidden=false;mediaFrame?.classList.add("is-video");mainVideo.play().catch(()=>{});
-      }else{
-        mainVideo.pause();mainVideo.hidden=true;mainImage.hidden=false;mediaFrame?.classList.remove("is-video");
-        const imageIndex=Number(button.dataset.index);mainImage.src=currentProduct.images[imageIndex];
-      }
-    });
-  });
-
+  const variants=Array.isArray(currentProduct.colorVariants)?currentProduct.colorVariants:[];
+  if(!variants.length)selectedColorVariant=null;
+  else if(!selectedColorVariant||!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=variants[0];
+  renderProductColorOptions();
+  renderProductMedia();
   $('#productFeatures').innerHTML = (Array.isArray(currentProduct.features)?currentProduct.features:[]).map(item => `<li>✓ ${escProduct(item)}</li>`).join('');
 }
 
