@@ -12,6 +12,93 @@ const $ = (selector) => document.querySelector(selector);
 let quantity = 1;
 let productFavoriteIds = new Set();
 let selectedColorVariant = null;
+let currentGalleryImages = [];
+let currentGalleryTitle = "";
+let currentGalleryIndex = 0;
+let lightboxPreviousOverflow = "";
+
+const RECENT_PRODUCTS_KEY = "novashop-recent-products-v1";
+function readRecentProductIds(){
+  try{
+    const value=JSON.parse(localStorage.getItem(RECENT_PRODUCTS_KEY)||"[]");
+    return Array.isArray(value)?value.map(Number).filter(Number.isFinite):[];
+  }catch(_){return [];}
+}
+function rememberAndRenderRecentlyViewed(){
+  const id=Number(currentProduct?.id);
+  let ids=readRecentProductIds();
+  if(id)ids=[id,...ids.filter(item=>item!==id)].slice(0,12);
+  try{localStorage.setItem(RECENT_PRODUCTS_KEY,JSON.stringify(ids));}catch(_){}
+  renderRecentlyViewed(ids.filter(item=>item!==id));
+}
+function renderRecentlyViewed(recentIds){
+  const section=$("#recentlyViewedSection"),grid=$("#recentlyViewedGrid");
+  if(!section||!grid)return;
+  const all=typeof products!=="undefined"&&Array.isArray(products)?products:[];
+  const currentId=Number(currentProduct?.id);
+  const ids=Array.isArray(recentIds)?recentIds:readRecentProductIds().filter(id=>id!==currentId);
+  const recent=ids.filter(id=>id!==currentId).map(id=>all.find(p=>Number(p.id)===Number(id))).filter(Boolean);
+  const used=new Set([currentId,...recent.map(p=>Number(p.id))]);
+  const sameCategory=all.filter(p=>!used.has(Number(p.id))&&p.category===currentProduct?.category);
+  const others=all.filter(p=>!used.has(Number(p.id))&&p.category!==currentProduct?.category);
+  const recommendations=[...recent,...sameCategory,...others].slice(0,6);
+  section.hidden=!recommendations.length;
+  if(!recommendations.length){grid.innerHTML="";return;}
+  const eyebrow=$("#recentlyViewedEyebrow"),title=$("#recentlyViewedTitle"),summary=$("#recentlyViewedSummary");
+  if(eyebrow)eyebrow.textContent=recent.length?"TU RECORRIDO":"DESCUBRE MÁS";
+  if(title)title.textContent=recent.length?"Vistos recientemente":"También te puede interesar";
+  if(summary)summary.textContent=recent.length?"Retoma los productos que estuviste mirando o descubre algo parecido.":"Explora más opciones de la tienda que podrían encajar contigo.";
+  grid.innerHTML=recommendations.map(p=>{
+    const image=Array.isArray(p.images)&&p.images[0]?p.images[0]:"images/streaming-placeholder.svg";
+    const old=Number(p.oldPrice)>Number(p.price)&&Number(p.price)>0;
+    return '<article class="recent-product-card"><a class="recent-product-link" href="producto.html?id='+encodeURIComponent(p.id)+'"><div class="recent-product-media"><img src="'+escProduct(image)+'" alt="'+escProduct(p.name)+'" loading="lazy">'+(old?'<span class="recent-product-badge">OFERTA</span>':"")+'</div><div class="recent-product-body"><span class="recent-product-category">'+escProduct(p.category||"NovaShop")+'</span><strong>'+escProduct(p.name)+'</strong><div class="recent-product-price">'+(old?'<del>'+money(p.oldPrice)+'</del>':"")+'<b>'+money(p.price)+'</b></div><span class="recent-product-cta">Ver producto <span aria-hidden="true">→</span></span></div></a></article>';
+  }).join("");
+}
+
+
+
+function productGalleryAlt(index){
+  return (currentGalleryTitle||currentProduct?.name||"Producto")+
+    (selectedColorVariant?(index===0?" · vista frontal":" · vista trasera"):" · imagen "+(index+1));
+}
+function syncProductLightbox(){
+  const image=$("#productLightboxImage"),caption=$("#productLightboxCaption"),counter=$("#productLightboxCounter");
+  const total=currentGalleryImages.length;
+  if(image){image.src=currentGalleryImages[currentGalleryIndex]||"";image.alt=productGalleryAlt(currentGalleryIndex);}
+  if(caption)caption.textContent=productGalleryAlt(currentGalleryIndex);
+  if(counter)counter.textContent=(currentGalleryIndex+1)+" / "+Math.max(total,1);
+  const previous=$("#productLightboxPrev"),next=$("#productLightboxNext");
+  if(previous)previous.disabled=total<2;
+  if(next)next.disabled=total<2;
+}
+function setProductGalleryImage(index){
+  const total=currentGalleryImages.length;if(!total)return;
+  currentGalleryIndex=((Number(index)||0)%total+total)%total;
+  const image=$("#productMainImage"),video=$("#productMainVideo"),frame=$("#productMediaFrame");
+  if(video){video.pause();video.hidden=true;}
+  if(image){image.hidden=false;image.src=currentGalleryImages[currentGalleryIndex];image.alt=productGalleryAlt(currentGalleryIndex);image.setAttribute("aria-label","Ampliar "+image.alt);}
+  frame?.classList.remove("is-video");
+  $("#productThumbnails")?.querySelectorAll(".thumbnail").forEach(button=>{
+    button.classList.toggle("active",button.dataset.video!=="true"&&Number(button.dataset.index)===currentGalleryIndex);
+  });
+  if(!$("#productImageLightbox")?.hidden)syncProductLightbox();
+}
+function openProductImageLightbox(){
+  const modal=$("#productImageLightbox");
+  if(!modal||!currentGalleryImages.length||$("#productMainVideo")?.hidden===false)return;
+  lightboxPreviousOverflow=document.body.style.overflow;
+  modal.hidden=false;modal.setAttribute("aria-hidden","false");document.body.style.overflow="hidden";
+  syncProductLightbox();$("#productLightboxClose")?.focus();
+}
+function closeProductImageLightbox(){
+  const modal=$("#productImageLightbox");if(!modal||modal.hidden)return;
+  modal.hidden=true;modal.setAttribute("aria-hidden","true");document.body.style.overflow=lightboxPreviousOverflow;
+  $("#productMainImage")?.focus();
+}
+function stepProductImageLightbox(direction){
+  if(!currentGalleryImages.length)return;
+  setProductGalleryImage(currentGalleryIndex+direction);
+}
 
 function cartData() {
   return JSON.parse(localStorage.getItem('novashop-cart') || '[]');
@@ -450,6 +537,14 @@ function renderProductMedia(){
  const galleryImages=variantImages.length?variantImages:(Array.isArray(currentProduct.images)?currentProduct.images:[]);
  const titlePrefix=selectedColorVariant?currentProduct.name+" · "+selectedColorVariant.name:currentProduct.name;
  const firstImage=galleryImages[0]||"images/streaming-placeholder.svg";
+ currentGalleryImages=galleryImages.slice();
+ currentGalleryTitle=titlePrefix;
+ currentGalleryIndex=0;
+ mainImage.tabIndex=0;
+ mainImage.setAttribute("role","button");
+ mainImage.setAttribute("aria-haspopup","dialog");
+ mainImage.setAttribute("aria-label","Ampliar "+titlePrefix);
+
  mainImage.hidden=false;mainImage.src=firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?" · vista frontal":"");
  mainVideo.pause();mainVideo.hidden=true;mainVideo.removeAttribute("src");mainVideo.removeAttribute("poster");mainVideo.load();mediaFrame?.classList.remove("is-video");
  if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=firstImage;}
@@ -460,7 +555,7 @@ function renderProductMedia(){
  $("#productThumbnails").querySelectorAll(".thumbnail").forEach(button=>button.addEventListener("click",()=>{
   $("#productThumbnails").querySelectorAll(".thumbnail").forEach(item=>item.classList.remove("active"));button.classList.add("active");
   if(button.dataset.video==="true"){mainImage.hidden=true;mainVideo.hidden=false;mediaFrame?.classList.add("is-video");mainVideo.play().catch(()=>{});}
-  else{mainVideo.pause();mainVideo.hidden=true;mainImage.hidden=false;mediaFrame?.classList.remove("is-video");const imageIndex=Number(button.dataset.index);mainImage.src=galleryImages[imageIndex]||firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?(imageIndex===0?" · vista frontal":" · vista trasera"):" · imagen "+(imageIndex+1));}
+  else{setProductGalleryImage(Number(button.dataset.index));}
  }));
 }
 
@@ -556,8 +651,21 @@ $('#productCheckoutModal').addEventListener('click', (event) => {
 });
 $('#productCheckoutForm').addEventListener('submit', submitProductCheckout);
 
+$('#productMainImage')?.addEventListener('click',openProductImageLightbox);
+$('#productMainImage')?.addEventListener('keydown',event=>{
+  if(event.key==="Enter"||event.key===" "){event.preventDefault();openProductImageLightbox();}
+});
+$('#productLightboxClose')?.addEventListener('click',closeProductImageLightbox);
+$('#productLightboxPrev')?.addEventListener('click',()=>stepProductImageLightbox(-1));
+$('#productLightboxNext')?.addEventListener('click',()=>stepProductImageLightbox(1));
+$('#productImageLightbox')?.addEventListener('click',event=>{
+  if(event.target.id==="productImageLightbox")closeProductImageLightbox();
+});
+
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeProductCheckout();
+  if (event.key === 'Escape'){closeProductCheckout();closeProductImageLightbox();}
+  if(!$("#productImageLightbox")?.hidden&&event.key==="ArrowRight"){event.preventDefault();stepProductImageLightbox(1);}
+  if(!$("#productImageLightbox")?.hidden&&event.key==="ArrowLeft"){event.preventDefault();stepProductImageLightbox(-1);}
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -565,7 +673,8 @@ document.addEventListener('visibilitychange', () => {
 });
 
 renderProduct();
+rememberAndRenderRecentlyViewed();
 updateCartCount();
 refreshProductFavorite();
 loadProductReviews();
-window.NovaShopDB?.syncCatalog?.(products).then(()=>{currentProduct=products.find(p=>p.id===productId)||currentProduct;renderProduct();refreshProductFavorite();loadProductReviews();}).catch(err=>console.warn('Catálogo Supabase:',err));
+window.NovaShopDB?.syncCatalog?.(products).then(()=>{currentProduct=products.find(p=>p.id===productId)||currentProduct;renderProduct();rememberAndRenderRecentlyViewed();refreshProductFavorite();loadProductReviews();}).catch(err=>console.warn('Catálogo Supabase:',err));
