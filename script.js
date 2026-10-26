@@ -132,20 +132,21 @@ function renderProducts(){
 
 function addToCart(id){
   const p=product(id);if(!p)return;
-  const found=cart.find(i=>i.id===id);
+  if(Array.isArray(p.colorVariants)&&p.colorVariants.length){window.location.href="producto.html?id="+encodeURIComponent(id);return;}
+  const found=cart.find(i=>Number(i.id)===Number(id)&&!i.selectedVariant);
   if(p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast('Este producto está agotado');return;}
   if(found){if(p.stockQuantity!=null&&found.qty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}found.qty++;}
   else cart.push({id:p.id,name:p.name,price:p.price,image:p.images[0],qty:1});
   saveCart(); renderCart(); openCart(); toast('Producto añadido al carrito');
 }
-function changeQty(id,delta){const item=cart.find(i=>i.id===id);if(!item)return;const p=product(id);if(delta>0&&p?.stockQuantity!=null&&item.qty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}item.qty+=delta;if(item.qty<=0)cart=cart.filter(i=>i.id!==id);saveCart();renderCart();}
-function removeItem(id){ cart=cart.filter(i=>i.id!==id); saveCart(); renderCart(); }
+function changeQty(index,delta){const item=cart[index];if(!item)return;const p=product(Number(item.id));const productQty=cart.filter(row=>Number(row.id)===Number(item.id)).reduce((sum,row)=>sum+Number(row.qty||0),0);if(delta>0&&p?.stockQuantity!=null&&productQty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}item.qty+=delta;if(item.qty<=0)cart.splice(index,1);saveCart();renderCart();}
+function removeItem(index){if(!Number.isInteger(index)||index<0||index>=cart.length)return;cart.splice(index,1);saveCart();renderCart();}
 function renderCart(){
   $('#cartCount').textContent=cartCount();
   if(!cart.length){ $('#cartItems').innerHTML='<div class="cart-empty">Tu carrito está vacío.<br>Añade productos para comenzar.</div>'; $('#cartSubtotal').textContent=money(0); return; }
-  $('#cartItems').innerHTML=cart.map(i=>`<div class="cart-item"><img src="${i.image}" alt=""><div><h4>${i.name}</h4><p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-id="${i.id}">−</button><span>${i.qty}</span><button data-action="inc" data-id="${i.id}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-id="${i.id}">Eliminar</button></div></div>`).join('');
+  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
   $('#cartSubtotal').textContent=money(cartTotal());
-  document.querySelectorAll('#cartItems button').forEach(b=>b.addEventListener('click',()=>{ const id=Number(b.dataset.id); const a=b.dataset.action; if(a==='dec') changeQty(id,-1); if(a==='inc') changeQty(id,1); if(a==='remove') removeItem(id); }));
+  document.querySelectorAll('#cartItems button').forEach(b=>b.addEventListener('click',()=>{const index=Number(b.dataset.index);const a=b.dataset.action;if(a==='dec')changeQty(index,-1);if(a==='inc')changeQty(index,1);if(a==='remove')removeItem(index);}));
 }
 
 function openCart(){ $('#cartDrawer').classList.add('open'); $('#drawerOverlay').classList.add('show'); document.body.style.overflow='hidden'; }
@@ -188,7 +189,7 @@ function renderCheckoutSummary(){
   const summary=$('#checkoutSummary');
   if(!summary) return;
   const itemCount=cartCount();
-  const lines=cart.map(i=>`<li>${escapeHTML(i.name)} ×${i.qty} — <strong>${money(i.price*i.qty)}</strong></li>`).join('');
+  const lines=cart.map(i=>`<li>${escapeHTML(i.name)}${i.selectedVariant?` · Color: ${escapeHTML(i.selectedVariant)}`:""} ×${i.qty} — <strong>${money(i.price*i.qty)}</strong></li>`).join('');
   summary.innerHTML=`<div class="checkout-summary-title"><strong>Resumen del pedido</strong><span>${itemCount} ${itemCount===1?'producto':'productos'}</span></div><ul class="checkout-summary-list">${lines}</ul><div class="checkout-summary-total"><span>Subtotal</span><strong>${money(cartTotal())}</strong></div>`;
 }
 
@@ -330,6 +331,8 @@ async function submitCheckoutForm(event){
     couponCode:cleanField(raw.get("couponCode")).toUpperCase(),
     latitude:cleanField(raw.get("latitude")),longitude:cleanField(raw.get("longitude"))
   };
+  const missingColor=cart.find(item=>Array.isArray(product(item.id)?.colorVariants)&&product(item.id).colorVariants.length&&!item.selectedVariant);
+  if(missingColor){toast("En el carrito falta elegir el color de "+(missingColor.name||"uno de los productos")+". Elimina ese producto y vuelve a seleccionarlo desde su ficha.");return;}
   const useBold=data.paymentMethod==="bold";
   const useCOD=data.paymentMethod==="cash_on_delivery";
   if(!useBold&&!useCOD){toast("Selecciona Bold o contraentrega para continuar.");return;}
@@ -360,7 +363,7 @@ async function submitCheckoutForm(event){
   const button=form.querySelector('button[type="submit"]');
   if(button){button.disabled=true;button.textContent="Registrando pedido…";}
   try{
-    savedOrder=await window.NovaShopDB.createOrder(data,cart.map(item=>({product_id:Number(item.id),quantity:Number(item.qty)})));
+    savedOrder=await window.NovaShopDB.createOrder(data,cart.map(item=>({product_id:Number(item.id),quantity:Number(item.qty),selected_variant:item.selectedVariant||null})));
   }catch(error){
     toast(error?.message||"No pudimos registrar el pedido. Inténtalo de nuevo.");
     if(button){button.disabled=false;button.type="submit";button.textContent="Confirmar pedido";}
