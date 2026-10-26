@@ -713,6 +713,10 @@ async function save(e){
   for(const file of imageFiles){if(file.size>12*1024*1024)throw new Error("La imagen "+file.name+" supera 12 MB.");}
   if(videoFile&&videoFile.size>50*1024*1024)throw new Error("El video supera 50 MB.");
   if(editingColorVariants.length>12)throw new Error("Un producto admite hasta 12 variantes de color.");
+  if(f.elements.printful_enabled.checked){
+   if(editingColorVariants.length&&editingColorVariants.some(v=>!v.printful_sync_variant_id||!Number.isSafeInteger(Number(v.printful_sync_variant_id))||Number(v.printful_sync_variant_id)<=0))throw new Error("Para enviar una camisa con varios colores a Printful, añade el Sync Variant ID correspondiente a cada color.");
+   if(!editingColorVariants.length&&(!f.elements.printful_sync_variant_id.value||!Number.isSafeInteger(Number(f.elements.printful_sync_variant_id.value))||Number(f.elements.printful_sync_variant_id.value)<=0))throw new Error("Para activar Printful, configura el Sync Variant ID del producto.");
+  }
   const normalizedColorNames=editingColorVariants.map(v=>String(v.name||"").trim().toLocaleLowerCase("es"));
   if(normalizedColorNames.some(name=>!name))throw new Error("Escribe el nombre de cada color.");
   if(new Set(normalizedColorNames).size!==normalizedColorNames.length)throw new Error("No repitas el nombre de un color; usa nombres diferentes para cada variante.");
