@@ -369,7 +369,7 @@ async function submitProductCheckout(event) {
   }
   data.paymentMethod=useBold?"Pago en línea con Bold":"Contraentrega";
   const configuredVariants=productColorVariants();
-  if(configuredVariants.length&&!configuredVariants.some(v=>v.name===data.selected_variant||v.name===selectedColorVariant?.name)){showToast("Selecciona un color para continuar.");return;}
+  if(configuredVariants.length&&(!selectedColorVariant||!configuredVariants.some(v=>v.name===selectedColorVariant.name))){showToast("Selecciona un color para continuar.");return;}
   if(currentProduct.deliveryType!=="digital"&&(!data.address||!data.neighborhood||!data.city||!data.department)){
     showToast("Para productos físicos, completa dirección, barrio, ciudad y departamento.");return;
   }
