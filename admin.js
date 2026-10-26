@@ -3,8 +3,22 @@
 const $=s=>document.querySelector(s), db=window.NovaShopDB;
 const money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let products=[], editingImages=[], editingVideo=null, metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, productEditorReturnFocus=null;
+let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, productEditorReturnFocus=null;
 function status(text,kind="info"){const el=$("#adminStatus");el.textContent=text;el.className="admin-status "+kind;}
+function setAdminSection(name){
+ const nav=$("#adminSectionNav");
+ const buttons=Array.from(nav?.querySelectorAll("[data-admin-tab]")||[]).filter(button=>!button.hidden);
+ if(!buttons.length)return;
+ if(!buttons.some(button=>button.dataset.adminTab===name))name=buttons[0].dataset.adminTab;
+ document.querySelectorAll("[data-admin-section]").forEach(panel=>{
+  panel.classList.toggle("admin-panel-active",panel.dataset.adminSection===name);
+ });
+ buttons.forEach(button=>{
+  const active=button.dataset.adminTab===name;
+  button.setAttribute("aria-current",active?"page":"false");
+  button.classList.toggle("is-active",active);
+ });
+}
 function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.slice(),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
 async function upload(file){const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});const {error}=await db.client.storage.from("products-media").uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type,upsert:false});if(error)throw error;return signed.publicUrl;}
@@ -234,9 +248,14 @@ function configureRolePanels(){
  if(ordersWrap)ordersWrap.hidden=!canManage;
  if(couponsWrap)couponsWrap.hidden=!canManage;
  if(reviewsWrap)reviewsWrap.hidden=!canManage;
- if(editor)editor.hidden=!canEdit;
+ if(editor)editor.hidden=true;
  if(catalog)catalog.hidden=!canEdit&&currentRole!=="analyst";
  if(metricsWrap)metricsWrap.hidden=!canAnalyze;
+ const addProduct=$("#addAdminProduct");if(addProduct)addProduct.hidden=!canEdit;
+ const permissions={overview:canAnalyze,orders:canManage,catalog:canEdit||currentRole==="analyst",coupons:canManage,reviews:canManage,users:canManage};
+ const nav=$("#adminSectionNav");if(nav)nav.hidden=false;
+ nav?.querySelectorAll("[data-admin-tab]").forEach(button=>{button.hidden=!permissions[button.dataset.adminTab];});
+ setAdminSection(canAnalyze?"overview":"catalog");
 }
 async function loadProducts(){
  try{
@@ -545,8 +564,13 @@ function renderCurrentMedia(){
  }
  if(videoBox){
   const picked=form?.elements.video?.files?.[0]||null;
-  const current=editingVideo?'<video controls preload="metadata" src="'+esc(editingVideo)+'"></video><div class="admin-current-video-meta"><span>Video guardado en el producto</span><button type="button" id="removeCurrentVideo">Quitar video actual</button></div>':"";
-  const pending=picked?'<div class="admin-current-video-meta"><span>Nuevo video seleccionado: '+esc(picked.name)+' ('+(picked.size/1024/1024).toFixed(1)+' MB). Reemplazará el video actual al guardar.</span><button type="button" id="clearSelectedVideo">Deshacer selección</button></div>':"";
+  if(pendingVideoPreviewUrl){URL.revokeObjectURL(pendingVideoPreviewUrl);pendingVideoPreviewUrl=null;}
+  const current=editingVideo?'<video controls playsinline preload="metadata" src="'+esc(editingVideo)+'"></video><div class="admin-current-video-meta"><span>Video guardado en el producto</span><button type="button" id="removeCurrentVideo">Quitar video actual</button></div>':"";
+  let pending="";
+  if(picked){
+   pendingVideoPreviewUrl=URL.createObjectURL(picked);
+   pending='<video class="admin-video-editor-preview" controls playsinline preload="metadata" src="'+esc(pendingVideoPreviewUrl)+'"></video><div class="admin-current-video-meta"><span>Vista previa: '+esc(picked.name)+' ('+(picked.size/1024/1024).toFixed(1)+' MB). Reemplazará el video actual al guardar.</span><button type="button" id="clearSelectedVideo">Deshacer selección</button></div>';
+  }
   videoBox.innerHTML=current+pending;
   videoBox.hidden=!current&&!pending;
   $("#removeCurrentVideo")?.addEventListener("click",()=>{
@@ -571,7 +595,8 @@ function openProductEditor(productId){
   if(placeholder.parentNode!==editor.parentNode)editor.parentNode.insertBefore(placeholder,editor);
   slot.appendChild(editor);
  }
- $("#productEditorModalTitle").textContent="Editar producto #"+productId;
+ $("#productEditorModalTitle").textContent=productId==null?"Nuevo producto":"Editar producto #"+productId;
+ editor.hidden=false;
  modal.hidden=false;modal.setAttribute("aria-hidden","false");
  document.body.classList.add("product-editor-open");
  $("#closeProductEditor")?.focus();
@@ -585,6 +610,7 @@ function closeProductEditor(force=false){
  const placeholder=$("#productEditorPlaceholder");
  if(editor&&placeholder?.parentNode){
   placeholder.parentNode.insertBefore(editor,placeholder.nextSibling);
+  editor.hidden=true;
  }
  modal.hidden=true;modal.setAttribute("aria-hidden","true");
  document.body.classList.remove("product-editor-open");
@@ -632,9 +658,8 @@ async function save(e){
   const payload=formData();payload.images=editingImages;payload.video_url=editingVideo;
   const result=await call({action:"save",...payload});
   if(result.product){status("Producto guardado: "+result.product.name+". El catálogo de la tienda se actualizará al recargar.", "success");}
-  const wasEditing=!!f.elements.id.value;
   resetForm();
-  if(wasEditing)closeProductEditor(true);
+  if(!$("#productEditorModal")?.hidden)closeProductEditor(true);
   await loadProducts();
  }catch(err){status(err.message||"No se pudo guardar el producto.","error");}
  finally{submit.disabled=false;submit.textContent="Guardar producto";}
@@ -649,6 +674,8 @@ async function init(){
   if(event.target===productForm.elements.video)renderCurrentMedia();
  });
  $("#closeProductEditor")?.addEventListener("click",()=>closeProductEditor());
+ document.querySelectorAll("[data-admin-tab]").forEach(button=>button.addEventListener("click",()=>setAdminSection(button.dataset.adminTab)));
+ $("#addAdminProduct")?.addEventListener("click",()=>{resetForm();const editor=$("#adminFormTitle")?.closest(".admin-card");if(editor)editor.hidden=false;openProductEditor(null);});
  $("#productEditorModal")?.addEventListener("click",event=>{if(event.target.id==="productEditorModal")closeProductEditor();});
  document.addEventListener("keydown",event=>{if(event.key==="Escape")closeProductEditor();});$("#resetAdminForm").addEventListener("click",resetForm);$("#refreshAdminProducts").addEventListener("click",loadProducts);$("#refreshAdminMetrics")?.addEventListener("click",()=>loadAdminMetrics().catch(e=>status(e.message||"No se pudieron cargar las métricas.","error")));
  $("#refreshAdminOrders")?.addEventListener("click",()=>loadAdminOrders(true));
