@@ -575,6 +575,16 @@ Deno.serve(async (req: Request) => {
       const name = clean(body.name,140);
       const category = clean(body.category,80);
       const delivery = clean(body.delivery_type,20);
+      const rawPaymentMethods = Array.isArray(body.payment_methods)
+        ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
+        : (delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"]);
+      const paymentMethods = [...new Set(rawPaymentMethods)];
+      if (!paymentMethods.length || paymentMethods.some((method: string)=>!["bold","cash_on_delivery"].includes(method))) {
+        return json({error:"Selecciona al menos una forma de pago válida."},400,origin);
+      }
+      if (delivery === "digital" && (paymentMethods.length !== 1 || paymentMethods[0] !== "bold")) {
+        return json({error:"Los servicios digitales solo admiten pago anticipado con Bold."},400,origin);
+      }
       const price = Number(body.price_cop);
       const oldPrice = body.old_price_cop == null || body.old_price_cop === "" ? null : Number(body.old_price_cop);
       const description = clean(body.description,4000);
@@ -601,6 +611,7 @@ Deno.serve(async (req: Request) => {
       const printfulRaw = body.printful_sync_variant_id == null || body.printful_sync_variant_id === "" ? null : Number(body.printful_sync_variant_id);
       if (printfulRaw !== null && (!Number.isSafeInteger(printfulRaw) || printfulRaw <= 0)) return json({error:"El Printful Sync Variant ID debe ser un entero positivo."},400,origin);
       if (printfulEnabled && !colorVariants.length && printfulRaw === null) return json({error:"Para activar el envío automático a Printful, configura primero el Sync Variant ID del producto."},400,origin);
+      if (printfulEnabled && !paymentMethods.includes("bold")) return json({error:"Los productos enviados mediante Printful requieren pago anticipado con Bold."},400,origin);
       if (printfulEnabled && colorVariants.length && colorVariants.some((variant: any)=>variant.printful_sync_variant_id===null)) return json({error:"Para activar el envío automático a Printful, configura el Sync Variant ID de cada color."},400,origin);
       const video = body.video_url == null || body.video_url === "" ? null : clean(body.video_url,1000);
       const tag = clean(body.tag,30);
@@ -620,7 +631,7 @@ Deno.serve(async (req: Request) => {
 
       const payload = {
         name,category,delivery_type:delivery,price_cop:price,old_price_cop:oldPrice,
-        description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,is_active:active,sort_order:sortOrder,
+        description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,payment_methods:paymentMethods,is_active:active,sort_order:sortOrder,
         stock_quantity:stock,printful_enabled:printfulEnabled,printful_sync_variant_id:printfulRaw,updated_at:new Date().toISOString()
       };
       const query = id === null
