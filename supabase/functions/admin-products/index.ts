@@ -580,6 +580,21 @@ Deno.serve(async (req: Request) => {
       const description = clean(body.description,4000);
       const features = Array.isArray(body.features) ? body.features.map((v: unknown)=>clean(v,180)).filter(Boolean).slice(0,30) : [];
       const images = Array.isArray(body.images) ? body.images.map((v: unknown)=>clean(v,1000)).filter(Boolean).slice(0,8) : [];
+      const rawColorVariants = Array.isArray(body.color_variants) ? body.color_variants : [];
+      if (rawColorVariants.length > 12) return json({error:"Un producto admite hasta 12 variantes de color."},400,origin);
+      const colorVariants = rawColorVariants.map((item: any)=>({
+        name:clean(item?.name,40),
+        hex:clean(item?.hex,7).toLowerCase(),
+        images:Array.isArray(item?.images)?item.images.map((v: unknown)=>clean(v,1000)).slice(0,2):[]
+      }));
+      const seenColorNames = new Set<string>();
+      for (const variant of colorVariants) {
+        const key=variant.name.toLocaleLowerCase("es");
+        if (!variant.name || !/^#[0-9a-f]{6}$/.test(variant.hex)) return json({error:"Cada variante debe tener un nombre y una muestra de color válidos."},400,origin);
+        if (seenColorNames.has(key)) return json({error:"No repitas el nombre de un color."},400,origin);
+        seenColorNames.add(key);
+        if (variant.images.length !== 2 || variant.images.some((url: string)=>!safeMediaUrl(url,supabaseUrl,false))) return json({error:"Cada color necesita una foto frontal y otra trasera almacenadas en NovaShop."},400,origin);
+      }
       const video = body.video_url == null || body.video_url === "" ? null : clean(body.video_url,1000);
       const tag = clean(body.tag,30);
       const shipping = clean(body.shipping,500);
@@ -598,7 +613,7 @@ Deno.serve(async (req: Request) => {
 
       const payload = {
         name,category,delivery_type:delivery,price_cop:price,old_price_cop:oldPrice,
-        description,features,images,video_url:video,tag,shipping,is_active:active,sort_order:sortOrder,
+        description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,is_active:active,sort_order:sortOrder,
         stock_quantity:stock,updated_at:new Date().toISOString()
       };
       const query = id === null
