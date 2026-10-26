@@ -205,8 +205,9 @@ function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,all
   }
 }
 
-function checkoutWhatsApp(){
+async function checkoutWhatsApp(){
   if(!cart.length){toast("Añade al menos un producto");return;}
+  try{if(window.NovaShopDB?.isConfigured?.())await window.NovaShopDB.syncCatalog?.(products);}catch(error){console.warn("No se pudo actualizar el catálogo antes del checkout:",error);}
   const capabilities=cart.map(item=>getProductPaymentCapabilities(product(item.id)));
   const allowBold=capabilities.every(item=>item.allowBold);
   const allowContraentrega=capabilities.every(item=>item.allowContraentrega);
