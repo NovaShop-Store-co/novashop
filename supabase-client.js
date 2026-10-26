@@ -43,13 +43,13 @@
  }
  async function syncCatalog(localProducts){
   if(!client||!Array.isArray(localProducts))return localProducts;
-  const {data,error}=await client.from("products").select("id,name,category,price_cop,delivery_type,is_active,updated_at,old_price_cop,description,images,color_variants,video_url,features,rating,reviews,tag,shipping,sort_order,stock_quantity").eq("is_active",true).order("sort_order");
+  const {data,error}=await client.from("products").select("id,name,category,price_cop,delivery_type,is_active,updated_at,old_price_cop,description,images,color_variants,video_url,features,rating,reviews,tag,shipping,sort_order,stock_quantity,payment_methods,printful_enabled").eq("is_active",true).order("sort_order");
   if(error||!data)return localProducts;
   for(const row of data){
    let local=localProducts.find(p=>Number(p.id)===Number(row.id));
    const images=(row.images||[]).filter(Boolean);
    if(local){
-    local.name=row.name;local.category=row.category;local.price=Number(row.price_cop);local.deliveryType=row.delivery_type;
+    local.name=row.name;local.category=row.category;local.price=Number(row.price_cop);local.deliveryType=row.delivery_type;local.paymentMethods=Array.isArray(row.payment_methods)?row.payment_methods:(row.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]);local.printfulEnabled=!!row.printful_enabled;
     local.colorVariants=Array.isArray(row.color_variants)?row.color_variants:[];
     if(images.length){local.images=images;local.description=row.description||local.description;local.features=row.features||local.features;local.shipping=row.shipping||local.shipping;local.videoUrl=row.video_url||null;}
     if(row.old_price_cop!=null)local.oldPrice=Number(row.old_price_cop);
@@ -62,7 +62,7 @@
      reviews:Number(row.reviews)||0,tag:row.category==="Streaming"?"DIGITAL":(row.old_price_cop!=null?(row.tag||"OFERTA"):(row.tag||"NUEVO")),
      images:images.length?images:["images/streaming-placeholder.svg"],description:row.description||"",
      features:row.features||[],shipping:row.shipping||"",videoUrl:row.video_url||null,colorVariants:Array.isArray(row.color_variants)?row.color_variants:[],
-     deliveryType:row.delivery_type,sortOrder:row.sort_order,stockQuantity:row.stock_quantity==null?null:Number(row.stock_quantity)});
+     deliveryType:row.delivery_type,paymentMethods:Array.isArray(row.payment_methods)?row.payment_methods:(row.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]),printfulEnabled:!!row.printful_enabled,sortOrder:row.sort_order,stockQuantity:row.stock_quantity==null?null:Number(row.stock_quantity)});
    }
   }
   return localProducts;
