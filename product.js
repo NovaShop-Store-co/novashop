@@ -366,6 +366,12 @@ async function submitProductCheckout(event) {
   if(currentProduct.deliveryType!=="digital"&&(!data.address||!data.neighborhood||!data.city||!data.department)){
     showToast("Para productos físicos, completa dirección, barrio, ciudad y departamento.");return;
   }
+  const hasDeliveryPin=String(data.latitude??"").trim()!==""&&String(data.longitude??"").trim()!==""&&Number.isFinite(Number(data.latitude))&&Number.isFinite(Number(data.longitude))&&Math.abs(Number(data.latitude))<=90&&Math.abs(Number(data.longitude))<=180;
+  if(currentProduct.deliveryType!=="digital"&&!hasDeliveryPin){
+    const mapStatus=$("#productCheckoutMapStatus");if(mapStatus)mapStatus.textContent="Falta marcar el punto obligatorio de entrega en el mapa.";
+    $("#productCheckoutMap")?.scrollIntoView({behavior:"smooth",block:"center"});
+    showToast("Para comprar productos físicos, marca obligatoriamente tu ubicación en el mapa.");return;
+  }
   if(useBold){
     try{
       const configured=await window.NovaShopDB?.checkBoldConfigured?.();
@@ -473,8 +479,9 @@ function renderProduct() {
 
   const mainImage=$('#productMainImage'),mainVideo=$('#productMainVideo');
   mainImage.hidden=false;mainImage.src=currentProduct.images?.[0]||'images/streaming-placeholder.svg';mainImage.alt=currentProduct.name;
-  mainVideo.pause();mainVideo.hidden=true;mainVideo.removeAttribute('src');mainVideo.load();
-  if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;}
+  mainVideo.pause();mainVideo.hidden=true;mainVideo.removeAttribute('src');mainVideo.removeAttribute('poster');mainVideo.load();
+  const mediaFrame=$("#productMediaFrame");mediaFrame?.classList.remove("is-video");
+  if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=currentProduct.images?.[0]||"";}
   $('#productThumbnails').innerHTML = (currentProduct.images||[]).map((image,index)=>`
     <button class="thumbnail ${index===0?'active':''}" type="button" data-index="${index}" aria-label="Ver imagen ${index+1}">
       <img src="${image}" alt="${currentProduct.name} imagen ${index+1}">
@@ -484,9 +491,9 @@ function renderProduct() {
       document.querySelectorAll('.thumbnail').forEach(item=>item.classList.remove('active'));
       button.classList.add('active');
       if(button.dataset.video==='true'){
-        mainImage.hidden=true;mainVideo.hidden=false;mainVideo.play().catch(()=>{});
+        mainImage.hidden=true;mainVideo.hidden=false;mediaFrame?.classList.add("is-video");mainVideo.play().catch(()=>{});
       }else{
-        mainVideo.pause();mainVideo.hidden=true;mainImage.hidden=false;
+        mainVideo.pause();mainVideo.hidden=true;mainImage.hidden=false;mediaFrame?.classList.remove("is-video");
         const imageIndex=Number(button.dataset.index);mainImage.src=currentProduct.images[imageIndex];
       }
     });
