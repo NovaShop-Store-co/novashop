@@ -16,6 +16,7 @@ create table if not exists public.products (
   category text not null,
   price_cop bigint not null check (price_cop > 0),
   delivery_type text not null default 'physical' check (delivery_type in ('physical','digital')),
+  color_variants jsonb not null default '[]'::jsonb check (jsonb_typeof(color_variants) = 'array'),
   is_active boolean not null default true,
   updated_at timestamptz not null default now()
 );
@@ -81,6 +82,7 @@ create table if not exists public.order_items (
   quantity integer not null check (quantity between 1 and 10),
   line_total_cop bigint generated always as (unit_price_cop * quantity) stored,
   delivery_type text not null check (delivery_type in ('physical','digital')),
+  selected_variant text,
   created_at timestamptz not null default now()
 );
 
@@ -135,12 +137,22 @@ grant select (
   old_price_cop, description, images, video_url, features, rating, reviews,
   tag, shipping, sort_order
 ) on table public.products to anon, authenticated;
+grant select (color_variants) on table public.products to anon, authenticated;
 grant select,update on public.profiles to authenticated;
 grant select on public.orders,public.order_items to authenticated;
 
 comment on table public.orders is 'Los pedidos nuevos empiezan pendientes de pago; no marcar como pagado hasta confirmar con el proveedor de pagos.';
 
 
+
+-- Color variants: each color has a name, hex swatch and exactly two images (front/back).
+alter table public.products add column if not exists color_variants jsonb not null default '[]'::jsonb;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='products_color_variants_is_array' AND conrelid='public.products'::regclass) THEN
+    ALTER TABLE public.products ADD CONSTRAINT products_color_variants_is_array CHECK (jsonb_typeof(color_variants)='array');
+  END IF;
+END $$;
+alter table public.order_items add column if not exists selected_variant text;
 
 -- Full metadata for catalog cards and product-detail pages.
 alter table public.profiles
@@ -179,6 +191,7 @@ alter table public.products
   add column if not exists description text not null default '',
   add column if not exists images text[] not null default '{}',
   add column if not exists video_url text,
+  add column if not exists color_variants jsonb not null default '[]'::jsonb,
   add column if not exists features text[] not null default '{}',
   add column if not exists rating numeric(2,1),
   add column if not exists reviews integer not null default 0,
