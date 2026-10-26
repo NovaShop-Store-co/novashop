@@ -3,7 +3,7 @@
 const $=s=>document.querySelector(s), db=window.NovaShopDB;
 const money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, productEditorReturnFocus=null;
+let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, editingColorVariants=[], metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, productEditorReturnFocus=null;
 function status(text,kind="info"){const el=$("#adminStatus");el.textContent=text;el.className="admin-status "+kind;}
 function setAdminSection(name){
  const nav=$("#adminSectionNav");
@@ -22,6 +22,63 @@ function setAdminSection(name){
 function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.slice(),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
 async function upload(file){const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});const {error}=await db.client.storage.from("products-media").uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type,upsert:false});if(error)throw error;return signed.publicUrl;}
+
+
+function normalizeColorVariant(value={}){
+ const images=Array.isArray(value.images)?value.images:[];
+ return {name:String(value.name||"").slice(0,40),hex:/^#[0-9a-f]{6}$/i.test(String(value.hex||""))?String(value.hex):"#1f2937",frontImage:String(value.front_image||value.frontImage||images[0]||""),backImage:String(value.back_image||value.backImage||images[1]||""),frontFile:null,backFile:null,previewFrontUrl:null,previewBackUrl:null};
+}
+function disposeColorVariantPreviews(){
+ editingColorVariants.forEach(variant=>["previewFrontUrl","previewBackUrl"].forEach(key=>{if(variant[key]){URL.revokeObjectURL(variant[key]);variant[key]=null;}}));
+}
+function renderColorVariants(){
+ const box=$("#adminColorVariantsList");if(!box)return;
+ disposeColorVariantPreviews();
+ if(!editingColorVariants.length){box.innerHTML='<p class="admin-help">Todavía no has añadido variantes de color. Si el producto solo tiene una versión, puedes dejarlo vacío.</p>';return;}
+ const photo=(variant,index,side,label)=>{
+  const file=variant[side+"File"],imageUrl=variant[side==="front"?"frontImage":"backImage"];
+  let src=imageUrl;
+  if(file){const key=side==="front"?"previewFrontUrl":"previewBackUrl";variant[key]=URL.createObjectURL(file);src=variant[key];}
+  const image=src?'<img data-variant-preview="'+side+'" src="'+esc(src)+'" alt="'+esc(variant.name||"Color "+(index+1))+' · '+label+'">':'<div class="admin-color-photo-empty" data-variant-empty="'+side+'">Sin foto de '+label.toLowerCase()+'</div>';
+  const fileHelp=file?esc(file.name)+" · "+(file.size/1024/1024).toFixed(1)+" MB":(imageUrl?"La foto actual se conserva si no la reemplazas.":"Selecciona una foto para esta vista.");
+  return '<div class="admin-color-variant-photo" data-photo-panel="'+side+'">'+image+'<label>'+label+' *<input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" data-variant-file="'+side+'"><small data-variant-file-help>'+fileHelp+'</small></label></div>';
+ };
+ box.innerHTML=editingColorVariants.map((variant,index)=>'<article class="admin-color-variant-row" data-color-variant-index="'+index+'">'+
+  '<div class="admin-color-variant-top"><div class="admin-color-variant-summary"><span class="admin-color-variant-swatch" style="background:'+esc(variant.hex)+'"></span><strong>Variante de color '+(index+1)+'</strong></div><button type="button" data-remove-color-variant="'+index+'">Eliminar color</button></div>'+
+  '<div class="admin-color-variant-fields"><label>Nombre del color *<input type="text" data-variant-field="name" maxlength="40" value="'+esc(variant.name)+'" placeholder="Ej. Negro, Blanco, Azul marino" required></label><label>Muestra de color<input type="color" data-variant-field="hex" value="'+esc(variant.hex)+'" aria-label="Muestra de color '+(index+1)+'"></label></div>'+
+  '<div class="admin-color-variant-photos">'+photo(variant,index,"front","Foto frontal")+photo(variant,index,"back","Foto trasera")+'</div>'+
+  '<p class="admin-help">Las dos fotos se mostrarán al comprador cuando seleccione este color. Se recomienda usar el mismo fondo, encuadre y tamaño de imagen.</p>'+
+ '</article>').join("");
+ box.querySelectorAll("[data-remove-color-variant]").forEach(button=>button.addEventListener("click",()=>{
+  const index=Number(button.dataset.removeColorVariant);
+  if(!Number.isInteger(index)||index<0||index>=editingColorVariants.length)return;
+  if(!confirm("¿Eliminar esta variante de color del producto?"))return;
+  editingColorVariants.splice(index,1);
+  const form=$("#adminProductForm");if(form)form.dataset.dirty="1";
+  renderColorVariants();
+ }));
+ box.querySelectorAll("[data-variant-field]").forEach(input=>input.addEventListener("input",()=>{
+  const row=input.closest("[data-color-variant-index]"),index=Number(row?.dataset.colorVariantIndex),variant=editingColorVariants[index];
+  if(!variant)return;
+  if(input.dataset.variantField==="name")variant.name=input.value;
+  if(input.dataset.variantField==="hex"){variant.hex=input.value;const swatch=row.querySelector(".admin-color-variant-swatch");if(swatch)swatch.style.background=input.value;}
+  const form=$("#adminProductForm");if(form?.elements.id.value)form.dataset.dirty="1";
+ }));
+ box.querySelectorAll("[data-variant-file]").forEach(input=>input.addEventListener("change",()=>{
+  const row=input.closest("[data-color-variant-index]"),index=Number(row?.dataset.colorVariantIndex),variant=editingColorVariants[index],side=input.dataset.variantFile;
+  if(!variant)return;const file=input.files?.[0]||null;if(!file)return;
+  const allowed=["image/jpeg","image/png","image/webp","image/avif","image/gif"];
+  if(!allowed.includes(file.type)){status("La imagen de color debe ser JPG, PNG, WEBP, AVIF o GIF.","error");input.value="";return;}
+  if(file.size>12*1024*1024){status("Cada imagen de color debe pesar máximo 12 MB.","error");input.value="";return;}
+  const previewKey=side==="front"?"previewFrontUrl":"previewBackUrl";if(variant[previewKey])URL.revokeObjectURL(variant[previewKey]);
+  variant[side+"File"]=file;variant[previewKey]=URL.createObjectURL(file);
+  const panel=row.querySelector('[data-photo-panel="'+side+'"]'),prior=panel.querySelector("[data-variant-preview], [data-variant-empty]");
+  const image=document.createElement("img");image.dataset.variantPreview=side;image.src=variant[previewKey];image.alt=(variant.name||"Variante")+" · "+side;
+  if(prior)prior.replaceWith(image);else panel.insertBefore(image,panel.querySelector("label"));
+  const help=panel.querySelector("[data-variant-file-help]");if(help)help.textContent=file.name+" · "+(file.size/1024/1024).toFixed(1)+" MB";
+  const form=$("#adminProductForm");if(form)form.dataset.dirty="1";
+ }));
+}
 
 function roleLabel(role){return ({owner:"Propietario",admin:"Administrador",catalog_manager:"Gestor de catálogo",analyst:"Analista",customer:"Cliente"})[role]||role||"Cliente";}
 function userStatus(text,kind="info"){const el=$("#adminUsersStatus");if(el){el.textContent=text;el.className="admin-status "+kind;}}
@@ -629,8 +686,8 @@ function editProduct(id){
  f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.sort_order.value=p.sort_order??100;
  f.elements.description.value=p.description||"";f.elements.features.value=(p.features||[]).join("\n");
  f.elements.tag.value=p.tag||"";f.elements.shipping.value=p.shipping||"";f.elements.printful_enabled.checked=!!p.printful_enabled;f.elements.printful_sync_variant_id.value=p.printful_sync_variant_id??"";f.elements.is_active.checked=!!p.is_active;
- editingImages=(p.images||[]).filter(Boolean).slice();editingVideo=p.video_url||null;f.elements.images.value="";f.elements.video.value="";
- f.dataset.dirty="0";
+ editingImages=(p.images||[]).filter(Boolean).slice();editingVideo=p.video_url||null;editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
+ f.dataset.dirty="0";renderColorVariants();
  $("#adminFormTitle").textContent="Editar producto #"+p.id;
  $("#resetAdminForm").textContent="Cancelar edición";
  renderCurrentMedia();
@@ -639,7 +696,7 @@ function editProduct(id){
 function resetForm(){
  const form=$("#adminProductForm");
  form.reset();form.elements.id.value="";form.elements.stock_quantity.value="";form.elements.sort_order.value="100";form.elements.printful_sync_variant_id.value="";form.elements.printful_enabled.checked=false;form.elements.is_active.checked=true;
- form.dataset.dirty="0";editingImages=[];editingVideo=null;
+ form.dataset.dirty="0";editingImages=[];editingVideo=null;editingColorVariants=[];renderColorVariants();
  $("#adminFormTitle").textContent="Añadir nuevo producto";
  $("#resetAdminForm").textContent="Limpiar";
  renderCurrentMedia();
@@ -653,9 +710,25 @@ async function save(e){
   if(imageFiles.length+editingImages.length>8)throw new Error("Un producto admite máximo 8 imágenes; quita algunas fotos anteriores o selecciona menos.");
   for(const file of imageFiles){if(file.size>12*1024*1024)throw new Error("La imagen "+file.name+" supera 12 MB.");}
   if(videoFile&&videoFile.size>50*1024*1024)throw new Error("El video supera 50 MB.");
+  if(editingColorVariants.length>12)throw new Error("Un producto admite hasta 12 variantes de color.");
+  const normalizedColorNames=editingColorVariants.map(v=>String(v.name||"").trim().toLocaleLowerCase("es"));
+  if(normalizedColorNames.some(name=>!name))throw new Error("Escribe el nombre de cada color.");
+  if(new Set(normalizedColorNames).size!==normalizedColorNames.length)throw new Error("No repitas el nombre de un color; usa nombres diferentes para cada variante.");
+  for(const v of editingColorVariants){
+   if(!/^#[0-9a-f]{6}$/i.test(v.hex||""))throw new Error("Selecciona una muestra de color válida.");
+   if(!(v.frontImage||v.frontFile)||!(v.backImage||v.backFile))throw new Error("Cada color necesita una foto frontal y otra trasera.");
+   for(const file of [v.frontFile,v.backFile].filter(Boolean))if(file.size>12*1024*1024)throw new Error("Cada foto de color debe pesar máximo 12 MB.");
+  }
   for(const file of imageFiles)editingImages.push(await upload(file));
   if(videoFile)editingVideo=await upload(videoFile);
-  const payload=formData();payload.images=editingImages;payload.video_url=editingVideo;
+  const colorVariantsToSave=[];
+  for(const variant of editingColorVariants){
+   let front=variant.frontImage,back=variant.backImage;
+   if(variant.frontFile)front=await upload(variant.frontFile);
+   if(variant.backFile)back=await upload(variant.backFile);
+   colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:[front,back]});
+  }
+  const payload=formData();payload.images=editingImages;payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
   const result=await call({action:"save",...payload});
   if(result.product){status("Producto guardado: "+result.product.name+". El catálogo de la tienda se actualizará al recargar.", "success");}
   resetForm();
@@ -668,6 +741,12 @@ async function deactivate(id){if(!confirm("¿Ocultar este producto de la tienda?
 async function init(){
  const productForm=$("#adminProductForm");
  productForm.addEventListener("submit",save);
+ $("#addAdminColorVariant")?.addEventListener("click",()=>{
+  if(editingColorVariants.length>=12){status("Puedes añadir máximo 12 colores por producto.","error");return;}
+  editingColorVariants.push(normalizeColorVariant({name:"",hex:"#1f2937",images:[]}));
+  productForm.dataset.dirty="1";renderColorVariants();
+  $("#adminColorVariantsList .admin-color-variant-row:last-child input[data-variant-field=name]")?.focus();
+ });
  productForm.addEventListener("input",()=>{if(productForm.elements.id.value)productForm.dataset.dirty="1";});
  productForm.addEventListener("change",event=>{
   if(productForm.elements.id.value)productForm.dataset.dirty="1";
