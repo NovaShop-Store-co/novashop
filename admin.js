@@ -53,6 +53,7 @@ function renderColorVariants(){
   const index=Number(button.dataset.removeColorVariant);
   if(!Number.isInteger(index)||index<0||index>=editingColorVariants.length)return;
   if(!confirm("¿Eliminar esta variante de color del producto?"))return;
+  const removed=editingColorVariants[index];if(removed){if(removed.previewFrontUrl)URL.revokeObjectURL(removed.previewFrontUrl);if(removed.previewBackUrl)URL.revokeObjectURL(removed.previewBackUrl);}
   editingColorVariants.splice(index,1);
   const form=$("#adminProductForm");if(form)form.dataset.dirty="1";
   renderColorVariants();
@@ -686,7 +687,7 @@ function editProduct(id){
  f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.sort_order.value=p.sort_order??100;
  f.elements.description.value=p.description||"";f.elements.features.value=(p.features||[]).join("\n");
  f.elements.tag.value=p.tag||"";f.elements.shipping.value=p.shipping||"";f.elements.printful_enabled.checked=!!p.printful_enabled;f.elements.printful_sync_variant_id.value=p.printful_sync_variant_id??"";f.elements.is_active.checked=!!p.is_active;
- editingImages=(p.images||[]).filter(Boolean).slice();editingVideo=p.video_url||null;editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
+ editingImages=(p.images||[]).filter(Boolean).slice();editingVideo=p.video_url||null;disposeColorVariantPreviews();editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
  f.dataset.dirty="0";renderColorVariants();
  $("#adminFormTitle").textContent="Editar producto #"+p.id;
  $("#resetAdminForm").textContent="Cancelar edición";
@@ -696,7 +697,7 @@ function editProduct(id){
 function resetForm(){
  const form=$("#adminProductForm");
  form.reset();form.elements.id.value="";form.elements.stock_quantity.value="";form.elements.sort_order.value="100";form.elements.printful_sync_variant_id.value="";form.elements.printful_enabled.checked=false;form.elements.is_active.checked=true;
- form.dataset.dirty="0";editingImages=[];editingVideo=null;editingColorVariants=[];renderColorVariants();
+ form.dataset.dirty="0";editingImages=[];editingVideo=null;disposeColorVariantPreviews();editingColorVariants=[];renderColorVariants();
  $("#adminFormTitle").textContent="Añadir nuevo producto";
  $("#resetAdminForm").textContent="Limpiar";
  renderCurrentMedia();
