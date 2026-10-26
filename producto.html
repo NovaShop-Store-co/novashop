@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=37">
+  <link rel="stylesheet" href="styles.css?v=38">
 <link rel="stylesheet" href="storefront-enhancements.css?v=5"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body class="product-page">
@@ -42,7 +42,7 @@
 
         <div class="product-detail-grid">
           <div class="product-gallery">
-            <div class="product-main-image-wrap">
+            <div class="product-main-image-wrap" id="productMediaFrame">
               <span class="tag product-detail-tag" id="productTag">OFERTA</span>
               <img id="productMainImage" src="" alt="" class="product-main-image">
               <video id="productMainVideo" class="product-main-video" controls playsinline preload="metadata" hidden></video>
@@ -164,7 +164,7 @@
       </div>
 
       <div class="checkout-account-hint">¿Quieres consultar tus compras más adelante? <a href="cuenta.html" target="_blank" rel="noopener">Crea una cuenta gratis</a>. También puedes comprar como invitado.</div>
-      <form id="productCheckoutForm" class="checkout-form"><input type="hidden" id="productCheckoutLat" name="latitude"><input type="hidden" id="productCheckoutLng" name="longitude"><input type="hidden" name="latitude"><input type="hidden" name="longitude">
+      <form id="productCheckoutForm" class="checkout-form"><input type="hidden" id="productCheckoutLat" name="latitude"><input type="hidden" id="productCheckoutLng" name="longitude">
         <div class="form-section-title">👤 Información personal</div>
         <div class="form-grid two-cols">
           <label>
@@ -223,7 +223,7 @@
           </label>
         </div>
 
-        <div class="map-card checkout-location-card"><div class="map-toolbar"><small>📍 Marca la ubicación de entrega</small><button class="btn btn-ghost" id="useProductCheckoutLocation" type="button">Usar mi ubicación</button></div><div id="productCheckoutMap" class="delivery-map"></div><div class="map-toolbar"><small id="productCheckoutMapStatus">Toca el mapa para colocar el pin.</small><small id="productCheckoutCoords" class="map-coordinates">Coordenadas opcionales</small></div></div>
+        <div class="map-card checkout-location-card"><div class="map-toolbar"><small><strong>📍 Ubicación exacta en el mapa *</strong></small><button class="btn btn-ghost" id="useProductCheckoutLocation" type="button">Usar mi ubicación</button></div><div id="productCheckoutMap" class="delivery-map"></div><div class="map-toolbar"><small id="productCheckoutMapStatus" aria-live="polite">Obligatorio: toca el mapa para colocar el pin de entrega.</small><small id="productCheckoutCoords" class="map-coordinates">Sin pin seleccionado</small></div></div>
         </div>
         <div class="form-section-title">💳 Pago y confirmación</div>
         <div class="form-grid two-cols">
@@ -254,11 +254,11 @@
   <div class="toast" id="productToast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script src="delivery-map.js?v=16"></script><script src="supabase-config.js?v=19"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script src="delivery-map.js?v=17"></script><script src="supabase-config.js?v=19"></script>
   <script src="supabase-client.js?v=30"></script><script src="auth-nav.js?v=19"></script>
   <script src="products.js?v=20"></script>
   <script src="bold-checkout.js?v=2"></script>
-  <script src="product.js?v=33"></script>
+  <script src="product.js?v=34"></script>
   <a class="floating-product-help" href="https://wa.me/573003358382?text=Hola%20NovaShop%2C%20tengo%20una%20consulta%20sobre%20un%20producto." target="_blank" rel="noopener noreferrer" aria-label="Consultar por WhatsApp sobre un producto">
     <span class="floating-help-icon" aria-hidden="true">✆</span>
     <span class="floating-help-copy"><strong>¿Te ayudamos?</strong><small>Consultas sobre productos</small></span>
