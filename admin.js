@@ -23,20 +23,24 @@ function syncPaymentMethodControls({resetPhysical=false}={}) {
  const form = $("#adminProductForm");
  if (!form) return;
  const digital = form.elements.delivery_type?.value === "digital";
+ const printful = !!form.elements.printful_enabled?.checked;
+ const requiresBold = digital || printful;
  const bold = form.querySelector('input[name="payment_methods"][value="bold"]');
  const cod = form.querySelector('input[name="payment_methods"][value="cash_on_delivery"]');
  if (cod) {
-  cod.disabled = digital;
-  if (digital) cod.checked = false;
+  cod.disabled = requiresBold;
+  if (requiresBold) cod.checked = false;
   else if (resetPhysical) cod.checked = true;
   const label = cod.closest("label");
-  if (label) label.style.opacity = digital ? ".55" : "1";
+  if (label) label.style.opacity = requiresBold ? ".55" : "1";
  }
- if (bold && digital) bold.checked = true;
+ if (bold && requiresBold) bold.checked = true;
  const help = $("#paymentMethodsHelp");
  if (help) help.textContent = digital
   ? "Los servicios digitales solo admiten pago anticipado con Bold. La contraentrega está desactivada."
-  : "Marca al menos una forma de pago. En productos físicos puedes habilitar una o ambas.";
+  : printful
+   ? "Los productos configurados para Printful requieren pago anticipado con Bold. La contraentrega está desactivada."
+   : "Marca al menos una forma de pago. En productos físicos puedes habilitar una o ambas.";
 }
 function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),payment_methods:v.getAll("payment_methods").map(value=>String(value)),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
@@ -828,6 +832,7 @@ async function init(){
  productForm.addEventListener("change",event=>{
   if(productForm.elements.id.value)productForm.dataset.dirty="1";
   if(event.target===productForm.elements.delivery_type)syncPaymentMethodControls({resetPhysical:productForm.elements.delivery_type.value==="physical"});
+  if(event.target===productForm.elements.printful_enabled)syncPaymentMethodControls();
   if(event.target===productForm.elements.video)renderCurrentMedia();
   if(event.target===productForm.elements.images)addProductImages(event.target);
  });
