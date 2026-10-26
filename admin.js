@@ -393,7 +393,7 @@ function renderAdminOrders(){
    const customer=[order.customer_first_name,order.customer_last_name].filter(Boolean).join(" ")||"Cliente sin nombre";
    const address=[order.address,order.neighborhood,order.city,order.department,order.postal_code].filter(Boolean).join(", ");
    const items=Array.isArray(order.order_items)?order.order_items:[];
-   const itemRows=items.map(item=>'<li><span>'+esc(item.product_name||"Producto")+' ×'+Number(item.quantity||0)+'</span><strong>'+money(item.line_total_cop??(Number(item.unit_price_cop||0)*Number(item.quantity||0)))+'</strong></li>').join("");
+   const itemRows=items.map(item=>'<li><span>'+esc(item.product_name||"Producto")+(item.selected_variant?' · Color: '+esc(item.selected_variant):"")+' ×'+Number(item.quantity||0)+'</span><strong>'+money(item.line_total_cop??(Number(item.unit_price_cop||0)*Number(item.quantity||0)))+'</strong></li>').join("");
    const wa=whatsappHref(order.customer_phone);
    const validCoords=order.latitude!==null&&order.latitude!==undefined&&order.longitude!==null&&order.longitude!==undefined&&Number.isFinite(Number(order.latitude))&&Number.isFinite(Number(order.longitude));
    const mapUrl=validCoords?'https://www.google.com/maps?q='+Number(order.latitude)+','+Number(order.longitude):(address?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address):"");
