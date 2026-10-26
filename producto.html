@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=40">
-<link rel="stylesheet" href="storefront-enhancements.css?v=5"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="storefront-enhancements.css?v=6"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body class="product-page">
   <div class="announcement" role="region" aria-label="Beneficios de NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🚚 Envío gratis con Bold en productos físicos</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Opciones de pago claras antes de confirmar</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🚚 Envío gratis con Bold en productos físicos</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Opciones de pago claras antes de confirmar</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div></div></div></div>
@@ -120,6 +120,16 @@
           <h2 id="productFeaturesHeading">Características</h2>
           <ul id="productFeatures" class="feature-list"></ul>
         </div>
+      </div>
+    </section>
+
+    <section class="section recently-viewed-section" id="recentlyViewedSection" hidden>
+      <div class="container">
+        <div class="section-head">
+          <div><span class="eyebrow" id="recentlyViewedEyebrow">DESCUBRE MÁS</span><h2 id="recentlyViewedTitle">También te puede interesar</h2><p id="recentlyViewedSummary">Explora más opciones de la tienda.</p></div>
+          <a href="index.html#productos" class="text-link">Ver todo <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="recently-viewed-grid" id="recentlyViewedGrid"></div>
       </div>
     </section>
 
@@ -253,6 +263,20 @@
     </div>
   </div>
 
+  <div class="product-image-lightbox" id="productImageLightbox" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="productLightboxTitle" hidden>
+    <div class="product-lightbox-header">
+      <span id="productLightboxTitle" class="product-lightbox-title">Vista ampliada del producto</span>
+      <button type="button" class="product-lightbox-close" id="productLightboxClose" aria-label="Cerrar imagen ampliada">×</button>
+    </div>
+    <button type="button" class="product-lightbox-nav" id="productLightboxPrev" aria-label="Ver imagen anterior">‹</button>
+    <figure class="product-lightbox-figure">
+      <img id="productLightboxImage" src="" alt="">
+      <figcaption id="productLightboxCaption"></figcaption>
+    </figure>
+    <button type="button" class="product-lightbox-nav" id="productLightboxNext" aria-label="Ver imagen siguiente">›</button>
+    <div class="product-lightbox-counter" id="productLightboxCounter" aria-live="polite">1 / 1</div>
+  </div>
+
   <div class="toast" id="productToast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -260,7 +284,7 @@
   <script src="supabase-client.js?v=31"></script><script src="auth-nav.js?v=19"></script>
   <script src="products.js?v=20"></script>
   <script src="bold-checkout.js?v=2"></script>
-  <script src="product.js?v=37"></script>
+  <script src="product.js?v=38"></script>
   <a class="floating-product-help" href="https://wa.me/573003358382?text=Hola%20NovaShop%2C%20tengo%20una%20consulta%20sobre%20un%20producto." target="_blank" rel="noopener noreferrer" aria-label="Consultar por WhatsApp sobre un producto">
     <span class="floating-help-icon" aria-hidden="true">✆</span>
     <span class="floating-help-copy"><strong>¿Te ayudamos?</strong><small>Consultas sobre productos</small></span>
