@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
 
     const ids = items.map((x: any) => x.product_id);
     const { data: catalog, error: catalogError } = await admin
-      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,printful_enabled,printful_sync_variant_id")
+      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,printful_enabled,printful_sync_variant_id,payment_methods")
       .in("id", ids).eq("is_active", true);
     if (catalogError) throw catalogError;
     if (!catalog || catalog.length !== new Set(ids).size) {
@@ -172,6 +172,21 @@ Deno.serve(async (req: Request) => {
     }
 
     const catalogById = new Map(catalog.map((p: any) => [p.id, p]));
+    const unavailablePaymentItem = items.find((item: any) => {
+      const p: any = catalogById.get(item.product_id);
+      const methods = Array.isArray(p?.payment_methods) && p.payment_methods.length
+        ? p.payment_methods
+        : (p?.delivery_type === "digital" ? ["bold"] : ["bold","cash_on_delivery"]);
+      return isBoldPayment ? !methods.includes("bold") : !methods.includes("cash_on_delivery");
+    });
+    if (unavailablePaymentItem) {
+      const p: any = catalogById.get(unavailablePaymentItem.product_id);
+      return json({
+        error: isBoldPayment
+          ? "El producto " + clean(p?.name || "seleccionado",140) + " no admite pago anticipado con Bold. Ajusta el carrito o realiza pedidos separados."
+          : "El producto " + clean(p?.name || "seleccionado",140) + " no admite contraentrega. Elige pago con Bold o realiza pedidos separados."
+      },400);
+    }
     const invalidVariant = items.find((item: any) => {
       const p: any = catalogById.get(item.product_id);
       const variants = Array.isArray(p?.color_variants) ? p.color_variants : [];
