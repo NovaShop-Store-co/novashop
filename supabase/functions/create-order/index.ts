@@ -229,6 +229,9 @@ Deno.serve(async (req: Request) => {
     if (!isBoldPayment && types.has("digital")) {
       return json({ error: "La contraentrega solo está disponible para pedidos exclusivamente de productos físicos. Para servicios digitales, paga con Bold." }, 400);
     }
+    if (types.has("physical") && (latitude === null || longitude === null || !Number.isFinite(latitude) || !Number.isFinite(longitude))) {
+      return json({ error: "Para pedidos con productos físicos, debes marcar obligatoriamente la ubicación de entrega en el mapa." }, 400);
+    }
     if (types.has("physical") && (!address || !neighborhood || !city || !department)) {
       return json({ error: "Completa la dirección, barrio, ciudad y departamento para productos físicos." }, 400);
     }
