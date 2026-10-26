@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Panel administrativo: no debe aparecer en resultados de búsqueda
+Disallow: /admin.html
+
+Sitemap: https://novashop-store-co.pages.dev/sitemap.xml
