@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
       .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,printful_enabled,printful_sync_variant_id")
       .in("id", ids).eq("is_active", true);
     if (catalogError) throw catalogError;
-    if (!catalog || catalog.length !== ids.length) {
+    if (!catalog || catalog.length !== new Set(ids).size) {
       return json({ error: "Uno de los productos ya no está disponible." }, 409);
     }
 
@@ -198,14 +198,17 @@ Deno.serve(async (req: Request) => {
       const p: any = catalogById.get(missingPrintfulMapping.product_id);
       return json({error:"El producto "+clean(p?.name||"seleccionado",140)+" está configurado para Printful, pero falta el Sync Variant ID del color elegido."},400);
     }
+    const quantityByProduct = new Map<number, number>();
+    for (const item of items) quantityByProduct.set(item.product_id,(quantityByProduct.get(item.product_id)||0)+item.quantity);
     const outOfStock = items.find((item: any) => {
       const product: any = catalogById.get(item.product_id);
+      const requested = quantityByProduct.get(item.product_id)||0;
       return product && product.stock_quantity !== null && product.stock_quantity !== undefined
-        && Number(item.quantity) > Number(product.stock_quantity);
+        && requested > Number(product.stock_quantity);
     });
     if (outOfStock) {
       const product: any = catalogById.get(outOfStock.product_id);
-      return json({ error: "Stock insuficiente para " + clean(product?.name || "uno de los productos", 140) + ". Disponibles: " + Number(product?.stock_quantity || 0) + "." }, 409);
+      return json({ error: "Stock insuficiente para " + clean(product?.name || "uno de los productos", 140) + ". Unidades solicitadas entre todos los colores: " + (quantityByProduct.get(outOfStock.product_id)||0) + "; disponibles: " + Number(product?.stock_quantity || 0) + "." }, 409);
     }
     let subtotal = 0;
     const lines = items.map((item: any) => {
