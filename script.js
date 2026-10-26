@@ -154,34 +154,71 @@ function openCart(){ $('#cartDrawer').classList.add('open'); $('#drawerOverlay')
 function closeCart(){ $('#cartDrawer').classList.remove('open'); $('#drawerOverlay').classList.remove('show'); document.body.style.overflow=''; }
 function toast(msg,duration=1800){ const t=$('#toast'); if(!t)return; t.textContent=msg; t.classList.add('show'); clearTimeout(window.__toast); window.__toast=setTimeout(()=>t.classList.remove('show'),duration); }
 
-function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly){
+function getProductPaymentCapabilities(productData){
+  const item=productData||{};
+  const isDigital=item.deliveryType==="digital"||item.category==="Streaming";
+  const methods=Array.isArray(item.paymentMethods)&&item.paymentMethods.length
+    ? item.paymentMethods
+    : (isDigital?["bold"]:["bold","cash_on_delivery"]);
+  return {
+    allowBold:methods.includes("bold"),
+    allowContraentrega:!isDigital&&methods.includes("cash_on_delivery")&&!item.printfulEnabled,
+    digitalOnly:isDigital
+  };
+}
+
+function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,allowBold=true){
   const select=form?.querySelector('select[name="paymentMethod"]');
   const boldOption=select?.querySelector('option[value="bold"]');
   const codOption=select?.querySelector('option[value="cash_on_delivery"]');
-  if(boldOption)boldOption.textContent=digitalOnly?"Pagar en línea con Bold":"Pagar en línea con Bold · envío gratis";
-  if(codOption){codOption.hidden=!allowContraentrega;codOption.disabled=!allowContraentrega;}
-  if(select&&!allowContraentrega)select.value="bold";
+  if(boldOption){
+    boldOption.textContent=digitalOnly?"Pago anticipado con Bold":"Pago anticipado con Bold · envío gratis";
+    boldOption.hidden=!allowBold;
+    boldOption.disabled=!allowBold;
+  }
+  if(codOption){
+    codOption.textContent="Contraentrega · producto al recibirlo; flete anticipado";
+    codOption.hidden=!allowContraentrega;
+    codOption.disabled=!allowContraentrega;
+  }
+  if(select){
+    if(select.value==="bold"&&!allowBold)select.value="";
+    if(select.value==="cash_on_delivery"&&!allowContraentrega)select.value="";
+    if(allowBold&&!allowContraentrega)select.value="bold";
+    else if(!allowBold&&allowContraentrega)select.value="cash_on_delivery";
+  }
+
   const policy=form?.querySelector("[data-payment-policy]");
   const intro=form?.querySelector("[data-payment-intro]");
   if(digitalOnly){
-    if(intro)intro.textContent="Completa tus datos y paga los servicios digitales en línea con Bold. No hay envío físico ni contraentrega; si tienes dudas sobre un servicio, puedes consultarnos por WhatsApp antes de comprar.";
-    if(policy)policy.textContent="Este carrito contiene solo servicios digitales: se paga en línea con Bold y no aplica envío físico ni contraentrega. Si tienes preguntas sobre un servicio, consúltanos por WhatsApp antes de comprar.";
-  }else if(allowContraentrega){
-    if(intro)intro.textContent="Completa tus datos y elige cómo pagar. Con Bold el envío es gratis en productos físicos y en la pasarela podrás elegir uno de los medios habilitados. Con contraentrega pagas el producto al recibirlo y el flete se cotiza según destino y se paga por anticipado a la transportadora.";
-    if(policy)policy.textContent="Con Bold el envío es gratis y el cliente elige un medio habilitado en Bold. Con contraentrega, el producto se paga al recibirlo y el flete se cotiza según el destino y se paga por anticipado a la transportadora.";
+    if(intro)intro.textContent="Este carrito contiene servicios digitales: el pago se realiza por anticipado con Bold. No hay envío físico ni contraentrega.";
+    if(policy)policy.textContent="Los servicios digitales solo admiten pago anticipado con Bold. Si tienes preguntas sobre un servicio, puedes consultarnos por WhatsApp antes de comprar.";
+  }else if(allowBold&&allowContraentrega){
+    if(intro)intro.textContent="Completa tus datos y elige una de las formas de pago habilitadas. Con Bold pagas por anticipado y el envío es gratis; con contraentrega pagas el producto al recibirlo y el flete se paga antes a la transportadora.";
+    if(policy)policy.textContent="Puedes pagar anticipadamente con Bold y obtener envío gratis, o elegir contraentrega: el producto se paga al recibirlo y el flete se cotiza según el destino y se paga por anticipado a la transportadora.";
+  }else if(allowBold){
+    if(intro)intro.textContent="Este pedido solo admite pago anticipado con Bold. Completa tus datos y continúa al pago seguro; el envío de los productos físicos es gratis.";
+    if(policy)policy.textContent="El producto solo admite pago anticipado con Bold. La contraentrega no está disponible para los artículos de este pedido.";
   }else{
-    if(intro)intro.textContent="Completa tus datos y paga en línea con Bold. En este carrito hay productos físicos y servicios digitales, así que no está disponible la contraentrega; el envío de los productos físicos es gratis.";
-    if(policy)policy.textContent="Este carrito mezcla productos físicos y servicios digitales, por lo que solo está disponible el pago en línea con Bold. El envío de los productos físicos es gratis al pagar en línea.";
+    if(intro)intro.textContent="Este pedido solo admite contraentrega. Pagarás el producto al recibirlo; el costo del flete se cotiza según tu destino y se paga por anticipado a la transportadora.";
+    if(policy)policy.textContent="Solo puedes elegir contraentrega para este pedido. El producto se paga al recibirlo y el flete debe pagarse por anticipado a la transportadora.";
   }
 }
+
 function checkoutWhatsApp(){
   if(!cart.length){toast("Añade al menos un producto");return;}
+  const capabilities=cart.map(item=>getProductPaymentCapabilities(product(item.id)));
+  const allowBold=capabilities.every(item=>item.allowBold);
+  const allowContraentrega=capabilities.every(item=>item.allowContraentrega);
+  const digitalOnly=capabilities.every(item=>item.digitalOnly);
+  if(!allowBold&&!allowContraentrega){
+    toast("Los productos del carrito no comparten una forma de pago compatible. Haz pedidos separados o ajusta las formas de pago en administración.",6000);
+    return;
+  }
   renderCheckoutSummary();
-  const digitalOnly=cart.every(item=>product(item.id)?.deliveryType==="digital");
-  const allowContraentrega=cart.every(item=>product(item.id)?.deliveryType==="physical");
   const form=$("#checkoutForm");
   const deliveryFields=$("#cartDeliveryFields");if(deliveryFields)deliveryFields.hidden=digitalOnly;
-  configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly);
+  configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,allowBold);
   openCheckoutModal();
   window.NovaShopDB?.prefillCheckout?.(form).catch(err=>console.warn("Perfil no precargado:",err));
 }
@@ -336,6 +373,12 @@ async function submitCheckoutForm(event){
   if(missingColor){toast("En el carrito falta elegir el color de "+(missingColor.name||"uno de los productos")+". Elimina ese producto y vuelve a seleccionarlo desde su ficha.");return;}
   const useBold=data.paymentMethod==="bold";
   const useCOD=data.paymentMethod==="cash_on_delivery";
+  if(useBold&&cart.some(item=>!getProductPaymentCapabilities(product(item.id)).allowBold)){
+    toast("Uno de los productos del carrito no admite pago anticipado con Bold. Revisa los métodos de pago o realiza pedidos separados.");return;
+  }
+  if(useCOD&&cart.some(item=>!getProductPaymentCapabilities(product(item.id)).allowContraentrega)){
+    toast("Uno de los productos del carrito no admite contraentrega. Revisa los métodos de pago o realiza pedidos separados.");return;
+  }
   if(!useBold&&!useCOD){toast("Selecciona Bold o contraentrega para continuar.");return;}
   if(useCOD&&cart.some(item=>product(item.id)?.deliveryType!=="physical")){
     toast("La contraentrega solo está disponible para pedidos de productos físicos. Para servicios digitales, paga con Bold.");return;
