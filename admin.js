@@ -788,7 +788,7 @@ async function save(e){
   resetForm();
   if(!$("#productEditorModal")?.hidden)closeProductEditor(true);
   await loadProducts();
- }catch(err){status(err.message||"No se pudo guardar el producto.","error");}
+ }catch(err){renderCurrentMedia();status(err.message||"No se pudo guardar el producto.","error");}
  finally{submit.disabled=false;submit.textContent="Guardar producto";}
 }
 async function deactivate(id){if(!confirm("¿Ocultar este producto de la tienda? El historial de pedidos se conservará."))return;try{await call({action:"deactivate",id});status("Producto ocultado de la tienda.","success");await loadProducts();}catch(e){status(e.message||"No se pudo ocultar el producto.","error");}}
