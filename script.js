@@ -105,10 +105,11 @@ function renderProducts(){
       <div class="product-media"><img src="${p.images[0]}" alt="${p.name}" loading="lazy">${p.category==='Streaming'?'':(p.oldPrice?'<span class="tag">OFERTA</span>':(p.tag?'<span class="tag">'+p.tag+'</span>':''))}</div>
       <div class="product-body"><div class="category-label">${p.category}</div>${renderLiveRating(p.id)}<div class="product-title">${p.name}</div>
         <div class="price-row"><span class="price">${money(p.price)}</span>${p.oldPrice?`<span class="old-price">${money(p.oldPrice)}</span>`:''}</div>
+        ${Array.isArray(p.colorVariants)&&p.colorVariants.length?`<div class="product-card-colors"><span>Colores disponibles · ${p.colorVariants.length}</span><div>${p.colorVariants.slice(0,5).map(v=>`<i title="${escapeHTML(v.name||"Color")}" style="background:${/^#[0-9a-f]{6}$/i.test(String(v.hex||""))?v.hex:"#d1d5db"}"></i>`).join("")}</div></div>`:'' }
         <div class="product-fulfillment-note ${p.category==='Streaming'?'is-digital':'is-physical'}"><span aria-hidden="true">${p.category==='Streaming'?'💻':'🚚'}</span><span>${p.category==='Streaming'?'Servicio digital · sin envío físico':'Envío gratis pagando con Bold'}</span></div>
       </div>
     </a>
-    <div class="product-actions"><button class="add-btn" data-id="${p.id}">Añadir al carrito</button></div>
+    <div class="product-actions"><button class="add-btn" data-id="${p.id}">${Array.isArray(p.colorVariants)&&p.colorVariants.length?"Elegir color":"Añadir al carrito"}</button></div>
   </article>`).join('');
   const grid=$('#productGrid');
   grid.querySelectorAll('.product-card').forEach((card,index)=>{
