@@ -585,7 +585,8 @@ Deno.serve(async (req: Request) => {
       const colorVariants = rawColorVariants.map((item: any)=>({
         name:clean(item?.name,40),
         hex:clean(item?.hex,7).toLowerCase(),
-        images:Array.isArray(item?.images)?item.images.map((v: unknown)=>clean(v,1000)).slice(0,2):[]
+        images:Array.isArray(item?.images)?item.images.map((v: unknown)=>clean(v,1000)).slice(0,2):[],
+        printful_sync_variant_id:item?.printful_sync_variant_id==null||item?.printful_sync_variant_id===""?null:Number(item.printful_sync_variant_id)
       }));
       const seenColorNames = new Set<string>();
       for (const variant of colorVariants) {
@@ -593,8 +594,14 @@ Deno.serve(async (req: Request) => {
         if (!variant.name || !/^#[0-9a-f]{6}$/.test(variant.hex)) return json({error:"Cada variante debe tener un nombre y una muestra de color válidos."},400,origin);
         if (seenColorNames.has(key)) return json({error:"No repitas el nombre de un color."},400,origin);
         seenColorNames.add(key);
+        if (variant.printful_sync_variant_id!==null && (!Number.isSafeInteger(variant.printful_sync_variant_id)||variant.printful_sync_variant_id<=0)) return json({error:"El Printful Sync Variant ID por color debe ser un entero positivo."},400,origin);
         if (variant.images.length !== 2 || variant.images.some((url: string)=>!safeMediaUrl(url,supabaseUrl,false))) return json({error:"Cada color necesita una foto frontal y otra trasera almacenadas en NovaShop."},400,origin);
       }
+      const printfulEnabled = body.printful_enabled === true;
+      const printfulRaw = body.printful_sync_variant_id == null || body.printful_sync_variant_id === "" ? null : Number(body.printful_sync_variant_id);
+      if (printfulRaw !== null && (!Number.isSafeInteger(printfulRaw) || printfulRaw <= 0)) return json({error:"El Printful Sync Variant ID debe ser un entero positivo."},400,origin);
+      if (printfulEnabled && !colorVariants.length && printfulRaw === null) return json({error:"Para activar el envío automático a Printful, configura primero el Sync Variant ID del producto."},400,origin);
+      if (printfulEnabled && colorVariants.length && colorVariants.some((variant: any)=>variant.printful_sync_variant_id===null)) return json({error:"Para activar el envío automático a Printful, configura el Sync Variant ID de cada color."},400,origin);
       const video = body.video_url == null || body.video_url === "" ? null : clean(body.video_url,1000);
       const tag = clean(body.tag,30);
       const shipping = clean(body.shipping,500);
@@ -614,7 +621,7 @@ Deno.serve(async (req: Request) => {
       const payload = {
         name,category,delivery_type:delivery,price_cop:price,old_price_cop:oldPrice,
         description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,is_active:active,sort_order:sortOrder,
-        stock_quantity:stock,updated_at:new Date().toISOString()
+        stock_quantity:stock,printful_enabled:printfulEnabled,printful_sync_variant_id:printfulRaw,updated_at:new Date().toISOString()
       };
       const query = id === null
         ? admin.from("products").insert(payload).select("*").single()
