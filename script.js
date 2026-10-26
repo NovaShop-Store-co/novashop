@@ -199,6 +199,7 @@ function openCheckoutModal(){
   modal.classList.add('show');
   modal.setAttribute('aria-hidden','false');
   document.body.style.overflow='hidden';
+  window.NovaShopDeliveryMaps?.invalidate('checkoutDeliveryMap');
   const first=modal.querySelector('input[name="firstName"]');
   window.setTimeout(()=>first?.focus(),50);
 }
@@ -339,6 +340,12 @@ async function submitCheckoutForm(event){
   const needsAddress=cart.some(item=>product(item.id)?.deliveryType!=="digital");
   if(needsAddress&&(!data.address||!data.neighborhood||!data.city||!data.department)){
     toast("Para productos físicos, completa dirección, barrio, ciudad y departamento.");return;
+  }
+  const hasDeliveryPin=String(data.latitude??"").trim()!==""&&String(data.longitude??"").trim()!==""&&Number.isFinite(Number(data.latitude))&&Number.isFinite(Number(data.longitude))&&Math.abs(Number(data.latitude))<=90&&Math.abs(Number(data.longitude))<=180;
+  if(needsAddress&&!hasDeliveryPin){
+    const mapStatus=$("#checkoutMapStatus");if(mapStatus)mapStatus.textContent="Falta marcar el punto obligatorio de entrega en el mapa.";
+    $("#checkoutLocationCard")?.scrollIntoView({behavior:"smooth",block:"center"});
+    toast("Para comprar productos físicos, marca obligatoriamente tu ubicación en el mapa.");return;
   }
   if(useBold){
     try{
