@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
 
     const ids = items.map((x: any) => x.product_id);
     const { data: catalog, error: catalogError } = await admin
-      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants")
+      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,printful_enabled,printful_sync_variant_id")
       .in("id", ids).eq("is_active", true);
     if (catalogError) throw catalogError;
     if (!catalog || catalog.length !== ids.length) {
@@ -182,6 +182,22 @@ Deno.serve(async (req: Request) => {
       const p: any = catalogById.get(invalidVariant.product_id);
       return json({error:"Selecciona un color válido para "+clean(p?.name||"uno de los productos",140)+"."},400);
     }
+    const missingPrintfulMapping = items.find((item: any) => {
+      const p: any = catalogById.get(item.product_id);
+      if (!p?.printful_enabled) return false;
+      const variants = Array.isArray(p.color_variants) ? p.color_variants : [];
+      if (variants.length) {
+        const chosen = variants.find((v: any) => clean(v?.name,40) === item.selected_variant);
+        const syncId = Number(chosen?.printful_sync_variant_id);
+        return !Number.isSafeInteger(syncId) || syncId <= 0;
+      }
+      const syncId = Number(p.printful_sync_variant_id);
+      return !Number.isSafeInteger(syncId) || syncId <= 0;
+    });
+    if (missingPrintfulMapping) {
+      const p: any = catalogById.get(missingPrintfulMapping.product_id);
+      return json({error:"El producto "+clean(p?.name||"seleccionado",140)+" está configurado para Printful, pero falta el Sync Variant ID del color elegido."},400);
+    }
     const outOfStock = items.find((item: any) => {
       const product: any = catalogById.get(item.product_id);
       return product && product.stock_quantity !== null && product.stock_quantity !== undefined
@@ -195,9 +211,16 @@ Deno.serve(async (req: Request) => {
     const lines = items.map((item: any) => {
       const p: any = catalogById.get(item.product_id);
       subtotal += Number(p.price_cop) * item.quantity;
+      const variants = Array.isArray(p.color_variants) ? p.color_variants : [];
+      const chosenColor = variants.find((v: any) => clean(v?.name,40) === item.selected_variant);
+      const rawSyncId = p.printful_enabled
+        ? (variants.length ? chosenColor?.printful_sync_variant_id : p.printful_sync_variant_id)
+        : null;
+      const syncVariantId = rawSyncId == null || rawSyncId === "" ? null : Number(rawSyncId);
       return {
         product_id: p.id, product_name: p.name, unit_price_cop: p.price_cop,
         quantity: item.quantity, delivery_type: p.delivery_type, selected_variant: item.selected_variant || null,
+        printful_sync_variant_id: syncVariantId,
       };
     });
     if (!Number.isSafeInteger(subtotal) || subtotal <= 0 || subtotal > 100_000_000) {
@@ -240,6 +263,9 @@ Deno.serve(async (req: Request) => {
     if (!isBoldPayment && types.has("digital")) {
       return json({ error: "La contraentrega solo está disponible para pedidos exclusivamente de productos físicos. Para servicios digitales, paga con Bold." }, 400);
     }
+    if (!isBoldPayment && lines.some((line: any) => line.printful_sync_variant_id != null)) {
+      return json({ error: "Los productos configurados para fabricación y envío mediante Printful requieren pago en línea con Bold." }, 400);
+    }
     if (types.has("physical") && (latitude === null || longitude === null || !Number.isFinite(latitude) || !Number.isFinite(longitude))) {
       return json({ error: "Para pedidos con productos físicos, debes marcar obligatoriamente la ubicación de entrega en el mapa." }, 400);
     }
@@ -250,6 +276,7 @@ Deno.serve(async (req: Request) => {
     const { data: order, error: orderError } = await admin.from("orders").insert({
       user_id: userId,
       status: "pending_payment",
+      printful_status: lines.some((line: any) => line.printful_sync_variant_id != null) ? "pending" : "not_applicable",
       payment_status: "pending",
       payment_provider: isBoldPayment ? "bold" : "cash_on_delivery",
       shipping_fee_cop: isBoldPayment ? 0 : null,
