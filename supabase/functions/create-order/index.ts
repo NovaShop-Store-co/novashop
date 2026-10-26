@@ -73,12 +73,13 @@ Deno.serve(async (req: Request) => {
     const items = itemsInput.map((x: any) => ({
       product_id: Number(x?.product_id),
       quantity: Number(x?.quantity),
+      selected_variant: clean(x?.selected_variant,40),
     }));
     if (items.some((x: any) => !Number.isInteger(x.product_id) || !Number.isInteger(x.quantity) || x.quantity < 1 || x.quantity > 10)) {
       return json({ error: "Hay productos o cantidades no válidos." }, 400);
     }
-    if (new Set(items.map((x: any) => x.product_id)).size !== items.length) {
-      return json({ error: "Hay productos duplicados en el pedido." }, 400);
+    if (new Set(items.map((x: any) => String(x.product_id)+"::"+String(x.selected_variant||"").toLocaleLowerCase("es"))).size !== items.length) {
+      return json({ error: "Hay productos duplicados con la misma variante en el pedido." }, 400);
     }
     if (items.reduce((n: number, x: any) => n + x.quantity, 0) > 50) {
       return json({ error: "La cantidad total excede el límite por pedido." }, 400);
@@ -163,7 +164,7 @@ Deno.serve(async (req: Request) => {
 
     const ids = items.map((x: any) => x.product_id);
     const { data: catalog, error: catalogError } = await admin
-      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity")
+      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants")
       .in("id", ids).eq("is_active", true);
     if (catalogError) throw catalogError;
     if (!catalog || catalog.length !== ids.length) {
@@ -171,6 +172,16 @@ Deno.serve(async (req: Request) => {
     }
 
     const catalogById = new Map(catalog.map((p: any) => [p.id, p]));
+    const invalidVariant = items.find((item: any) => {
+      const p: any = catalogById.get(item.product_id);
+      const variants = Array.isArray(p?.color_variants) ? p.color_variants : [];
+      if (variants.length) return !item.selected_variant || !variants.some((v: any) => clean(v?.name,40) === item.selected_variant);
+      return !!item.selected_variant;
+    });
+    if (invalidVariant) {
+      const p: any = catalogById.get(invalidVariant.product_id);
+      return json({error:"Selecciona un color válido para "+clean(p?.name||"uno de los productos",140)+"."},400);
+    }
     const outOfStock = items.find((item: any) => {
       const product: any = catalogById.get(item.product_id);
       return product && product.stock_quantity !== null && product.stock_quantity !== undefined
@@ -186,7 +197,7 @@ Deno.serve(async (req: Request) => {
       subtotal += Number(p.price_cop) * item.quantity;
       return {
         product_id: p.id, product_name: p.name, unit_price_cop: p.price_cop,
-        quantity: item.quantity, delivery_type: p.delivery_type,
+        quantity: item.quantity, delivery_type: p.delivery_type, selected_variant: item.selected_variant || null,
       };
     });
     if (!Number.isSafeInteger(subtotal) || subtotal <= 0 || subtotal > 100_000_000) {
