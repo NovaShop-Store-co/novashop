@@ -19,7 +19,7 @@ function setAdminSection(name){
   button.classList.toggle("is-active",active);
  });
 }
-function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.slice(),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
+function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
 async function upload(file){const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});const {error}=await db.client.storage.from("products-media").uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type,upsert:false});if(error)throw error;return signed.publicUrl;}
 
@@ -606,19 +606,59 @@ function renderProducts(){
  box.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>editProduct(Number(b.dataset.edit))));
  box.querySelectorAll("[data-off]").forEach(b=>b.addEventListener("click",()=>deactivate(Number(b.dataset.off))));
 }
+function disposeEditingImagePreviews(){
+ editingImages.forEach(item=>{if(item?.previewUrl){URL.revokeObjectURL(item.previewUrl);item.previewUrl=null;}});
+}
+function addProductImages(input){
+ const files=Array.from(input?.files||[]);if(!files.length)return;
+ const allowed=["image/jpeg","image/png","image/webp","image/avif","image/gif"];
+ const invalid=files.find(file=>!allowed.includes(file.type));
+ if(invalid){status("La imagen "+invalid.name+" debe ser JPG, PNG, WEBP, AVIF o GIF.","error");input.value="";return;}
+ const tooLarge=files.find(file=>file.size>12*1024*1024);
+ if(tooLarge){status("La imagen "+tooLarge.name+" supera el máximo de 12 MB.","error");input.value="";return;}
+ if(editingImages.length+files.length>8){status("Un producto admite máximo 8 fotos en total. Quita una foto o selecciona menos.","error");input.value="";return;}
+ files.forEach(file=>editingImages.push({url:"",file,previewUrl:URL.createObjectURL(file)}));
+ input.value="";
+ const form=$("#adminProductForm");if(form)form.dataset.dirty="1";
+ renderCurrentMedia();
+ status("Fotos añadidas. La primera miniatura es la portada; puedes cambiarla con «Usar como portada».","success");
+}
 function renderCurrentMedia(){
  const form=$("#adminProductForm");
  const imageBox=$("#adminCurrentImages");
  const videoBox=$("#adminCurrentVideo");
  if(imageBox){
   imageBox.hidden=!editingImages.length;
-  imageBox.innerHTML=editingImages.map((url,index)=>'<div class="admin-current-image"><img src="'+esc(url)+'" alt="Imagen actual '+(index+1)+'" loading="lazy"><small>Imagen '+(index+1)+' de '+editingImages.length+'</small><button type="button" data-remove-current-image="'+index+'" aria-label="Quitar imagen '+(index+1)+'">Quitar</button></div>').join("");
+  imageBox.innerHTML=editingImages.map((item,index)=>{
+   const src=item.previewUrl||item.url||"";
+   const isCover=index===0;
+   const label=isCover?"PORTADA PRINCIPAL":"Foto "+(index+1);
+   const fileInfo=item.file?("Pendiente de subir · "+esc(item.file.name)+" · "+(item.file.size/1024/1024).toFixed(1)+" MB"):"Guardada en la tienda";
+   return '<div class="admin-current-image '+(isCover?"is-cover":"")+'" data-image-index="'+index+'">'+
+    '<img src="'+esc(src)+'" alt="'+esc(label)+" del producto"+'" loading="lazy">'+
+    (isCover?'<span class="admin-cover-badge">PORTADA</span>':'')+
+    '<small><strong>'+label+'</strong><br>'+fileInfo+'</small>'+
+    '<div class="admin-image-actions">'+
+     (isCover?'<span class="admin-cover-current">✓ Es la portada</span>':'<button type="button" data-make-cover="'+index+'" aria-label="Usar la foto '+(index+1)+' como portada">Usar como portada</button>')+
+     '<button type="button" class="admin-image-remove" data-remove-current-image="'+index+'" aria-label="Quitar foto '+(index+1)+'">Quitar</button>'+
+    '</div></div>';
+  }).join("");
+  imageBox.querySelectorAll("[data-make-cover]").forEach(button=>button.addEventListener("click",()=>{
+   const index=Number(button.dataset.makeCover);
+   if(!Number.isInteger(index)||index<=0||index>=editingImages.length)return;
+   const [chosen]=editingImages.splice(index,1);editingImages.unshift(chosen);
+   if(form)form.dataset.dirty="1";
+   renderCurrentMedia();
+   status("Portada actualizada. Guarda el producto para publicar el cambio.","success");
+  }));
   imageBox.querySelectorAll("[data-remove-current-image]").forEach(button=>button.addEventListener("click",()=>{
    const index=Number(button.dataset.removeCurrentImage);
    if(!Number.isInteger(index)||index<0||index>=editingImages.length)return;
-   editingImages.splice(index,1);
+   const [removed]=editingImages.splice(index,1);
+   if(removed?.previewUrl)URL.revokeObjectURL(removed.previewUrl);
    if(form)form.dataset.dirty="1";
    renderCurrentMedia();
+   status(editingImages.length?"Foto quitada. Guarda el producto para publicar el cambio.":"Ya no hay fotos. Añade al menos una antes de guardar.","info");
   }));
  }
  if(videoBox){
@@ -688,7 +728,7 @@ function editProduct(id){
  f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.sort_order.value=p.sort_order??100;
  f.elements.description.value=p.description||"";f.elements.features.value=(p.features||[]).join("\n");
  f.elements.tag.value=p.tag||"";f.elements.shipping.value=p.shipping||"";f.elements.printful_enabled.checked=!!p.printful_enabled;f.elements.printful_sync_variant_id.value=p.printful_sync_variant_id??"";f.elements.is_active.checked=!!p.is_active;
- editingImages=(p.images||[]).filter(Boolean).slice();editingVideo=p.video_url||null;disposeColorVariantPreviews();editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
+ disposeEditingImagePreviews();editingImages=(p.images||[]).filter(Boolean).map(url=>({url,file:null,previewUrl:null}));editingVideo=p.video_url||null;disposeColorVariantPreviews();editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
  f.dataset.dirty="0";renderColorVariants();
  $("#adminFormTitle").textContent="Editar producto #"+p.id;
  $("#resetAdminForm").textContent="Cancelar edición";
@@ -698,7 +738,7 @@ function editProduct(id){
 function resetForm(){
  const form=$("#adminProductForm");
  form.reset();form.elements.id.value="";form.elements.stock_quantity.value="";form.elements.sort_order.value="100";form.elements.printful_sync_variant_id.value="";form.elements.printful_enabled.checked=false;form.elements.is_active.checked=true;
- form.dataset.dirty="0";editingImages=[];editingVideo=null;disposeColorVariantPreviews();editingColorVariants=[];renderColorVariants();
+ form.dataset.dirty="0";disposeEditingImagePreviews();editingImages=[];editingVideo=null;disposeColorVariantPreviews();editingColorVariants=[];renderColorVariants();
  $("#adminFormTitle").textContent="Añadir nuevo producto";
  $("#resetAdminForm").textContent="Limpiar";
  renderCurrentMedia();
@@ -707,10 +747,10 @@ async function save(e){
  e.preventDefault();const f=e.currentTarget;if(!f.reportValidity())return;
  const submit=f.querySelector('[type="submit"]');submit.disabled=true;submit.textContent="Subiendo y guardando…";
  try{
-  const imageFiles=Array.from(f.elements.images.files||[]),videoFile=f.elements.video.files?.[0]||null;
-  if(!editingImages.length&&!imageFiles.length)throw new Error("Sube al menos una foto del producto.");
-  if(imageFiles.length+editingImages.length>8)throw new Error("Un producto admite máximo 8 imágenes; quita algunas fotos anteriores o selecciona menos.");
-  for(const file of imageFiles){if(file.size>12*1024*1024)throw new Error("La imagen "+file.name+" supera 12 MB.");}
+  const videoFile=f.elements.video.files?.[0]||null;
+  if(!editingImages.length)throw new Error("Sube al menos una foto del producto.");
+  if(editingImages.length>8)throw new Error("Un producto admite máximo 8 imágenes; quita algunas fotos anteriores o selecciona menos.");
+  for(const item of editingImages){if(item.file&&item.file.size>12*1024*1024)throw new Error("La imagen "+item.file.name+" supera 12 MB.");}
   if(videoFile&&videoFile.size>50*1024*1024)throw new Error("El video supera 50 MB.");
   if(editingColorVariants.length>12)throw new Error("Un producto admite hasta 12 variantes de color.");
   if(f.elements.printful_enabled.checked){
@@ -726,7 +766,14 @@ async function save(e){
    if(!(v.frontImage||v.frontFile)||!(v.backImage||v.backFile))throw new Error("Cada color necesita una foto frontal y otra trasera.");
    for(const file of [v.frontFile,v.backFile].filter(Boolean))if(file.size>12*1024*1024)throw new Error("Cada foto de color debe pesar máximo 12 MB.");
   }
-  for(const file of imageFiles)editingImages.push(await upload(file));
+  for(const item of editingImages){
+   if(item.file){
+    item.url=await upload(item.file);
+    item.file=null;
+    if(item.previewUrl){URL.revokeObjectURL(item.previewUrl);item.previewUrl=null;}
+   }
+  }
+  renderCurrentMedia();
   if(videoFile)editingVideo=await upload(videoFile);
   const colorVariantsToSave=[];
   for(const variant of editingColorVariants){
@@ -735,7 +782,7 @@ async function save(e){
    if(variant.backFile)back=await upload(variant.backFile);
    colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:[front,back],printful_sync_variant_id:variant.printful_sync_variant_id?Number(variant.printful_sync_variant_id):null});
   }
-  const payload=formData();payload.images=editingImages;payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
+  const payload=formData();payload.images=editingImages.map(item=>item.url).filter(Boolean);payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
   const result=await call({action:"save",...payload});
   if(result.product){status("Producto guardado: "+result.product.name+". El catálogo de la tienda se actualizará al recargar.", "success");}
   resetForm();
@@ -758,6 +805,7 @@ async function init(){
  productForm.addEventListener("change",event=>{
   if(productForm.elements.id.value)productForm.dataset.dirty="1";
   if(event.target===productForm.elements.video)renderCurrentMedia();
+  if(event.target===productForm.elements.images)addProductImages(event.target);
  });
  $("#closeProductEditor")?.addEventListener("click",()=>closeProductEditor());
  document.querySelectorAll("[data-admin-tab]").forEach(button=>button.addEventListener("click",()=>setAdminSection(button.dataset.adminTab)));
