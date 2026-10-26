@@ -38,7 +38,7 @@ En el panel de Supabase, configura Site URL y Redirect URLs con el dominio publi
 
 The account page supports passwordless one-time codes. Email OTP requires Supabase Auth email configuration and the Magic Link/OTP template to use `{{ .Token }}`; a production SMTP sender is recommended. SMS OTP requires enabling Phone Auth and configuring a supported SMS provider in Supabase. SMS providers may charge per message.
 
-The signup form collects first/last name, phone, email, a written delivery address and a map pin. For guest checkouts, physical delivery forms also include a map pin; coordinates are sent with the order when selected. The pin is a supplement, not a replacement for street address, neighborhood, city and department.
+The signup form collects first/last name, phone, email, a written delivery address and an optional saved map pin. Every checkout containing physical products requires valid latitude and longitude; the storefront checks this before submission and the `create-order` Edge Function also rejects physical orders without coordinates. The written street address, neighborhood, city and department remain required and are not replaced by the map pin.
 
 ## Administrator product catalog
 
@@ -71,7 +71,9 @@ NovaShop has a Bold custom checkout integration in place. Orders are created on 
 - Función segura: `supabase/functions/admin-products/index.ts`
 - El servidor comprueba que el usuario autenticado esté en `public.store_admins`.
 - Para conceder acceso, crea primero la cuenta de usuario y ejecuta un `INSERT INTO public.store_admins (user_id)` usando el UUID de esa cuenta desde el SQL Editor privado de Supabase. No abras permisos de escritura directos en la tabla a usuarios normales.
-- El panel permite cargar hasta 8 fotos (12 MB cada una) y un video (máximo 50 MB) al bucket `products-media`, editar nombre, descripción, categoría, precio y ocultar productos.
+- El panel está organizado por secciones (resumen, ventas/pedidos, catálogo/inventario, promociones, reseñas y usuarios/roles).
+- Permite cargar hasta 8 fotos (12 MB cada una) y un video de producto (MP4 recomendado, WEBM o MOV; máximo 50 MB) al bucket `products-media`, editar nombre, descripción, categoría, precio y ocultar productos.
+- La ficha del producto muestra el video en un reproductor adaptable 16:9 estilo tienda de videojuegos. El archivo se guarda tal como se sube: no se realiza transcodificación automática; MP4 con H.264 ofrece la compatibilidad más amplia.
 
 
 ## Registro y acceso v16
