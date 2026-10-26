@@ -561,6 +561,18 @@ function renderProductMedia(){
 
 function renderProduct() {
   document.title = `${currentProduct.name} — ${CONFIG.storeName}`;
+  const seoDescription = String(currentProduct.description || `Compra ${currentProduct.name} en NovaShop Colombia.`)
+    .replace(/\s+/g, " ").trim().slice(0, 155);
+  const descriptionMeta = document.querySelector('meta[name="description"]');
+  if (descriptionMeta) descriptionMeta.setAttribute("content", seoDescription);
+  const productCanonical = new URL(`producto.html?id=${encodeURIComponent(currentProduct.id)}`, window.location.origin + "/").href;
+  let canonicalMeta = document.querySelector('link[rel="canonical"]');
+  if (!canonicalMeta) {
+    canonicalMeta = document.createElement("link");
+    canonicalMeta.rel = "canonical";
+    document.head.appendChild(canonicalMeta);
+  }
+  canonicalMeta.href = productCanonical;
   const isDigitalProduct=currentProduct.category==='Streaming'||currentProduct.deliveryType==='digital';
 
   $('#breadcrumbCategory').textContent = currentProduct.category;
