@@ -455,7 +455,7 @@ function renderProductMedia(){
  if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=firstImage;}
  $("#productThumbnails").innerHTML=galleryImages.map((image,index)=>{
   const label=selectedColorVariant?(index===0?"Vista frontal":"Vista trasera"):("Ver imagen "+(index+1));
-  return '<button class="thumbnail '+(index===0?"active":"")+'" type="button" data-index="'+index+'" aria-label="'+escProduct(label+(selectedColorVariant?" del color "+selectedColorVariant.name:""))+'"><img src="'+escProduct(image)+'" alt="'+escProduct(titlePrefix+" · "+label)+'"></button>';
+  return '<button class="thumbnail '+(index===0?"active":"")+'" type="button" data-index="'+index+'" aria-label="'+escProduct(label+(selectedColorVariant?" del color "+selectedColorVariant.name:""))+'"><img src="'+escProduct(image)+'" alt="'+escProduct(titlePrefix+" · "+label)+'">'+(selectedColorVariant?'<span class="product-thumbnail-label">'+(index===0?"FRENTE":"ESPALDA")+'</span>':"")+'</button>';
  }).join("")+(currentProduct.videoUrl?'<button class="thumbnail video-thumbnail" type="button" data-video="true" aria-label="Reproducir video del producto"><span>▶</span><small>Ver video</small></button>':"");
  $("#productThumbnails").querySelectorAll(".thumbnail").forEach(button=>button.addEventListener("click",()=>{
   $("#productThumbnails").querySelectorAll(".thumbnail").forEach(item=>item.classList.remove("active"));button.classList.add("active");
