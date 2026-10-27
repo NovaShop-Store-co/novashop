@@ -28,9 +28,7 @@
     const due = order.cash_on_delivery_due_cop == null
       ? (Number(order.total_cop || 0) - fee)
       : Number(order.cash_on_delivery_due_cop);
-    if (balance) balance.textContent =
-      "Anticipo de envío con Bold: " + money(fee) +
-      " · Saldo del producto al recibir: " + money(due) + ".";
+    if (balance) balance.textContent = money(due);
   }
 
   function hidePayAsPaid(order = {}) {
@@ -64,7 +62,9 @@
         return;
       }
       renderBalance(result?.order || {});
-      setStatus("Paga los $12.000 COP del envío con Bold. El resto se cobra al recibir el producto. El pedido no se despachará hasta confirmar este pago.");
+      payButton.textContent = "Pagar $12.000 de envío con Bold";
+      payButton.disabled = false;
+      setStatus("Paso 1 de 2: completa el anticipo de $12.000 con Bold. Después, pagarás a la transportadora únicamente el saldo que aparece arriba.", "info");
     } catch (error) {
       payButton.disabled = false;
       payButton.textContent = "Reintentar preparar pago de envío";
