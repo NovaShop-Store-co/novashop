@@ -166,7 +166,16 @@
   const {data:{session}}=await client.auth.getSession();
   if(!session)throw new Error("Inicia sesión con tu cuenta administrativa.");
   const {data,error}=await client.functions.invoke("admin-products",{body,headers:{Authorization:"Bearer "+session.access_token}});
-  if(error)throw error;
+  if(error){
+   let serverMessage="";
+   try{
+    const response=error.context;
+    const payload=response?.clone?await response.clone().json():null;
+    if(payload?.error)serverMessage=String(payload.error);
+   }catch(_){}
+   if(serverMessage)throw new Error(serverMessage);
+   throw error;
+  }
   if(data?.error)throw new Error(data.error);
   return data;
  }
