@@ -198,19 +198,36 @@ Deno.serve(async (req: Request) => {
       if (!canManageUsers) return json({error:"Solo propietario y administrador pueden consultar pedidos."},403,origin);
       const allowedStatuses = new Set(["pending_payment","paid","preparing","shipped","delivered","cancelled","payment_failed","refunded"]);
       const requestedStatus = clean(body.status,40);
+      const requestedSearch = clean(body.search,100)
+        .replace(/[^\\p{L}\\p{N}@.+\\- ]/gu," ")
+        .replace(/\\s+/g," ").trim();
       const limit = Math.max(1,Math.min(100,Math.trunc(Number(body.limit)||40)));
       const offset = Math.max(0,Math.min(100000,Math.trunc(Number(body.offset)||0)));
       if (requestedStatus && requestedStatus !== "all" && !allowedStatuses.has(requestedStatus)) {
         return json({error:"Filtro de estado no válido."},400,origin);
       }
       let query = admin.from("orders").select(
-        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant)"
-      ).order("created_at",{ascending:false}).range(offset,offset+limit-1);
+        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant)",
+        {count:"exact"}
+      );
       if (requestedStatus && requestedStatus !== "all") query = query.eq("status",requestedStatus);
-      const {data,error} = await query;
+      if (requestedSearch) {
+        const safeSearch = requestedSearch.replace(/\\/g,"\\\\").replace(/"/g,'\\"');
+        const pattern = `"%${safeSearch}%"`;
+        query = query.or([
+          `order_number.ilike.${pattern}`,
+          `customer_first_name.ilike.${pattern}`,
+          `customer_last_name.ilike.${pattern}`,
+          `customer_email.ilike.${pattern}`,
+          `customer_phone.ilike.${pattern}`,
+          `city.ilike.${pattern}`
+        ].join(","));
+      }
+      query = query.order("created_at",{ascending:false}).range(offset,offset+limit-1);
+      const {data,error,count} = await query;
       if (error) throw error;
       const rows = data || [];
-      return json({ok:true,orders:rows,offset,limit,hasMore:rows.length===limit},200,origin);
+      return json({ok:true,orders:rows,offset,limit,hasMore:offset+rows.length<(count||0),totalCount:count??rows.length},200,origin);
     }
 
     if (action === "update-order-status") {
