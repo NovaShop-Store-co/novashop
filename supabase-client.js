@@ -54,7 +54,7 @@
    if(local){
     local.name=row.name;local.category=row.category;local.price=Number(row.price_cop);local.deliveryType=row.delivery_type;local.paymentMethods=Array.isArray(row.payment_methods)?row.payment_methods:(row.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]);local.printfulEnabled=!!row.printful_enabled;
     local.colorVariants=Array.isArray(row.color_variants)?row.color_variants:[];
-    local.videoUrl=row.video_url||null;local.colorVariants=Array.isArray(row.color_variants)?row.color_variants:[];if(images.length){local.images=images;local.description=row.description||local.description;local.features=row.features||local.features;local.shipping=row.shipping||local.shipping;}
+    local.videoUrl=row.video_url||null;if(images.length){local.images=images;local.description=row.description||local.description;local.features=row.features||local.features;local.shipping=row.shipping||local.shipping;}
     if(row.old_price_cop!=null)local.oldPrice=Number(row.old_price_cop);
     else if(row.category==="Streaming")local.oldPrice=null;
     local.tag=row.category==="Streaming"?"DIGITAL":(row.old_price_cop!=null?(row.tag||"OFERTA"):(row.tag||local.tag||"DESTACADO"));
