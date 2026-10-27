@@ -589,6 +589,19 @@ function renderProduct() {
   $('#productPrice').textContent = money(currentProduct.price);
   $('#productOldPrice').textContent = currentProduct.oldPrice ? money(currentProduct.oldPrice) : '';
   $('#productDiscount').textContent = currentProduct.oldPrice ? currentProduct.tag : '';
+  const codPaymentInfo=$('#productCODPaymentInfo');
+  const paymentMethods=Array.isArray(currentProduct.paymentMethods)&&currentProduct.paymentMethods.length
+    ? currentProduct.paymentMethods
+    : (isDigitalProduct?['bold']:['bold','cash_on_delivery']);
+  const allowsCOD=!isDigitalProduct&&paymentMethods.includes('cash_on_delivery')&&!currentProduct.printfulEnabled;
+  if(codPaymentInfo){
+    codPaymentInfo.hidden=!allowsCOD;
+    if(allowsCOD&&Number(currentProduct.price)>12000){
+      codPaymentInfo.textContent='Si eliges contraentrega: paga $12.000 por Bold como anticipo de envío y '+money(Number(currentProduct.price)-12000)+' al recibir el producto. El anticipo se descuenta del precio publicado.';
+    }else if(allowsCOD){
+      codPaymentInfo.textContent='Para usar contraentrega, el total debe superar el anticipo de $12.000 pagado por Bold.';
+    }
+  }
   $('#productDescription').textContent = currentProduct.description;
   $('#longDescription').textContent = currentProduct.description;
   $('#longDescriptionHeading').textContent = isDigitalProduct ? 'Sobre este servicio' : 'Descripción del producto';
