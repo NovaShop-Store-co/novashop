@@ -318,7 +318,7 @@ function configureProductPaymentMethods(form){
     if(intro)intro.textContent="Completa tus datos y elige la forma de pago disponible. Al pagar en línea, el envío es gratis. Si eliges contraentrega, el producto se paga al recibirlo y el envío se paga por anticipado a la transportadora.";
     if(policy)policy.textContent="Al pagar en línea, el envío es gratis. Con contraentrega pagas el producto al recibirlo y el envío, según tu destino, por anticipado a la transportadora.";
   }else{
-    if(intro)intro.textContent="Completa tus datos y paga este servicio digital en línea con Bold. No hay envío físico ni contraentrega; si tienes dudas del servicio, puedes consultarnos por WhatsApp antes de comprar.";
+    if(intro)intro.textContent="Completa tus datos y continúa al pago en línea. Este servicio es digital, así que no requiere envío físico ni permite contraentrega. Si tienes dudas, escríbenos antes de comprar.";
     if(policy)policy.textContent="Este es un servicio digital: se paga por anticipado en línea y no requiere envío físico. Si tienes preguntas, escríbenos por WhatsApp antes de comprar.";
   }
 }
