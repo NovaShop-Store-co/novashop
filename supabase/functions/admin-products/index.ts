@@ -160,16 +160,23 @@ Deno.serve(async (req: Request) => {
       if(carrier.length>80||tracking.length>100||(eta&&!/^\d{4}-\d{2}-\d{2}$/.test(eta)))return json({error:"Revisa la transportadora, guía y fecha estimada."},400,origin);
       if(fee!==null&&(!Number.isSafeInteger(fee)||fee<0||fee>100000000))return json({error:"El costo del envío debe ser un importe entero entre $0 y $100.000.000."},400,origin);
       const {data:current,error:lookupError}=await admin.from("orders")
-        .select("id,order_number,payment_provider,delivery_type").eq("id",orderId).maybeSingle();
+        .select("id,order_number,payment_provider,delivery_type,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference").eq("id",orderId).maybeSingle();
       if(lookupError)throw lookupError;
       if(!current)return json({error:"No encontramos ese pedido."},404,origin);
       if(current.delivery_type==="digital")return json({error:"Los pedidos digitales no requieren una transportadora."},400,origin);
 
       let shippingFee: number|null=fee;
       let shippingPaymentStatus="pending";
+      const fixedCODFreight = current.payment_provider==="cash_on_delivery" && current.cash_on_delivery_due_cop!==null && current.cash_on_delivery_due_cop!==undefined;
       if(current.payment_provider==="bold"){
         shippingFee=0;
         shippingPaymentStatus="not_required";
+      }else if(fixedCODFreight){
+        if(fee!==12000)return json({error:"El anticipo de envío de estos pedidos está fijado en $12.000 COP y no se puede cambiar manualmente."},400,origin);
+        if(shippingPaid && current.shipping_payment_status!=="approved")return json({error:"El anticipo de $12.000 solo puede marcarse como pagado después de que Bold confirme el pago."},409,origin);
+        if(!shippingPaid && current.shipping_payment_status==="approved")return json({error:"El pago de flete ya fue confirmado por Bold y no puede desmarcarse aquí."},409,origin);
+        shippingFee=12000;
+        shippingPaymentStatus=current.shipping_payment_status==="approved"?"approved":"pending";
       }else{
         if(shippingFee===0)return json({error:"Los pedidos contraentrega no tienen envío gratis; registra el costo real de la transportadora."},400,origin);
         if(shippingPaid&&shippingFee===null)return json({error:"Registra primero el costo del flete antes de marcarlo como pagado."},400,origin);
@@ -184,7 +191,7 @@ Deno.serve(async (req: Request) => {
         updated_at:new Date().toISOString()
       }).eq("id",orderId).select("id,order_number,payment_provider,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,updated_at").single();
       if(error)throw error;
-      return json({ok:true,order:updated,message:shippingPaymentStatus==="approved"?"Datos guardados; flete marcado como pagado.":shippingPaymentStatus==="not_required"?"Envío gratis con pago en línea Bold.":"Cotización de envío guardada; falta registrar el pago anticipado del flete."},200,origin);
+      return json({ok:true,order:updated,message:shippingPaymentStatus==="not_required"?"Envío gratis con pago en línea Bold.":(fixedCODFreight?(shippingPaymentStatus==="approved"?"Anticipo de envío de $12.000 pagado y confirmado por Bold.":"Datos guardados; el anticipo de $12.000 sigue pendiente de pago por Bold."):shippingPaymentStatus==="approved"?"Datos guardados; flete marcado como pagado.":"Cotización de envío guardada; falta registrar el pago anticipado del flete.")},200,origin);
     }
 
     if (action === "list-orders") {
@@ -197,7 +204,7 @@ Deno.serve(async (req: Request) => {
         return json({error:"Filtro de estado no válido."},400,origin);
       }
       let query = admin.from("orders").select(
-        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant)"
+        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant)"
       ).order("created_at",{ascending:false}).range(offset,offset+limit-1);
       if (requestedStatus && requestedStatus !== "all") query = query.eq("status",requestedStatus);
       const {data,error} = await query;
