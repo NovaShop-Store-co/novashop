@@ -124,8 +124,8 @@ Deno.serve(async (req: Request) => {
       if (order.payment_provider !== "cash_on_delivery" || order.currency !== "COP" || Number(order.shipping_fee_cop) !== 12000) {
         return json({ error: "Este pedido no tiene configurado el flete fijo de contraentrega de $12.000 COP." }, 409);
       }
-      if (["cancelled","refunded","payment_failed"].includes(order.status)) {
-        return json({ error: "Este pedido está cerrado y no acepta pagos de envío." }, 409);
+      if (order.status !== "pending_payment") {
+        return json({ error: "El pedido ya no está en estado pendiente y no se puede iniciar un nuevo pago de envío." }, 409);
       }
       if (order.shipping_payment_status === "approved") {
         return json({ ok: true, already_paid: true, order: {
