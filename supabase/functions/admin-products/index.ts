@@ -199,8 +199,8 @@ Deno.serve(async (req: Request) => {
       const allowedStatuses = new Set(["pending_payment","paid","preparing","shipped","delivered","cancelled","payment_failed","refunded"]);
       const requestedStatus = clean(body.status,40);
       const requestedSearch = clean(body.search,100)
-        .replace(/[^\\p{L}\\p{N}@.+\\- ]/gu," ")
-        .replace(/\\s+/g," ").trim();
+        .replace(/[^\p{L}\p{N}@.+\- ]/gu," ")
+        .replace(/\s+/g," ").trim();
       const limit = Math.max(1,Math.min(100,Math.trunc(Number(body.limit)||40)));
       const offset = Math.max(0,Math.min(100000,Math.trunc(Number(body.offset)||0)));
       if (requestedStatus && requestedStatus !== "all" && !allowedStatuses.has(requestedStatus)) {
@@ -213,14 +213,14 @@ Deno.serve(async (req: Request) => {
       if (requestedStatus && requestedStatus !== "all") query = query.eq("status",requestedStatus);
       if (requestedSearch) {
         const safeSearch = requestedSearch.replace(/\\/g,"\\\\").replace(/"/g,'\\"');
-        const pattern = `"%${safeSearch}%"`;
+        const pattern = '"%' + safeSearch + '%"';
         query = query.or([
-          `order_number.ilike.${pattern}`,
-          `customer_first_name.ilike.${pattern}`,
-          `customer_last_name.ilike.${pattern}`,
-          `customer_email.ilike.${pattern}`,
-          `customer_phone.ilike.${pattern}`,
-          `city.ilike.${pattern}`
+          "order_number.ilike."+pattern,
+          "customer_first_name.ilike."+pattern,
+          "customer_last_name.ilike."+pattern,
+          "customer_email.ilike."+pattern,
+          "customer_phone.ilike."+pattern,
+          "city.ilike."+pattern
         ].join(","));
       }
       query = query.order("created_at",{ascending:false}).range(offset,offset+limit-1);
