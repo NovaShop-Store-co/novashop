@@ -219,3 +219,13 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
  .floating-help-icon{width:34px;height:34px}
 }
 @media(prefers-reduced-motion:reduce){.floating-product-help{transition:none}}
+
+
+/* v16: seamless announcement ticker — each duplicated group fills at least the viewport. */
+.announcement{overflow:hidden;}
+.announcement-viewport{display:block;width:100%;overflow:hidden;}
+.announcement-track{display:flex;width:max-content;min-width:200%;animation:novaShopMarqueeV16 24s linear infinite!important;transform:translate3d(0,0,0);will-change:transform;}
+.announcement-group{box-sizing:border-box;flex:0 0 max-content;min-width:100vw;justify-content:space-around;gap:22px;padding:0 22px;}
+@keyframes novaShopMarqueeV16{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+@media(max-width:600px){.announcement-track{animation-duration:19s!important}.announcement-group{gap:15px;padding:0 15px}.announcement-group span{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.announcement-track{animation-duration:32s!important}}
