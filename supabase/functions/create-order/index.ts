@@ -273,6 +273,10 @@ Deno.serve(async (req: Request) => {
       usedCoupon = coupon;
     }
     const totalCop = subtotal - discountCop;
+    const codShippingFeeCop = 12000;
+    if (!isBoldPayment && totalCop <= codShippingFeeCop) {
+      return json({ error: "Para contraentrega, el total debe superar los $12.000 COP del anticipo de envío. Elige Bold o ajusta el cupón." }, 400);
+    }
     if (isBoldPayment && totalCop < 1000) {
       return json({ error: "El total después del descuento debe ser de al menos $1.000 COP para pagar con Bold. Cambia el cupón o selecciona otro importe." }, 400);
     }
@@ -297,8 +301,11 @@ Deno.serve(async (req: Request) => {
       printful_status: lines.some((line: any) => line.printful_sync_variant_id != null) ? "pending" : "not_applicable",
       payment_status: "pending",
       payment_provider: isBoldPayment ? "bold" : "cash_on_delivery",
-      shipping_fee_cop: isBoldPayment ? 0 : null,
+      shipping_fee_cop: isBoldPayment ? 0 : codShippingFeeCop,
+      cash_on_delivery_due_cop: isBoldPayment ? null : totalCop - codShippingFeeCop,
       shipping_payment_status: isBoldPayment ? "not_required" : "pending",
+      shipping_payment_reference: null,
+      shipping_payment_transaction_id: null,
       currency: "COP",
       subtotal_cop: subtotal,
       discount_cop: discountCop,
@@ -320,7 +327,7 @@ Deno.serve(async (req: Request) => {
       postal_code: postalCode || null,
       delivery_reference: reference || null,
       preferred_payment_method: paymentMethod || null,
-    }).select("id,order_number,status,payment_status,payment_provider,shipping_fee_cop,shipping_payment_status,subtotal_cop,discount_cop,total_cop,coupon_code,created_at").single();
+    }).select("id,order_number,status,payment_status,payment_provider,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,subtotal_cop,discount_cop,total_cop,coupon_code,created_at").single();
     if (orderError) throw orderError;
 
     const orderLines = lines.map((line: any) => ({ ...line, order_id: order.id }));
