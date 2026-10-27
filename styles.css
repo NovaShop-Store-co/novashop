@@ -239,6 +239,8 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 .product-color-swatch{min-height:48px;gap:9px;padding:8px 12px;border-radius:13px;font-size:12px;box-shadow:0 2px 5px rgba(18,38,58,.025)}
 .product-color-swatch[aria-pressed=true]{border:2px solid #142b40;background:#f2f7fa;box-shadow:0 0 0 3px rgba(20,43,64,.09)}
 .product-color-swatch .product-color-dot{width:29px;height:29px;border-radius:50%;border:1px solid #c1ccd5;box-shadow:inset 0 0 0 2px #ffffff50;display:inline-block;flex:0 0 auto}
+.product-color-swatch .product-color-preview{width:56px;height:64px;object-fit:cover;object-position:center;border-radius:8px;border:1px solid #dbe3e9;background:#fff;flex:0 0 auto}
+@media(max-width:560px){.product-color-swatch .product-color-preview{width:44px;height:52px}}
 .product-color-swatch .product-color-check{color:#17683f;font-size:10px;white-space:nowrap}
 .product-color-swatch:focus-visible{outline:3px solid rgba(241,90,59,.28);outline-offset:3px}
 .product-color-help{font-size:11px;line-height:1.65}
