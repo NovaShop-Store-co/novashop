@@ -138,13 +138,13 @@ function addToCart(id){
   if(p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast('Este producto está agotado');return;}
   if(found){if(p.stockQuantity!=null&&found.qty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}found.qty++;}
   else cart.push({id:p.id,name:p.name,price:p.price,image:p.images[0],qty:1});
-  saveCart(); renderCart(); openCart(); toast('Producto añadido al carrito');
+  saveCart(); renderCart(); openCart(); toast('¡Listo! Añadimos el producto a tu carrito');
 }
 function changeQty(index,delta){const item=cart[index];if(!item)return;const p=product(Number(item.id));const productQty=cart.filter(row=>Number(row.id)===Number(item.id)).reduce((sum,row)=>sum+Number(row.qty||0),0);if(delta>0&&p?.stockQuantity!=null&&productQty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}item.qty+=delta;if(item.qty<=0)cart.splice(index,1);saveCart();renderCart();}
 function removeItem(index){if(!Number.isInteger(index)||index<0||index>=cart.length)return;cart.splice(index,1);saveCart();renderCart();}
 function renderCart(){
   $('#cartCount').textContent=cartCount();
-  if(!cart.length){ $('#cartItems').innerHTML='<div class="cart-empty">Tu carrito está vacío.<br>Añade productos para comenzar.</div>'; $('#cartSubtotal').textContent=money(0); return; }
+  if(!cart.length){ $('#cartItems').innerHTML='<div class="cart-empty">Tu carrito está esperando algo que te guste.<br>Explora la tienda y añade tu primer producto.</div>'; $('#cartSubtotal').textContent=money(0); return; }
   $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
   $('#cartSubtotal').textContent=money(cartTotal());
   document.querySelectorAll('#cartItems button').forEach(b=>b.addEventListener('click',()=>{const index=Number(b.dataset.index);const a=b.dataset.action;if(a==='dec')changeQty(index,-1);if(a==='inc')changeQty(index,1);if(a==='remove')removeItem(index);}));
@@ -172,7 +172,7 @@ function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,all
   const boldOption=select?.querySelector('option[value="bold"]');
   const codOption=select?.querySelector('option[value="cash_on_delivery"]');
   if(boldOption){
-    boldOption.textContent=digitalOnly?"Pago anticipado con Bold":"Pago anticipado con Bold · envío gratis";
+    boldOption.textContent=digitalOnly?"Pago en línea":"Pago en línea · envío gratis";
     boldOption.hidden=!allowBold;
     boldOption.disabled=!allowBold;
   }
@@ -191,17 +191,17 @@ function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,all
   const policy=form?.querySelector("[data-payment-policy]");
   const intro=form?.querySelector("[data-payment-intro]");
   if(digitalOnly){
-    if(intro)intro.textContent="Este carrito contiene servicios digitales: el pago se realiza por anticipado con Bold. No hay envío físico ni contraentrega.";
-    if(policy)policy.textContent="Los servicios digitales solo admiten pago anticipado con Bold. Si tienes preguntas sobre un servicio, puedes consultarnos por WhatsApp antes de comprar.";
+    if(intro)intro.textContent="Este carrito contiene servicios digitales: el pago se realiza por anticipado en línea. No hay envío físico ni contraentrega.";
+    if(policy)policy.textContent="Los servicios digitales se pagan por anticipado en línea. Si tienes preguntas sobre un servicio, escríbenos por WhatsApp antes de comprar.";
   }else if(allowBold&&allowContraentrega){
-    if(intro)intro.textContent="Completa tus datos y elige una forma de pago. Con Bold pagas todo por anticipado y el envío es gratis; con contraentrega pagas $12.000 por Bold como anticipo, que se descuentan del precio, y el saldo al recibirlo.";
-    if(policy)policy.textContent="Con Bold pagas el total y el envío es gratis. Si eliges contraentrega, paga $12.000 por Bold como anticipo de envío; esa cantidad se descuenta del precio publicado y el saldo se cobra al recibir el producto.";
+    if(intro)intro.textContent="Completa tus datos y elige la forma de pago disponible. Al pagar en línea, el envío es gratis; si eliges contraentrega, pagas $12.000 de anticipo de envío y el saldo del producto al recibirlo.";
+    if(policy)policy.textContent="Al pagar en línea, cubres el total y el envío es gratis. Si eliges contraentrega, el anticipo de envío es de $12.000 y el saldo del producto se paga al recibirlo.";
   }else if(allowBold){
-    if(intro)intro.textContent="Este pedido solo admite pago anticipado con Bold. Completa tus datos y continúa al pago seguro; el envío de los productos físicos es gratis.";
-    if(policy)policy.textContent="El producto solo admite pago anticipado con Bold. La contraentrega no está disponible para los artículos de este pedido.";
+    if(intro)intro.textContent="Este pedido se paga por anticipado en línea. Completa tus datos para continuar al pago seguro; el envío de los productos físicos es gratis.";
+    if(policy)policy.textContent="Este pedido solo admite pago en línea; la contraentrega no está disponible para estos artículos.";
   }else{
-    if(intro)intro.textContent="Este pedido solo admite contraentrega. Paga $12.000 por Bold como anticipo de envío; se descontarán del precio del producto y pagarás el saldo restante al recibirlo.";
-    if(policy)policy.textContent="Solo puedes elegir contraentrega para este pedido: $12.000 de anticipo de envío se pagan por Bold y se restan del total del producto. El saldo se paga al recibirlo.";
+    if(intro)intro.textContent="Este pedido solo admite contraentrega. El anticipo de envío es de $12.000 y el saldo del producto se paga al recibirlo.";
+    if(policy)policy.textContent="Para este pedido puedes elegir contraentrega: el anticipo de envío es de $12.000 y el saldo del producto se paga al recibirlo.";
   }
 }
 
@@ -213,7 +213,7 @@ async function checkoutWhatsApp(){
   const allowContraentrega=capabilities.every(item=>item.allowContraentrega)&&cartTotal()>12000;
   const digitalOnly=capabilities.every(item=>item.digitalOnly);
   if(!allowBold&&!allowContraentrega){
-    toast("Los productos del carrito no comparten una forma de pago compatible. Haz pedidos separados o ajusta las formas de pago en administración.",6000);
+    toast("Estos productos necesitan formas de pago diferentes. Haz pedidos separados para continuar.",6000);
     return;
   }
   renderCheckoutSummary();
@@ -241,12 +241,12 @@ function renderCheckoutSummary(){
     const balance=subtotal-12000;
     totals=`
       <div class="checkout-summary-total"><span>Precio total de los productos</span><strong>${money(subtotal)}</strong></div>
-      <div class="checkout-summary-total checkout-summary-deduction"><span>Anticipo que pagas ahora con Bold</span><strong>−${money(12000)}</strong></div>
+      <div class="checkout-summary-total checkout-summary-deduction"><span>Anticipo de envío que pagas ahora</span><strong>−${money(12000)}</strong></div>
       <div class="checkout-summary-total checkout-summary-due"><span>Saldo a pagar a la transportadora al recibir</span><strong>${money(balance)}</strong></div>
       <p class="checkout-summary-payment-note"><strong>Hoy pagas ${money(12000)}.</strong> Los ${money(12000)} se descuentan del valor del producto; no se suman al precio. A la transportadora le pagas únicamente el saldo mostrado.</p>`;
   }else if(paymentMethod==="bold"){
-    totals=`<div class="checkout-summary-total checkout-summary-due"><span>Total a pagar con Bold</span><strong>${money(subtotal)}</strong></div>`
-      +(hasPhysicalItems?'<p class="checkout-summary-payment-note">Pagas el precio completo en línea con Bold. El envío de productos físicos es gratis.</p>':'<p class="checkout-summary-payment-note">El valor completo del servicio digital se paga por anticipado con Bold.</p>');
+    totals=`<div class="checkout-summary-total checkout-summary-due"><span>Total a pagar en línea</span><strong>${money(subtotal)}</strong></div>`
+      +(hasPhysicalItems?'<p class="checkout-summary-payment-note">Pagas el total en línea y el envío de productos físicos es gratis.</p>':'<p class="checkout-summary-payment-note">El valor completo del servicio digital se paga por anticipado con Bold.</p>');
   }else if(contraentrega&&!codAllowed){
     totals+=`<p class="checkout-summary-payment-note">Para contraentrega, el total de productos debe ser superior a ${money(12000)} porque el anticipo se descuenta del precio.</p>`;
   }
