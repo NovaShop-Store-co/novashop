@@ -370,11 +370,11 @@ async function submitCheckoutForm(event){
     if(formButton){formButton.disabled=true;formButton.textContent="Preparando pago…";}
     try{
       await window.NovaShopBold.prepare(form.dataset.boldOrderId,formButton,closeCheckoutModal);
-      window.NovaShopBold.setMessage(form,"Tu pedido ya está registrado. Pulsa «Pagar ahora con Bold» para completar el pago seguro.");
+      window.NovaShopBold.setMessage(form,"Tu pedido ya está registrado. Pulsa «Continuar al pago» para completar el pago seguro.");
     }catch(error){
-      if(formButton){formButton.type="submit";formButton.onclick=null;formButton.disabled=false;formButton.textContent="Reintentar pago con Bold";}
+      if(formButton){formButton.type="submit";formButton.onclick=null;formButton.disabled=false;formButton.textContent="Reintentar pago";}
       window.NovaShopBold.setMessage(form,(error?.message||"No pudimos preparar el pago.")+" Tu pedido está guardado; puedes reintentar sin crear otro pedido.");
-      toast(error?.message||"No pudimos preparar el pago con Bold.");
+      toast(error?.message||"No pudimos preparar el pago en línea.");
     }
     return;
   }
@@ -396,16 +396,16 @@ async function submitCheckoutForm(event){
   const useBold=data.paymentMethod==="bold";
   const useCOD=data.paymentMethod==="cash_on_delivery";
   if(useBold&&cart.some(item=>!getProductPaymentCapabilities(product(item.id)).allowBold)){
-    toast("Uno de los productos del carrito no admite pago anticipado con Bold. Revisa los métodos de pago o realiza pedidos separados.");return;
+    toast("Uno de los productos del carrito no admite pago en línea. Revisa las formas de pago disponibles o realiza pedidos separados.");return;
   }
   if(useCOD&&cart.some(item=>!getProductPaymentCapabilities(product(item.id)).allowContraentrega)){
     toast("Uno de los productos del carrito no admite contraentrega. Revisa los métodos de pago o realiza pedidos separados.");return;
   }
-  if(!useBold&&!useCOD){toast("Selecciona Bold o contraentrega para continuar.");return;}
+  if(!useBold&&!useCOD){toast("Elige una forma de pago para continuar.");return;}
   if(useCOD&&cart.some(item=>product(item.id)?.deliveryType!=="physical")){
-    toast("La contraentrega solo está disponible para pedidos de productos físicos. Para servicios digitales, paga con Bold.");return;
+    toast("La contraentrega solo está disponible para productos físicos. Los servicios digitales se pagan por anticipado en línea.");return;
   }
-  data.paymentMethod=useBold?"Pago en línea con Bold":"Contraentrega";
+  data.paymentMethod=useBold?"Pago en línea":"Contraentrega";
   const needsAddress=cart.some(item=>product(item.id)?.deliveryType!=="digital");
   if(needsAddress&&(!data.address||!data.neighborhood||!data.city||!data.department)){
     toast("Para productos físicos, completa dirección, barrio, ciudad y departamento.");return;
@@ -419,8 +419,8 @@ async function submitCheckoutForm(event){
   if(useBold||useCOD){
     try{
       const configured=await window.NovaShopDB?.checkBoldConfigured?.();
-      if(!configured){toast(useCOD?"Para contraentrega debes pagar el anticipo de envío de $12.000 por Bold. La pasarela aún no está configurada.":"El pago con Bold todavía está en configuración.");return;}
-    }catch(error){toast(error?.message||"No pudimos comprobar la configuración de Bold.");return;}
+      if(!configured){toast(useCOD?"Para contraentrega debes pagar el anticipo de envío de $12.000 en la plataforma de pago. El pago aún no está disponible.":"El pago en línea todavía está en configuración.");return;}
+    }catch(error){toast(error?.message||"No pudimos comprobar la configuración del pago en línea.");return;}
   }
   if(!window.NovaShopDB?.isConfigured?.()){
     toast("El sistema de pedidos no está disponible en este momento. No se ha registrado ni cobrado tu pedido.");return;
@@ -447,20 +447,20 @@ async function submitCheckoutForm(event){
   form.dataset.boldOrderId=savedOrder.id;
   form.querySelectorAll("input,select,textarea").forEach(field=>{field.disabled=true;});
   if(button){button.disabled=true;button.textContent="Preparando pago…";}
-  window.NovaShopBold?.setMessage(form,"Pedido "+(savedOrder.order_number||"registrado")+". Estamos preparando el checkout seguro de Bold.");
+  window.NovaShopBold?.setMessage(form,"Pedido "+(savedOrder.order_number||"registrado")+". Estamos preparando la plataforma de pago seguro.");
   try{
     if(!window.NovaShopBold?.prepare)throw new Error("La integración de Bold no está disponible. Recarga la página.");
     await window.NovaShopBold.prepare(savedOrder.id,button,closeCheckoutModal);
-    window.NovaShopBold.setMessage(form,"Pedido "+(savedOrder.order_number||"registrado")+". Pulsa «Pagar ahora con Bold» para pagar y recibir envío gratis.");
+    window.NovaShopBold.setMessage(form,"Pedido "+(savedOrder.order_number||"registrado")+". Pulsa «Continuar al pago» para pagar y recibir envío gratis.");
   }catch(error){
-    if(button){button.type="submit";button.onclick=null;button.disabled=false;button.textContent="Reintentar pago con Bold";}
+    if(button){button.type="submit";button.onclick=null;button.disabled=false;button.textContent="Reintentar pago";}
     window.NovaShopBold?.setMessage(form,(error?.message||"No pudimos preparar el pago.")+" Tu pedido está guardado; al reintentar no se creará otro pedido.");
-    toast(error?.message||"No pudimos preparar el pago con Bold.");
+    toast(error?.message||"No pudimos preparar el pago en línea.");
   }
 }
 window.openModal=function(type){
   const content={
-    shipping:['Envíos','Si pagas en línea con Bold, el envío de productos físicos es gratis. Si eliges contraentrega, el costo del flete depende del destino y debe pagarse por anticipado a la transportadora; el producto se paga al recibirlo.'],
+    shipping:['Envíos','Si pagas en línea, el envío de productos físicos es gratis. Si eliges contraentrega, el costo del flete depende del destino y debe pagarse por anticipado a la transportadora; el producto se paga al recibirlo.'],
     returns:['Cambios y devoluciones','Para consultas sobre cambios, devoluciones o garantía, escribe a hola@novashop.co. Las condiciones aplicables no limitan los derechos que te reconoce la normativa vigente.'],
     privacy:['Privacidad','Los datos que compartes se utilizan para gestionar tu cuenta y coordinar los pedidos. No ingreses números de tarjeta, contraseñas ni códigos de seguridad en esta página. Para consultas sobre tus datos, escríbenos a hola@novashop.co.']
   }[type];
