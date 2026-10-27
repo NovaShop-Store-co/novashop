@@ -194,14 +194,14 @@ function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,all
     if(intro)intro.textContent="Este carrito contiene servicios digitales: el pago se realiza por anticipado con Bold. No hay envío físico ni contraentrega.";
     if(policy)policy.textContent="Los servicios digitales solo admiten pago anticipado con Bold. Si tienes preguntas sobre un servicio, puedes consultarnos por WhatsApp antes de comprar.";
   }else if(allowBold&&allowContraentrega){
-    if(intro)intro.textContent="Completa tus datos y elige una de las formas de pago habilitadas. Con Bold pagas por anticipado y el envío es gratis; con contraentrega pagas el producto al recibirlo y el flete se paga antes a la transportadora.";
-    if(policy)policy.textContent="Puedes pagar anticipadamente con Bold y obtener envío gratis, o elegir contraentrega: el producto se paga al recibirlo y el flete se cotiza según el destino y se paga por anticipado a la transportadora.";
+    if(intro)intro.textContent="Completa tus datos y elige una forma de pago. Con Bold pagas todo por anticipado y el envío es gratis; con contraentrega pagas $12.000 por Bold como anticipo, que se descuentan del precio, y el saldo al recibirlo.";
+    if(policy)policy.textContent="Con Bold pagas el total y el envío es gratis. Si eliges contraentrega, paga $12.000 por Bold como anticipo de envío; esa cantidad se descuenta del precio publicado y el saldo se cobra al recibir el producto.";
   }else if(allowBold){
     if(intro)intro.textContent="Este pedido solo admite pago anticipado con Bold. Completa tus datos y continúa al pago seguro; el envío de los productos físicos es gratis.";
     if(policy)policy.textContent="El producto solo admite pago anticipado con Bold. La contraentrega no está disponible para los artículos de este pedido.";
   }else{
-    if(intro)intro.textContent="Este pedido solo admite contraentrega. Pagarás el producto al recibirlo; el costo del flete se cotiza según tu destino y se paga por anticipado a la transportadora.";
-    if(policy)policy.textContent="Solo puedes elegir contraentrega para este pedido. El producto se paga al recibirlo y el flete debe pagarse por anticipado a la transportadora.";
+    if(intro)intro.textContent="Este pedido solo admite contraentrega. Paga $12.000 por Bold como anticipo de envío; se descontarán del precio del producto y pagarás el saldo restante al recibirlo.";
+    if(policy)policy.textContent="Solo puedes elegir contraentrega para este pedido: $12.000 de anticipo de envío se pagan por Bold y se restan del total del producto. El saldo se paga al recibirlo.";
   }
 }
 
