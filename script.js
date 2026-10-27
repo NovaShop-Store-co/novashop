@@ -109,7 +109,7 @@ function renderProducts(){
         <div class="product-fulfillment-note ${p.category==='Streaming'?'is-digital':'is-physical'}"><span aria-hidden="true">${p.category==='Streaming'?'💻':'🚚'}</span><span>${p.category==='Streaming'?'Servicio digital · sin envío físico':'Envío gratis pagando con Bold'}</span></div>
       </div>
     </a>
-    <div class="product-actions"><button class="add-btn" data-id="${p.id}">${Array.isArray(p.colorVariants)&&p.colorVariants.length?"Elegir color":"Añadir al carrito"}</button></div>
+    <div class="product-actions"><button class="add-btn" data-id="${p.id}">Añadir al carrito</button></div>
   </article>`).join('');
   const grid=$('#productGrid');
   grid.querySelectorAll('.product-card').forEach((card,index)=>{
