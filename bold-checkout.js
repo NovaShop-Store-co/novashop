@@ -69,11 +69,11 @@
     return result;
   }
 
-  async function prepareShipping(orderId, button, closeDialog) {
+  async function prepareShipping(orderId, button, closeDialog, orderNumber = "") {
     if (!window.NovaShopDB?.createShippingBoldCheckout) {
       throw new Error("La integración de pagos de envío de NovaShop no está disponible. Recarga la página e inténtalo de nuevo.");
     }
-    const result = await window.NovaShopDB.createShippingBoldCheckout(orderId);
+    const result = await window.NovaShopDB.createShippingBoldCheckout(orderId, orderNumber);
     if (result?.already_paid || result?.order?.shipping_payment_status === "approved") return result;
     if (!result.config?.apiKey || !result.config?.integritySignature || !result.config?.orderId) {
       throw new Error("Bold no devolvió una configuración válida para pagar el flete.");
@@ -85,16 +85,9 @@
     button.textContent = "💳 Pagar $12.000 de envío con Bold";
     button.setAttribute("aria-label", "Pagar anticipo de envío de $12.000 COP con Bold");
     button.dataset.boldShippingReady = "true";
-    button.onclick = (event) => {
-      event.preventDefault();
-      try {
-        if (typeof closeDialog === "function") closeDialog();
-        checkout.open();
-      } catch (error) {
-        console.error("No se pudo abrir el checkout de Bold para el flete:", error);
-        window.alert("No pudimos abrir el pago de envío con Bold. Recarga la página e inténtalo de nuevo.");
-      }
-    };
+    // The page opens this instance directly from its click listener so the browser preserves the user gesture.
+    button._novaShopBoldCheckout = checkout;
+    button.onclick = null;
     return result;
   }
 
