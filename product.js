@@ -517,13 +517,13 @@ function renderProductColorOptions(){
  const box=$("#productColorOptions");if(!box)return;
  const variants=productColorVariants();
  if(!variants.length){box.hidden=true;box.innerHTML="";selectedColorVariant=null;return;}
- if(!selectedColorVariant||!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=variants[0];
+ if(selectedColorVariant&&!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=null;
  const safeHex=value=>/^#[0-9a-f]{6}$/i.test(String(value||""))?String(value):"#d1d5db";
  box.hidden=false;
- box.innerHTML='<div class="product-color-options-head"><strong>Selecciona tu color</strong><span class="product-color-selected"><span aria-hidden="true">✓</span> Elegido: '+escProduct(selectedColorVariant?.name||"")+'</span></div><div class="product-color-swatch-list">'+variants.map((variant,index)=>{
+ box.innerHTML='<div class="product-color-options-head"><strong>Colores disponibles</strong>'+(selectedColorVariant?'<span class="product-color-selected"><span aria-hidden="true">✓</span> Elegido: '+escProduct(selectedColorVariant.name)+'</span>':'<span class="product-color-help">Explora el producto y elige un color cuando quieras</span>')+'</div><div class="product-color-swatch-list">'+variants.map((variant,index)=>{
   const active=variant.name===selectedColorVariant?.name;
-  return '<button type="button" class="product-color-swatch" data-color-variant="'+index+'" aria-pressed="'+(active?"true":"false")+'" aria-label="Seleccionar color '+escProduct(variant.name)+'" title="'+escProduct(variant.name)+'"><span class="product-color-dot" style="background:'+safeHex(variant.hex)+'"></span><span>'+escProduct(variant.name)+'</span>'+(active?'<span class="product-color-check" aria-hidden="true">✓ Seleccionado</span>':'')+'</button>';
- }).join("")+'</div><p class="product-color-help">La opción marcada es la que se añadirá al carrito. Las fotos se actualizan según el color disponible.</p>';
+  return '<button type="button" class="product-color-swatch" data-color-variant="'+index+'" aria-pressed="'+(active?"true":"false")+'" aria-label="Ver color '+escProduct(variant.name)+'" title="'+escProduct(variant.name)+'">'+(variant.images?.[0]?'<img class="product-color-preview" src="'+escProduct(variant.images[0])+'" alt="" loading="lazy">':'<span class="product-color-dot" style="background:'+safeHex(variant.hex)+'"></span>')+'<span>'+escProduct(variant.name)+'</span>'+(active?'<span class="product-color-check" aria-hidden="true">✓</span>':'')+'</button>';
+ }).join("")+'</div><p class="product-color-help">'+(selectedColorVariant?"El color elegido se añadirá al carrito.":"Debes elegir un color al momento de comprar.")+' Las imágenes cambian al seleccionar una opción.</p>';
  box.querySelectorAll("[data-color-variant]").forEach(button=>button.addEventListener("click",()=>{
   const variant=variants[Number(button.dataset.colorVariant)];if(!variant)return;
   selectedColorVariant=variant;
