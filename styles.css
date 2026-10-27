@@ -245,3 +245,10 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 .product-color-swatch:focus-visible{outline:3px solid rgba(241,90,59,.28);outline-offset:3px}
 .product-color-help{font-size:11px;line-height:1.65}
 @media(max-width:560px){.product-color-options{padding:12px}.product-color-options-head{align-items:flex-start;flex-direction:column;gap:7px}.product-color-swatch-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.product-color-swatch{min-width:0;justify-content:flex-start;padding:8px 9px;gap:7px;font-size:11px}.product-color-swatch .product-color-dot{width:25px;height:25px}.product-color-swatch .product-color-check{font-size:9px}}
+
+
+/* Video visibility and sizing fix for product detail media */
+.product-main-image-wrap.is-video{position:relative;display:block;width:100%;aspect-ratio:16/9;min-height:180px;overflow:hidden;background:#050b12}
+.product-main-image-wrap.is-video>.product-main-video:not([hidden]){position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:none!important;object-fit:contain!important;visibility:visible!important;opacity:1!important;z-index:1}
+.product-main-image-wrap.is-video>.product-main-image[hidden],.product-main-video[hidden]{display:none!important}
+@media(max-width:580px){.product-main-image-wrap.is-video{min-height:190px;border-radius:18px}.product-main-image-wrap.is-video>.product-main-video:not([hidden]){border-radius:18px}}
