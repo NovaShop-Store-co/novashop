@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="storefront-enhancements.css?v=6"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body class="product-page">
-  <div class="announcement" role="region" aria-label="Beneficios de NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🚚 Envío gratis con Bold en productos físicos</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Opciones de pago claras antes de confirmar</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🚚 Envío gratis con Bold en productos físicos</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Opciones de pago claras antes de confirmar</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div></div></div></div>
+  <div class="announcement" role="region" aria-label="Beneficios de NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🚚 Envío gratis en productos físicos al pagar en línea</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Elige cómo pagar, sin complicaciones</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🚚 Envío gratis en productos físicos al pagar en línea</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Elige cómo pagar, sin complicaciones</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div></div></div></div>
 
   <header class="site-header">
     <div class="container nav-wrap">
@@ -74,13 +74,13 @@
             <div class="product-fulfillment-panel" id="productFulfillmentPanel" aria-live="polite">
               <span class="product-fulfillment-icon" id="productFulfillmentIcon" aria-hidden="true">✓</span>
               <div>
-                <strong id="productFulfillmentTitle">Compra con información clara</strong>
-                <p id="productFulfillmentText">Revisa las condiciones antes de confirmar tu pedido.</p>
+                <strong id="productFulfillmentTitle">Antes de elegir, resuelve tus dudas</strong>
+                <p id="productFulfillmentText">Consulta los detalles del producto y compra con tranquilidad.</p>
               </div>
             </div>
 
             <div class="trust-list">
-              <div>✓ <span id="productTrust1">Compra directamente desde la página</span></div>
+              <div>✓ <span id="productTrust1">Compra de forma sencilla desde la tienda</span></div>
               <div>✓ <span id="productTrust2">Opciones de entrega según tu destino</span></div>
               <div>✓ <span id="productTrust3">Consulta por WhatsApp si tienes preguntas sobre este producto</span></div>
             </div>
@@ -97,7 +97,7 @@
               <button class="btn btn-primary product-add-btn" id="addProductToCart">Agregar al carrito</button>
             </div>
             <button class="btn btn-ghost wide" id="buyNow">Comprar ahora</button>
-            <a class="btn btn-ghost wide" id="askProductWhatsApp" href="#" target="_blank" rel="noopener noreferrer">¿Tienes dudas? Consulta este producto por WhatsApp</a>
+            <a class="btn btn-ghost wide" id="askProductWhatsApp" href="#" target="_blank" rel="noopener noreferrer">¿Quieres saber algo antes de comprar? Escríbenos</a>
             <button class="btn btn-ghost wide" type="button" id="toggleProductFavorite" aria-pressed="false">♡ Guardar en favoritos</button>
 
             <div class="detail-note">
@@ -127,7 +127,7 @@
     <section class="section recently-viewed-section" id="recentlyViewedSection" hidden>
       <div class="container">
         <div class="section-head">
-          <div><span class="eyebrow" id="recentlyViewedEyebrow">DESCUBRE MÁS</span><h2 id="recentlyViewedTitle">También te puede interesar</h2><p id="recentlyViewedSummary">Explora más opciones de la tienda.</p></div>
+          <div><span class="eyebrow" id="recentlyViewedEyebrow">DESCUBRE MÁS</span><h2 id="recentlyViewedTitle">También te puede interesar</h2><p id="recentlyViewedSummary">Descubre otras opciones que también podrían gustarte.</p></div>
           <a href="index.html#productos" class="text-link">Ver todo <span aria-hidden="true">→</span></a>
         </div>
         <div class="recently-viewed-grid" id="recentlyViewedGrid"></div>
@@ -136,7 +136,7 @@
 
     <section class="section product-reviews-section" id="productReviewsSection">
       <div class="container">
-        <div class="section-head"><div><span class="eyebrow">OPINIONES</span><h2>Reseñas de clientes</h2><p id="productReviewSummary">Opiniones de compradores sobre este producto.</p></div></div>
+        <div class="section-head"><div><span class="eyebrow">OPINIONES</span><h2>Reseñas de clientes</h2><p id="productReviewSummary">Conoce la experiencia de otros compradores.</p></div></div>
         <div id="productReviewStats" class="review-stats-overview" hidden></div>
         <div id="productReviewHint" class="account-message" role="status" hidden></div>
         <div id="productReviewAuthLinks" class="review-auth-links" hidden>
@@ -173,7 +173,7 @@
       <div class="checkout-head">
         <span class="eyebrow">FINALIZAR COMPRA</span>
         <h2 id="productCheckoutTitle">Completa tu pedido</h2>
-        <p data-payment-intro>Completa tus datos y elige cómo pagar. Con Bold el envío es gratis en productos físicos y en la pasarela podrás seleccionar uno de los medios habilitados. Con contraentrega pagas el producto al recibirlo y el flete debe pagarse antes a la transportadora.</p>
+        <p data-payment-intro>Completa tus datos y elige la forma de pago disponible para tu pedido. Al pagar en línea, el envío de productos físicos es gratis. Si eliges contraentrega, el envío se paga por anticipado a la transportadora y el producto al recibirlo.</p>
       </div>
 
       <div class="checkout-account-hint">¿Quieres consultar tus compras más adelante? <a href="cuenta.html" target="_blank" rel="noopener">Crea una cuenta gratis</a>. También puedes comprar como invitado.</div>
@@ -244,12 +244,12 @@
             <span>Método de pago *</span>
             <select name="paymentMethod" required>
               <option value="">Selecciona cómo quieres pagar</option>
-              <option value="bold">Pagar en línea con Bold · envío gratis</option>
+              <option value="bold">Pago en línea · envío gratis</option>
               <option value="cash_on_delivery">Contraentrega · flete prepagado</option>
             </select>
           </label>
         </div>
-        <p class="checkout-privacy" data-payment-policy>Con Bold puedes escoger entre los medios de pago habilitados por el comercio. Si eliges contraentrega, el flete no es gratis y debe pagarse por adelantado a la transportadora antes del despacho.</p>
+        <p class="checkout-privacy" data-payment-policy>Al pagar en línea, podrás elegir uno de los medios disponibles en la plataforma de pago. Si prefieres contraentrega, el costo del envío se informa antes y se paga por anticipado a la transportadora.</p>
 
         <label class="consent-row">
           <input name="consent" type="checkbox" required>
@@ -259,7 +259,7 @@
         <label class="coupon-code-field"><span>Código promocional (opcional)</span><input name="couponCode" type="text" maxlength="32" autocomplete="off" placeholder="Ej. NOVASHOP10"><small>El descuento se confirma cuando se valide el pedido.</small></label>
         <div class="checkout-summary" id="productCheckoutSummary"></div>
         <button class="btn btn-primary wide checkout-submit" type="submit">Confirmar pedido</button>
-        <p class="checkout-privacy">Bold: envío gratis; el cliente elige entre los medios que Bold tenga habilitados para el comercio. Contraentrega: el producto se paga al recibirlo y el flete se paga por anticipado a la transportadora; su valor se cotiza según destino.</p>
+        <p class="checkout-privacy">Pago en línea: envío gratis para productos físicos. Contraentrega: pagas el producto al recibirlo y el envío se paga por anticipado a la transportadora; el valor depende del destino.</p>
       </form>
     </div>
   </div>
