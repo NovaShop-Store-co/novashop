@@ -210,7 +210,7 @@ async function checkoutWhatsApp(){
   try{if(window.NovaShopDB?.isConfigured?.())await window.NovaShopDB.syncCatalog?.(products);}catch(error){console.warn("No se pudo actualizar el catálogo antes del checkout:",error);}
   const capabilities=cart.map(item=>getProductPaymentCapabilities(product(item.id)));
   const allowBold=capabilities.every(item=>item.allowBold);
-  const allowContraentrega=capabilities.every(item=>item.allowContraentrega);
+  const allowContraentrega=capabilities.every(item=>item.allowContraentrega)&&cartTotal()>12000;
   const digitalOnly=capabilities.every(item=>item.digitalOnly);
   if(!allowBold&&!allowContraentrega){
     toast("Los productos del carrito no comparten una forma de pago compatible. Haz pedidos separados o ajusta las formas de pago en administración.",6000);
@@ -229,7 +229,16 @@ function renderCheckoutSummary(){
   if(!summary) return;
   const itemCount=cartCount();
   const lines=cart.map(i=>`<li>${escapeHTML(i.name)}${i.selectedVariant?` · Color: ${escapeHTML(i.selectedVariant)}`:""} ×${i.qty} — <strong>${money(i.price*i.qty)}</strong></li>`).join('');
-  summary.innerHTML=`<div class="checkout-summary-title"><strong>Resumen del pedido</strong><span>${itemCount} ${itemCount===1?'producto':'productos'}</span></div><ul class="checkout-summary-list">${lines}</ul><div class="checkout-summary-total"><span>Subtotal</span><strong>${money(cartTotal())}</strong></div>`;
+  const subtotal=cartTotal();
+  const paymentMethod=$("#checkoutForm select[name='paymentMethod']")?.value||"";
+  const contraentrega=paymentMethod==="cash_on_delivery";
+  const codAllowed=subtotal>12000;
+  const freight=contraentrega&&codAllowed
+    ? `<div class="checkout-summary-total"><span>Anticipo de envío por Bold</span><strong>${money(12000)}</strong></div><div class="checkout-summary-total"><span>Saldo estimado al recibir</span><strong>${money(Math.max(0,subtotal-12000))}</strong></div><p class="checkout-privacy">Los $12.000 del anticipo se restan del saldo por pagar al recibir el producto. El importe final se calcula después de validar los cupones.</p>`
+    : (cart.some(item=>product(item.id)?.deliveryType!=="digital")&&paymentMethod==="bold"
+      ? '<p class="checkout-privacy">Pago anticipado con Bold: envío gratis para productos físicos.</p>'
+      : "");
+  summary.innerHTML=`<div class="checkout-summary-title"><strong>Resumen del pedido</strong><span>${itemCount} ${itemCount===1?'producto':'productos'}</span></div><ul class="checkout-summary-list">${lines}</ul><div class="checkout-summary-total"><span>Subtotal de productos</span><strong>${money(subtotal)}</strong></div>${freight}`;
 }
 
 function openCheckoutModal(){
@@ -395,10 +404,10 @@ async function submitCheckoutForm(event){
     $("#checkoutLocationCard")?.scrollIntoView({behavior:"smooth",block:"center"});
     toast("Para comprar productos físicos, marca obligatoriamente tu ubicación en el mapa.");return;
   }
-  if(useBold){
+  if(useBold||useCOD){
     try{
       const configured=await window.NovaShopDB?.checkBoldConfigured?.();
-      if(!configured){toast("El pago con Bold todavía está en configuración. Elige contraentrega o inténtalo cuando se activen las llaves.");return;}
+      if(!configured){toast(useCOD?"Para contraentrega debes pagar el anticipo de envío de $12.000 por Bold. La pasarela aún no está configurada.":"El pago con Bold todavía está en configuración.");return;}
     }catch(error){toast(error?.message||"No pudimos comprobar la configuración de Bold.");return;}
   }
   if(!window.NovaShopDB?.isConfigured?.()){
@@ -419,7 +428,7 @@ async function submitCheckoutForm(event){
   if(useCOD){
     if(!savedOrder?.order_number){toast("El servidor no devolvió el número del pedido. Contacta a soporte antes de repetirlo.");return;}
     cart=[];saveCart();renderCart();closeCheckoutModal();
-    window.location.href="pedido.html?modo=contraentrega&pedido="+encodeURIComponent(savedOrder.order_number);
+    window.location.href="pedido.html?modo=contraentrega&pedido="+encodeURIComponent(savedOrder.order_number)+"&id="+encodeURIComponent(savedOrder.id);
     return;
   }
   if(!savedOrder?.id){toast("El servidor no devolvió el identificador del pedido. No hemos abierto el pago.");return;}
@@ -467,7 +476,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   refreshFavoriteIds();
   $('#searchToggle').addEventListener('click',()=>{ const x=$('#searchBarWrap'); x.classList.toggle('open'); if(x.classList.contains('open')) $('#searchInput').focus(); });
   $('#cartToggle').addEventListener('click',openCart); $('#cartClose').addEventListener('click',closeCart); $('#drawerOverlay').addEventListener('click',closeCart); $('#whatsappCheckout').addEventListener('click',checkoutWhatsApp);
-  $('#checkoutForm').addEventListener('submit',submitCheckoutForm);
+  $('#checkoutForm').addEventListener('submit',submitCheckoutForm); $('#checkoutForm').elements.paymentMethod?.addEventListener('change',renderCheckoutSummary);
   $('#checkoutClose').addEventListener('click',closeCheckoutModal);
   $('#checkoutModal').addEventListener('click',e=>{if(e.target.id==='checkoutModal') closeCheckoutModal();});
   $('#newsletterForm')?.addEventListener('submit',e=>{e.preventDefault();toast('La suscripción por correo estará disponible próximamente. Tu correo no se ha guardado.');});
