@@ -77,7 +77,7 @@ function resetProductVideoFrame(){
 }
 function fitProductVideoFrame(){
  const video=$("#productMainVideo"),frame=$("#productMediaFrame");
- if(!video||!frame||!video.videoWidth||!video.videoHeight)return false;
+ if(!video||!frame||video.hidden||!frame.classList.contains("is-video")||!video.videoWidth||!video.videoHeight)return false;
  const parentWidth=frame.parentElement?.clientWidth||frame.clientWidth||0;
  if(!parentWidth)return false;
  const ratio=video.videoWidth/video.videoHeight;
