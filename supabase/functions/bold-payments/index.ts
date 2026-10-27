@@ -93,12 +93,16 @@ Deno.serve(async (req: Request) => {
 
     if (action === "shipping-status") {
       const orderId = clean(body.order_id, 50);
-      if (!isUuid(orderId)) return json({ error: "Identificador de pedido no válido." }, 400);
-      const { data: order, error } = await admin.from("orders")
-        .select("id,order_number,payment_provider,currency,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,total_cop,shipping_payment_reference,status")
-        .eq("id", orderId).maybeSingle();
+      const orderNumber = clean(body.order_number, 60).toUpperCase();
+      if (!isUuid(orderId) && !/^NS-[A-Z0-9]{6,24}$/.test(orderNumber)) {
+        return json({ error: "No recibimos un identificador válido. Vuelve desde el enlace de tu pedido o usa su número de pedido." }, 400);
+      }
+      let orderQuery = admin.from("orders")
+        .select("id,order_number,payment_provider,currency,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,total_cop,shipping_payment_reference,status");
+      orderQuery = isUuid(orderId) ? orderQuery.eq("id", orderId) : orderQuery.eq("order_number", orderNumber);
+      const { data: order, error } = await orderQuery.maybeSingle();
       if (error) throw error;
-      if (!order) return json({ error: "No encontramos el pedido." }, 404);
+      if (!order) return json({ error: "No encontramos ese pedido. Revisa el número o abre el enlace original de confirmación." }, 404);
       if (order.payment_provider !== "cash_on_delivery") return json({ error: "El pedido no está registrado para contraentrega." }, 409);
       return json({ ok: true, order: {
         id: order.id, order_number: order.order_number, total_cop: order.total_cop,
@@ -112,12 +116,16 @@ Deno.serve(async (req: Request) => {
 
     if (action === "create-shipping-checkout") {
       const orderId = clean(body.order_id, 50);
-      if (!isUuid(orderId)) return json({ error: "Identificador de pedido no válido." }, 400);
-      const { data: order, error: orderError } = await admin.from("orders")
-        .select("id,order_number,user_id,status,payment_provider,currency,total_cop,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,customer_first_name,customer_last_name,customer_email,customer_phone")
-        .eq("id", orderId).maybeSingle();
+      const orderNumber = clean(body.order_number, 60).toUpperCase();
+      if (!isUuid(orderId) && !/^NS-[A-Z0-9]{6,24}$/.test(orderNumber)) {
+        return json({ error: "No recibimos un identificador válido para el pedido." }, 400);
+      }
+      let orderQuery = admin.from("orders")
+        .select("id,order_number,user_id,status,payment_provider,currency,total_cop,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,customer_first_name,customer_last_name,customer_email,customer_phone");
+      orderQuery = isUuid(orderId) ? orderQuery.eq("id", orderId) : orderQuery.eq("order_number", orderNumber);
+      const { data: order, error: orderError } = await orderQuery.maybeSingle();
       if (orderError) throw orderError;
-      if (!order) return json({ error: "No encontramos ese pedido." }, 404);
+      if (!order) return json({ error: "No encontramos ese pedido. Revisa el número o abre el enlace original de confirmación." }, 404);
       if (order.user_id && (!requester || requester.id !== order.user_id)) {
         return json({ error: "Inicia sesión con la cuenta que realizó este pedido para pagar el flete." }, 403);
       }
