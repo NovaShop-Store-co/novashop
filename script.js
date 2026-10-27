@@ -235,7 +235,7 @@ function renderCheckoutSummary(){
   const contraentrega=paymentMethod==="cash_on_delivery";
   const codAllowed=subtotal>12000;
   const freight=contraentrega&&codAllowed
-    ? `<div class="checkout-summary-total"><span>Anticipo de envío por Bold</span><strong>${money(12000)}</strong></div><div class="checkout-summary-total"><span>Saldo estimado al recibir</span><strong>${money(Math.max(0,subtotal-12000))}</strong></div><p class="checkout-privacy">Los $12.000 del anticipo se restan del saldo por pagar al recibir el producto. El importe final se calcula después de validar los cupones.</p>`
+    ? `<div class="checkout-summary-total"><span>Anticipo de $12.000 por Bold (incluido en el precio)</span><strong>${money(12000)}</strong></div><div class="checkout-summary-total"><span>Saldo tras el anticipo, a pagar al recibir</span><strong>${money(Math.max(0,subtotal-12000))}</strong></div><p class="checkout-privacy">El anticipo no se suma al precio publicado: se resta una sola vez del saldo que pagarás al recibir. Si usas un cupón, el saldo final se recalcula al validar el pedido.</p>`
     : (cart.some(item=>product(item.id)?.deliveryType!=="digital")&&paymentMethod==="bold"
       ? '<p class="checkout-privacy">Pago anticipado con Bold: envío gratis para productos físicos.</p>'
       : "");
