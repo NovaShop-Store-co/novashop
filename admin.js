@@ -59,24 +59,46 @@ function normalizeColorVariant(value={}){
 function disposeColorVariantPreviews(){
  editingColorVariants.forEach(variant=>["previewFrontUrl","previewBackUrl"].forEach(key=>{if(variant[key]){URL.revokeObjectURL(variant[key]);variant[key]=null;}}));
 }
+const ADMIN_COLOR_PRESETS = [
+ {name:"Negro",hex:"#111827"},{name:"Blanco",hex:"#FFFFFF"},{name:"Gris",hex:"#9CA3AF"},
+ {name:"Azul",hex:"#2563EB"},{name:"Azul marino",hex:"#0C2C47"},{name:"Rojo",hex:"#DC2626"},
+ {name:"Verde",hex:"#16A34A"},{name:"Rosa",hex:"#EC4899"},{name:"Beige",hex:"#D6BFA5"},
+ {name:"Café",hex:"#7C4A2D"}
+];
 function renderColorVariants(){
  const box=$("#adminColorVariantsList");if(!box)return;
  disposeColorVariantPreviews();
  if(!editingColorVariants.length){box.innerHTML='<p class="admin-help">Todavía no has añadido variantes de color. Si el producto solo tiene una versión, puedes dejarlo vacío.</p>';return;}
- const photo=(variant,index,side,label)=>{
+ const photo=(variant,index,side,label,required=false)=>{
   const file=variant[side+"File"],imageUrl=variant[side==="front"?"frontImage":"backImage"];
   let src=imageUrl;
   if(file){const key=side==="front"?"previewFrontUrl":"previewBackUrl";variant[key]=URL.createObjectURL(file);src=variant[key];}
   const image=src?'<img data-variant-preview="'+side+'" src="'+esc(src)+'" alt="'+esc(variant.name||"Color "+(index+1))+' · '+label+'">':'<div class="admin-color-photo-empty" data-variant-empty="'+side+'">Sin foto de '+label.toLowerCase()+'</div>';
   const fileHelp=file?esc(file.name)+" · "+(file.size/1024/1024).toFixed(1)+" MB":(imageUrl?"La foto actual se conserva si no la reemplazas.":"Selecciona una foto para esta vista.");
-  return '<div class="admin-color-variant-photo" data-photo-panel="'+side+'">'+image+'<label>'+label+' *<input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" data-variant-file="'+side+'"><small data-variant-file-help>'+fileHelp+'</small></label></div>';
+  return '<div class="admin-color-variant-photo" data-photo-panel="'+side+'">'+image+'<label>'+label+(required?' *':'')+'<input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" data-variant-file="'+side+'"><small data-variant-file-help>'+fileHelp+'</small></label></div>';
  };
  box.innerHTML=editingColorVariants.map((variant,index)=>'<article class="admin-color-variant-row" data-color-variant-index="'+index+'">'+
   '<div class="admin-color-variant-top"><div class="admin-color-variant-summary"><span class="admin-color-variant-swatch" style="background:'+esc(variant.hex)+'"></span><strong>Variante de color '+(index+1)+'</strong></div><button type="button" data-remove-color-variant="'+index+'">Eliminar color</button></div>'+
   '<div class="admin-color-variant-fields"><label>Nombre del color *<input type="text" data-variant-field="name" maxlength="40" value="'+esc(variant.name)+'" placeholder="Ej. Negro, Blanco, Azul marino" required></label><label>Muestra de color<input type="color" data-variant-field="hex" value="'+esc(variant.hex)+'" aria-label="Muestra de color '+(index+1)+'"></label><label class="admin-color-printful-field">Printful Sync Variant ID (opcional)<input type="number" min="1" step="1" data-variant-field="printful_sync_variant_id" value="'+esc(variant.printful_sync_variant_id)+'" placeholder="ID de este color"><small>Si activas envío automático a Printful, vincula el color y talla exactos.</small></label></div>'+
-  '<div class="admin-color-variant-photos">'+photo(variant,index,"front","Foto frontal")+photo(variant,index,"back","Foto trasera")+'</div>'+
-  '<p class="admin-help">Las dos fotos se mostrarán al comprador cuando seleccione este color. Se recomienda usar el mismo fondo, encuadre y tamaño de imagen.</p>'+
+  '<div class="admin-color-presets" aria-label="Colores rápidos">'+ADMIN_COLOR_PRESETS.map(color=>'<button type="button" data-color-variant-preset="'+index+'" data-color-name="'+color.name+'" data-color-hex="'+color.hex+'" title="Usar color '+color.name+'"><span style="background:'+color.hex+'"></span>'+color.name+'</button>').join('')+'</div>'+
+  '<div class="admin-color-variant-photos">'+photo(variant,index,"front","Foto principal del color",true)+photo(variant,index,"back","Foto trasera (opcional)")+'</div>'+
+  '<p class="admin-help">Con una sola foto ya puedes guardar este color. La foto trasera es opcional y sirve para mostrar otra vista al comprador.</p>'+
  '</article>').join("");
+ box.querySelectorAll("[data-color-variant-preset]").forEach(button=>button.addEventListener("click",()=>{
+  const index=Number(button.dataset.colorVariantPreset),variant=editingColorVariants[index];
+  if(!variant)return;
+  variant.name=button.dataset.colorName||variant.name;
+  variant.hex=button.dataset.colorHex||variant.hex;
+  const row=button.closest("[data-color-variant-index]");
+  const nameInput=row?.querySelector('[data-variant-field="name"]');
+  const hexInput=row?.querySelector('[data-variant-field="hex"]');
+  const swatch=row?.querySelector(".admin-color-variant-swatch");
+  if(nameInput)nameInput.value=variant.name;
+  if(hexInput)hexInput.value=variant.hex;
+  if(swatch)swatch.style.background=variant.hex;
+  button.closest(".admin-color-presets")?.querySelectorAll("button").forEach(item=>item.classList.toggle("is-picked",item===button));
+  const form=$("#adminProductForm");if(form)form.dataset.dirty="1";
+ }));
  box.querySelectorAll("[data-remove-color-variant]").forEach(button=>button.addEventListener("click",()=>{
   const index=Number(button.dataset.removeColorVariant);
   if(!Number.isInteger(index)||index<0||index>=editingColorVariants.length)return;
@@ -863,7 +885,7 @@ async function save(e){
   for(const v of editingColorVariants){
    if(!/^#[0-9a-f]{6}$/i.test(v.hex||""))throw new Error("Selecciona una muestra de color válida.");
    if(v.printful_sync_variant_id!==""&&v.printful_sync_variant_id!=null&&(!Number.isSafeInteger(Number(v.printful_sync_variant_id))||Number(v.printful_sync_variant_id)<=0))throw new Error("El Sync Variant ID de Printful debe ser un entero positivo.");
-   if(!(v.frontImage||v.frontFile)||!(v.backImage||v.backFile))throw new Error("Cada color necesita una foto frontal y otra trasera.");
+   if(!(v.frontImage||v.frontFile||v.backImage||v.backFile))throw new Error("Añade al menos una foto para el color "+(v.name||"seleccionado")+". La foto trasera es opcional.");
    for(const file of [v.frontFile,v.backFile].filter(Boolean))if(file.size>12*1024*1024)throw new Error("Cada foto de color debe pesar máximo 12 MB.");
   }
   const pendingImages=editingImages.filter(item=>item.file).length;
@@ -884,7 +906,8 @@ async function save(e){
    let front=variant.frontImage,back=variant.backImage;
    if(variant.frontFile)front=await upload(variant.frontFile);
    if(variant.backFile)back=await upload(variant.backFile);
-   colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:[front,back],printful_sync_variant_id:variant.printful_sync_variant_id?Number(variant.printful_sync_variant_id):null});
+   const variantImages=[front,back].filter(Boolean).slice(0,2);
+   colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:variantImages,printful_sync_variant_id:variant.printful_sync_variant_id?Number(variant.printful_sync_variant_id):null});
   }
   const payload=formData();payload.images=editingImages.map(item=>item.url).filter(Boolean);payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
   status("Guardando la información del producto…","info");
