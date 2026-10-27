@@ -912,7 +912,11 @@ async function save(e){
   const payload=formData();payload.images=editingImages.map(item=>item.url).filter(Boolean);payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
   status("Guardando la información del producto…","info");
   const result=await call({action:"save",...payload});
-  if(result.product){status("Producto guardado: "+result.product.name+". El catálogo de la tienda se actualizará al recargar.", "success");}
+  if(!result.product)throw new Error("El servidor no confirmó el guardado del producto. Revisa el estado e inténtalo otra vez.");
+  const expectedColorCount=colorVariantsToSave.length;
+  const savedColorCount=Array.isArray(result.product.color_variants)?result.product.color_variants.length:0;
+  if(savedColorCount!==expectedColorCount)throw new Error("Se prepararon "+expectedColorCount+" colores, pero el servidor confirmó "+savedColorCount+". No cerré el editor para que puedas revisar y volver a guardar.");
+  status("Producto guardado: "+result.product.name+" · "+savedColorCount+" color(es). El catálogo de la tienda se actualizará al recargar.", "success");
   resetForm();
   if(!$("#productEditorModal")?.hidden)closeProductEditor(true);
   await loadProducts();
