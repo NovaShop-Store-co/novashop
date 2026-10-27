@@ -143,7 +143,9 @@ body.product-editor-open{overflow:hidden}
  .admin-current-image .admin-image-actions button{font-size:9px;padding:7px 6px}
 }
 
-</style></head><body>
+</style>
+<link rel="stylesheet" href="admin-orders-pagination.css?v=1">
+</head><body>
 <div class="announcement" role="region" aria-label="Administración NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🔐 Panel de administración</span><b>•</b><span>Gestiona tu catálogo</span><b>•</b><span>Solo usuarios autorizados</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🔐 Panel de administración</span><b>•</b><span>Gestiona tu catálogo</span><b>•</b><span>Solo usuarios autorizados</span><b>•</b></div></div></div></div>
 <header class="site-header"><div class="container nav-wrap"><a class="brand" href="index.html"><span class="brand-mark">N</span><span>Nova<span>Shop</span></span></a><nav class="main-nav"><a href="index.html">Tienda</a><a href="streaming.html">Streaming</a></nav><div class="header-actions account-actions"><a class="account-btn auth-nav-link" data-auth-nav="login" href="cuenta.html?tab=login">Iniciar sesión</a><a class="account-btn auth-nav-link" data-auth-nav="register" href="cuenta.html?tab=register">Crear cuenta</a><a class="account-btn auth-nav-link" data-auth-nav="account" href="cuenta.html" hidden>Mi cuenta</a></div></div></header>
 <main class="admin-page-wrap">
@@ -159,7 +161,7 @@ body.product-editor-open{overflow:hidden}
 </nav>
 <section id="adminOrdersWrap" class="admin-orders-wrap admin-section-panel" data-admin-section="orders" hidden>
  <div class="admin-orders-heading">
-  <div><h2>Pedidos y compradores <span id="adminOrdersCount" class="admin-pill">—</span></h2><p>Consulta compras registradas, datos de entrega y actualiza cada estado. La búsqueda revisa los pedidos cargados; usa «Cargar más» para revisar pedidos anteriores. Confirma un pago solo cuando lo hayas verificado.</p></div>
+  <div><h2>Pedidos y compradores <span id="adminOrdersCount" class="admin-pill">—</span></h2><p>Encuentra pedidos por número, cliente, correo o teléfono. Solo verás 10 pedidos a la vez y podrás recorrer páginas sin alargar indefinidamente esta pantalla.</p></div>
   <div class="admin-orders-top-actions"><button type="button" class="btn btn-ghost" id="exportAdminOrders">Exportar pedidos cargados CSV</button><button type="button" class="btn btn-ghost" id="refreshAdminOrders">Actualizar pedidos</button></div>
  </div>
  <div class="admin-orders-tools">
@@ -170,8 +172,24 @@ body.product-editor-open{overflow:hidden}
   <button type="button" class="btn btn-primary" id="filterAdminOrders">Aplicar filtro</button>
  </div>
  <div id="adminOrdersStatus" class="admin-status" role="status">Los pedidos aparecerán aquí cuando se registren compras.</div>
+ <div class="admin-orders-pagination" id="adminOrdersPaginationTop">
+  <span data-orders-summary>Preparando lista de pedidos…</span>
+  <div class="admin-orders-pagination-controls">
+   <button type="button" data-orders-page="prev" disabled>← Anterior</button>
+   <strong data-orders-page-label>Página 1 de 1</strong>
+   <button type="button" data-orders-page="next" disabled>Siguiente →</button>
+  </div>
+ </div>
  <div id="adminOrdersList" class="admin-orders-list"><div class="admin-orders-empty">Inicia sesión como administrador para consultar pedidos.</div></div>
- <button type="button" class="btn btn-ghost admin-orders-loadmore" id="loadMoreOrders" hidden>Cargar más pedidos</button>
+ <div class="admin-orders-pagination" id="adminOrdersPaginationBottom">
+  <span data-orders-summary>Preparando lista de pedidos…</span>
+  <div class="admin-orders-pagination-controls">
+   <button type="button" data-orders-page="prev" disabled>← Anterior</button>
+   <strong data-orders-page-label>Página 1 de 1</strong>
+   <button type="button" data-orders-page="next" disabled>Siguiente →</button>
+  </div>
+ </div>
+ <button type="button" class="btn btn-ghost admin-orders-loadmore" id="loadMoreOrders" hidden>Cargar 40 más pedidos</button>
 </section>
 
 <section id="adminCouponsWrap" class="admin-coupons-wrap admin-card admin-section-panel" data-admin-section="coupons" hidden>
@@ -285,5 +303,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=33"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=23"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=33"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=24"></script>
 </body></html>
