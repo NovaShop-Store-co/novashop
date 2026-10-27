@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
     const boldSecretKey = Deno.env.get("BOLD_SECRET_KEY") || "";
     const boldEnvironment = clean(Deno.env.get("BOLD_ENVIRONMENT") || "", 16).toLowerCase();
     const validBoldEnvironment = ["test", "live"].includes(boldEnvironment);
-    const siteUrl = (Deno.env.get("NOVASHOP_SITE_URL") || "https://adrianmarin05.github.io/novashop").replace(/\/+$/, "");
+    const siteUrl = (Deno.env.get("NOVASHOP_SITE_URL") || "https://novashop-store-co.pages.dev").replace(/\/+$/, "");
 
     if (!supabaseUrl || !publicKey || !serviceKey) {
       console.error("bold-payments: faltan variables de entorno de Supabase.");
@@ -89,6 +89,105 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await authClient.auth.getUser(token);
       if (error || !data.user) return json({ error: "Tu sesión no es válida. Inicia sesión de nuevo." }, 401);
       requester = data.user;
+    }
+
+    if (action === "shipping-status") {
+      const orderId = clean(body.order_id, 50);
+      if (!isUuid(orderId)) return json({ error: "Identificador de pedido no válido." }, 400);
+      const { data: order, error } = await admin.from("orders")
+        .select("id,order_number,payment_provider,currency,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,total_cop,shipping_payment_reference,status")
+        .eq("id", orderId).maybeSingle();
+      if (error) throw error;
+      if (!order) return json({ error: "No encontramos el pedido." }, 404);
+      if (order.payment_provider !== "cash_on_delivery") return json({ error: "El pedido no está registrado para contraentrega." }, 409);
+      return json({ ok: true, order: {
+        id: order.id, order_number: order.order_number, total_cop: order.total_cop,
+        shipping_fee_cop: Number(order.shipping_fee_cop || 0),
+        cash_on_delivery_due_cop: order.cash_on_delivery_due_cop == null ? null : Number(order.cash_on_delivery_due_cop),
+        shipping_payment_status: order.shipping_payment_status,
+        shipping_payment_reference: order.shipping_payment_reference,
+        status: order.status
+      }});
+    }
+
+    if (action === "create-shipping-checkout") {
+      const orderId = clean(body.order_id, 50);
+      if (!isUuid(orderId)) return json({ error: "Identificador de pedido no válido." }, 400);
+      const { data: order, error: orderError } = await admin.from("orders")
+        .select("id,order_number,user_id,status,payment_provider,currency,total_cop,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,customer_first_name,customer_last_name,customer_email,customer_phone")
+        .eq("id", orderId).maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) return json({ error: "No encontramos ese pedido." }, 404);
+      if (order.user_id && (!requester || requester.id !== order.user_id)) {
+        return json({ error: "Inicia sesión con la cuenta que realizó este pedido para pagar el flete." }, 403);
+      }
+      if (order.payment_provider !== "cash_on_delivery" || order.currency !== "COP" || Number(order.shipping_fee_cop) !== 12000) {
+        return json({ error: "Este pedido no tiene configurado el flete fijo de contraentrega de $12.000 COP." }, 409);
+      }
+      if (["cancelled","refunded","payment_failed"].includes(order.status)) {
+        return json({ error: "Este pedido está cerrado y no acepta pagos de envío." }, 409);
+      }
+      if (order.shipping_payment_status === "approved") {
+        return json({ ok: true, already_paid: true, order: {
+          id: order.id, order_number: order.order_number, total_cop: Number(order.total_cop),
+          shipping_fee_cop: 12000, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+          shipping_payment_status: "approved"
+        }});
+      }
+      let shippingReference = isUuid(clean(order.shipping_payment_reference, 50))
+        ? clean(order.shipping_payment_reference, 50)
+        : "";
+      if (!shippingReference) {
+        const proposedReference = crypto.randomUUID();
+        const { data: claimed, error: claimError } = await admin.from("orders")
+          .update({ shipping_payment_reference: proposedReference, updated_at: new Date().toISOString() })
+          .eq("id", order.id).is("shipping_payment_reference", null)
+          .select("shipping_payment_reference").maybeSingle();
+        if (claimError) throw claimError;
+        if (claimed?.shipping_payment_reference) shippingReference = String(claimed.shipping_payment_reference);
+        else {
+          const { data: latest, error: latestError } = await admin.from("orders")
+            .select("shipping_payment_reference,shipping_payment_status").eq("id", order.id).single();
+          if (latestError) throw latestError;
+          if (latest.shipping_payment_status === "approved") return json({ ok: true, already_paid: true, order: {
+            id: order.id, order_number: order.order_number, total_cop: Number(order.total_cop),
+            shipping_fee_cop: 12000, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+            shipping_payment_status: "approved"
+          }});
+          shippingReference = clean(latest.shipping_payment_reference, 50);
+        }
+      }
+      if (!isUuid(shippingReference)) return json({ error: "No pudimos preparar la referencia segura para pagar el flete." }, 500);
+
+      const amount = 12000;
+      const integritySignature = await sha256Hex(shippingReference + String(amount) + "COP" + boldSecretKey);
+      const description = ("NovaShop flete contraentrega " + clean(order.order_number, 40)).slice(0, 120);
+      const redirectionUrl = siteUrl + "/pedido.html?modo=contraentrega&pedido="
+        + encodeURIComponent(order.order_number) + "&id=" + encodeURIComponent(order.id)
+        + "&shipping_ref=" + encodeURIComponent(shippingReference);
+
+      const customerData: Record<string, string> = {};
+      const fullName = clean([order.customer_first_name, order.customer_last_name].filter(Boolean).join(" "), 100);
+      if (fullName) customerData.fullName = fullName;
+      if (order.customer_email) customerData.email = clean(order.customer_email, 120);
+      if (order.customer_phone) {
+        customerData.phone = clean(order.customer_phone.replace(/^\\+?57/, ""), 20);
+        customerData.dialCode = "+57";
+      }
+
+      return json({
+        ok: true,
+        order: {
+          id: order.id, order_number: order.order_number, total_cop: Number(order.total_cop),
+          shipping_fee_cop: amount, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+          shipping_payment_status: order.shipping_payment_status
+        },
+        config: {
+          orderId: shippingReference, currency: "COP", amount: String(amount),
+          apiKey: boldApiKey, integritySignature, description, redirectionUrl,
+          ...(Object.keys(customerData).length ? { customerData: JSON.stringify(customerData) } : {})
+        }
+      }, 200);
     }
 
     if (action === "create-checkout") {
@@ -242,6 +341,76 @@ Deno.serve(async (req: Request) => {
         provider_status: providerStatus,
         message: finalStatus === "approved" ? "Pago verificado y pedido actualizado." : finalStatus === "rejected" ? "Bold informa que el pago fue rechazado." : "No se pudo confirmar el pago.",
       });
+    }
+
+    if (action === "verify-shipping-checkout") {
+      const shippingReference = clean(body.order_id, 50);
+      if (!isUuid(shippingReference)) return json({ error: "La referencia del pago de envío no es válida." }, 400);
+      const { data: order, error: orderError } = await admin.from("orders")
+        .select("id,order_number,status,payment_provider,currency,total_cop,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference")
+        .eq("shipping_payment_reference", shippingReference).maybeSingle();
+      if (orderError) throw orderError;
+      if (!order || order.payment_provider !== "cash_on_delivery") {
+        return json({ error: "No encontramos el pedido de contraentrega asociado al pago de envío." }, 404);
+      }
+      if (Number(order.shipping_fee_cop) !== 12000 || String(order.currency) !== "COP") {
+        return json({ error: "El importe configurado para el flete no coincide con $12.000 COP." }, 409);
+      }
+      if (order.shipping_payment_status === "approved") {
+        return json({ ok: true, status: "approved", order_number: order.order_number,
+          shipping_fee_cop: 12000, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+          message: "Bold confirmó el pago del flete. El saldo restante se paga al recibir el producto." });
+      }
+
+      const boldResponse = await fetch("https://payments.api.bold.co/v2/payment-voucher/" + encodeURIComponent(shippingReference), {
+        method: "GET",
+        headers: { "Authorization": "x-api-key " + boldApiKey, "Accept": "application/json" },
+      });
+      const remote = await boldResponse.json().catch(() => ({}));
+      if (!boldResponse.ok) {
+        console.error("bold-payments: Bold devolvió HTTP " + boldResponse.status + " al consultar el pago de envío.");
+        return json({ error: "Bold todavía no permite consultar este pago de envío. Vuelve a intentarlo en unos minutos.", status: "pending", order_number: order.order_number }, 502);
+      }
+      const transaction = remote?.payload ?? remote;
+      const providerStatus = clean(transaction?.payment_status, 40).toUpperCase();
+      if (!providerStatus || ["NO_TRANSACTION_FOUND","PROCESSING","PENDING"].includes(providerStatus)) {
+        return json({ ok: true, status: "pending", order_number: order.order_number,
+          shipping_fee_cop: 12000, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+          provider_status: providerStatus || "PENDING",
+          message: "Bold todavía no confirma el pago del flete. No despacharemos el pedido hasta que se apruebe." });
+      }
+      if (String(transaction?.reference_id ?? "") !== shippingReference ||
+          Number(transaction?.total) !== 12000 || String(transaction?.currency ?? "COP") !== "COP") {
+        console.error("bold-payments: monto o referencia del pago de envío no coincide con " + order.order_number);
+        return json({ error: "La referencia, el monto o la moneda no coinciden con el flete. No hemos actualizado el pedido." }, 409);
+      }
+      if (boldEnvironment === "test") {
+        return json({ ok: true, status: "test", order_number: order.order_number,
+          shipping_fee_cop: 12000, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+          provider_status: providerStatus,
+          message: providerStatus === "APPROVED"
+            ? "Bold confirmó una transacción de prueba. El flete del pedido real sigue pendiente."
+            : "Bold devolvió un resultado de prueba (" + providerStatus + "). No se modificó el pedido real." });
+      }
+      if (providerStatus === "APPROVED") {
+        const { error } = await admin.from("orders").update({
+          shipping_payment_status: "approved",
+          shipping_payment_transaction_id: clean(transaction?.transaction_id || shippingReference, 100),
+          updated_at: new Date().toISOString()
+        }).eq("id", order.id).eq("shipping_payment_status", "pending");
+        if (error) throw error;
+        return json({ ok: true, status: "approved", order_number: order.order_number,
+          shipping_fee_cop: 12000, cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+          provider_status: providerStatus,
+          message: "Pago del flete confirmado por Bold. El saldo restante se paga al recibir el producto." });
+      }
+      return json({ ok: true, status: ["REJECTED","FAILED","VOIDED"].includes(providerStatus) ? "rejected" : "pending",
+        order_number: order.order_number, shipping_fee_cop: 12000,
+        cash_on_delivery_due_cop: Number(order.cash_on_delivery_due_cop || 0),
+        provider_status: providerStatus,
+        message: ["REJECTED","FAILED","VOIDED"].includes(providerStatus)
+          ? "El pago del flete no fue aprobado. Puedes reintentarlo sin crear otro pedido."
+          : "Bold todavía no ha dado un resultado definitivo para el pago del flete." });
     }
 
     return json({ error: "Acción no reconocida." }, 400);
