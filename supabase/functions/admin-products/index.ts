@@ -50,6 +50,7 @@ Deno.serve(async (req: Request) => {
   });
   if (req.method !== "POST") return json({error:"Método no permitido."},405,origin);
 
+  let currentAction = "";
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const publishable = parseKey(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")) || Deno.env.get("SUPABASE_ANON_KEY");
@@ -83,6 +84,7 @@ Deno.serve(async (req: Request) => {
     let body: any;
     try { body = JSON.parse(raw); } catch { return json({error:"Solicitud JSON no válida."},400,origin); }
     const action = String(body?.action || "");
+    currentAction = action;
 
     if (action === "whoami") return json({ok:true,isAdmin:true,userId:user.id,email:user.email || null,role},200,origin);
 
@@ -619,7 +621,7 @@ Deno.serve(async (req: Request) => {
       const colorVariants = rawColorVariants.map((item: any)=>({
         name:clean(item?.name,40),
         hex:clean(item?.hex,7).toLowerCase(),
-        images:Array.isArray(item?.images)?item.images.map((v: unknown)=>clean(v,1000)).slice(0,2):[],
+        images:Array.isArray(item?.images)?item.images.map((v: unknown)=>clean(v,1000)).filter(Boolean).slice(0,2):[],
         printful_sync_variant_id:item?.printful_sync_variant_id==null||item?.printful_sync_variant_id===""?null:Number(item.printful_sync_variant_id)
       }));
       const seenColorNames = new Set<string>();
@@ -629,7 +631,7 @@ Deno.serve(async (req: Request) => {
         if (seenColorNames.has(key)) return json({error:"No repitas el nombre de un color."},400,origin);
         seenColorNames.add(key);
         if (variant.printful_sync_variant_id!==null && (!Number.isSafeInteger(variant.printful_sync_variant_id)||variant.printful_sync_variant_id<=0)) return json({error:"El Printful Sync Variant ID por color debe ser un entero positivo."},400,origin);
-        if (variant.images.length !== 2 || variant.images.some((url: string)=>!safeMediaUrl(url,supabaseUrl,false))) return json({error:"Cada color necesita una foto frontal y otra trasera almacenadas en NovaShop."},400,origin);
+        if (variant.images.length < 1 || variant.images.some((url: string)=>!safeMediaUrl(url,supabaseUrl,false))) return json({error:"Cada color necesita al menos una foto válida almacenada en NovaShop. La foto trasera es opcional."},400,origin);
       }
       const printfulEnabled = body.printful_enabled === true;
       const printfulRaw = body.printful_sync_variant_id == null || body.printful_sync_variant_id === "" ? null : Number(body.printful_sync_variant_id);
@@ -684,6 +686,14 @@ Deno.serve(async (req: Request) => {
     console.error("admin-products error:",e);
     if (errorText.includes("NOVASHOP_STOCK_INSUFFICIENT")) {
       return json({error:"No se puede confirmar este pedido: el inventario disponible ya no alcanza. Revisa el stock o contacta al cliente."},409,origin);
+    }
+    if (currentAction === "save" && errorText) {
+      const code=String((e as any)?.code||"");
+      if (code === "23505") return json({error:"No se pudo guardar: existe un producto con un dato único duplicado. Revisa el identificador y vuelve a intentarlo."},409,origin);
+      return json({error:"No se pudo guardar el producto. Detalle: "+errorText.replace(/\\s+/g," ").slice(0,220)},500,origin);
+    }
+    if (currentAction === "upload-url" && errorText) {
+      return json({error:"No se pudo preparar la subida del archivo. Detalle: "+errorText.replace(/\\s+/g," ").slice(0,220)},500,origin);
     }
     return json({error:"No pudimos completar la operación administrativa. Revisa la configuración y vuelve a intentarlo."},500,origin);
   }
