@@ -29,6 +29,9 @@
  }
  async function createBoldCheckout(orderId){return callBold("create-checkout",orderId);}
  async function verifyBoldPayment(orderId){return callBold("verify-checkout",orderId);}
+ async function getCODShippingStatus(orderId){return callBold("shipping-status",orderId);}
+ async function createShippingBoldCheckout(orderId){return callBold("create-shipping-checkout",orderId);}
+ async function verifyShippingBoldPayment(shippingReference){return callBold("verify-shipping-checkout",shippingReference);}
  async function checkBoldConfigured(){
   const result=await callBold("status","");
   if(result.configured===true)return true;
@@ -183,7 +186,7 @@
   isConfigured:()=>configured&&!!client,
   client,
   getSession:async()=>client?(await client.auth.getSession()).data.session:null,
-  createOrder,createBoldCheckout,verifyBoldPayment,checkBoldConfigured,
+  createOrder,createBoldCheckout,verifyBoldPayment,getCODShippingStatus,createShippingBoldCheckout,verifyShippingBoldPayment,checkBoldConfigured,
   syncCatalog,prefillCheckout,adminCall,fulfillPrintfulOrder,loginWithIdentifier,
   getFavoriteIds,toggleFavorite
  };
