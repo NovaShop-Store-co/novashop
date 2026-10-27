@@ -545,8 +545,15 @@ function renderProductMedia(){
  mainImage.src=firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?" · vista frontal":"");
  mainImage.hidden=!!currentProduct.videoUrl;
  mainVideo.pause();mainVideo.hidden=!currentProduct.videoUrl;mainVideo.removeAttribute("src");mainVideo.removeAttribute("poster");
+ mainVideo.controls=true;mainVideo.playsInline=true;mainVideo.preload="metadata";
  mediaFrame?.classList.toggle("is-video",!!currentProduct.videoUrl);
- if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=firstImage;mainVideo.load();}else{mainVideo.load();}
+ if(currentProduct.videoUrl){
+  mainVideo.style.position="absolute";mainVideo.style.inset="0";mainVideo.style.width="100%";mainVideo.style.height="100%";mainVideo.style.maxHeight="none";mainVideo.style.objectFit="contain";
+  mainVideo.src=String(currentProduct.videoUrl).trim();mainVideo.poster=firstImage;mainVideo.load();
+ }else{
+  mainVideo.style.position="";mainVideo.style.inset="";mainVideo.style.width="";mainVideo.style.height="";mainVideo.style.maxHeight="";mainVideo.style.objectFit="";
+  mainVideo.load();
+ }
  const imageButtons=galleryImages.map((image,index)=>{
   const label=selectedColorVariant?(index===0?"Vista frontal":index===1?"Vista trasera":"Imagen "+(index+1)):("Ver imagen "+(index+1));
   return '<button class="thumbnail" type="button" data-index="'+index+'" aria-label="'+escProduct(label+(selectedColorVariant?" del color "+selectedColorVariant.name:""))+'"><img src="'+escProduct(image)+'" alt="'+escProduct(titlePrefix+" · "+label)+'" loading="lazy">'+(selectedColorVariant?'<span class="product-thumbnail-label">'+(index===0?"FRENTE":index===1?"ESPALDA":"FOTO")+'</span>':"")+'</button>';
