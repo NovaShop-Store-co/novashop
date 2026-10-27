@@ -284,7 +284,7 @@ body.product-editor-open{overflow:hidden}
 <label>Fotos del producto *<input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple><span class="admin-help">Hasta 8 fotos por producto, máximo 12 MB cada una. Selecciona una o varias; verás una vista previa antes de guardar. La primera foto es la portada que aparece en el catálogo y al abrir el producto. Puedes elegir otra con el botón «Usar como portada».</span></label><div id="adminCurrentImages" class="admin-current-media" hidden></div>
 <label>Video del producto (opcional)<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime"><span class="admin-help">MP4 (recomendado, H.264), WEBM o MOV, máximo 50 MB. La vista previa se adapta automáticamente a 16:9; el archivo no se convierte de formato automáticamente. Puedes reemplazarlo o quitarlo.</span></label><div id="adminCurrentVideo" class="admin-current-video" hidden></div>
 <div class="admin-color-variants-editor">
- <div class="admin-color-variants-heading"><div><strong>Colores y vistas del producto</strong><p class="admin-help">Pulsa un color sugerido para completar automáticamente su nombre y muestra. Solo necesitas una foto por color; la vista trasera es opcional. Máximo 12 colores.</p></div><button type="button" class="btn btn-ghost" id="addAdminColorVariant">+ Añadir color</button></div>
+ <div class="admin-color-variants-heading"><div><strong>Colores y vistas del producto</strong><p class="admin-help">Las fotos de la galería de arriba no crean colores automáticamente: pulsa «+ Añadir color» una vez por cada color y asigna su foto principal. La vista trasera es opcional. Máximo 12 colores.</p></div><button type="button" class="btn btn-ghost" id="addAdminColorVariant">+ Añadir color</button></div>
  <div id="adminColorVariantsList" class="admin-color-variants-list"><p class="admin-help">Todavía no has añadido variantes de color. Si el producto solo tiene una versión, puedes dejarlo vacío.</p></div>
 </div>
 <label>Texto corto / etiqueta<input name="tag" maxlength="30" placeholder="NUEVO, DESTACADO…"></label>
@@ -309,5 +309,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=35"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=27"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=35"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=28"></script>
 </body></html>
