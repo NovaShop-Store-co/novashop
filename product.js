@@ -309,7 +309,7 @@ function configureProductPaymentMethods(form){
   const select=form?.querySelector('select[name="paymentMethod"]');
   const boldOption=select?.querySelector('option[value="bold"]');
   const codOption=select?.querySelector('option[value="cash_on_delivery"]');
-  if(boldOption)boldOption.textContent=allowContraentrega?"Pago en línea · envío gratis":"Pagar en línea con Bold";
+  if(boldOption)boldOption.textContent=allowContraentrega?"Pago en línea · envío gratis":"Pago en línea";
   if(codOption){codOption.hidden=!allowContraentrega;codOption.disabled=!allowContraentrega;}
   if(select&&!allowContraentrega)select.value="bold";
   const policy=form?.querySelector("[data-payment-policy]");
@@ -424,7 +424,7 @@ async function submitProductCheckout(event) {
   const form=event.currentTarget;
   const formButton=form.querySelector('button[type="submit"],button[data-bold-ready]');
   if(form.dataset.boldOrderId){
-    if(!window.NovaShopBold?.prepare){showToast("La integración de Bold no está disponible. Recarga la página e inténtalo de nuevo.");return;}
+    if(!window.NovaShopBold?.prepare){showToast("El pago en línea no está disponible en este momento. Recarga la página e inténtalo de nuevo.");return;}
     if(formButton){formButton.disabled=true;formButton.textContent="Preparando pago…";}
     try{
       await window.NovaShopBold.prepare(form.dataset.boldOrderId,formButton,closeProductCheckout);
@@ -454,7 +454,7 @@ async function submitProductCheckout(event) {
   if(useCOD&&currentProduct.deliveryType!=="physical"){
     showToast("La contraentrega solo está disponible para productos físicos. Los servicios digitales se pagan por anticipado en línea.");return;
   }
-  data.paymentMethod=useBold?"Pago en línea con Bold":"Contraentrega";
+  data.paymentMethod=useBold?"Pago en línea":"Contraentrega";
   const configuredVariants=productColorVariants();
   if(configuredVariants.length&&(!selectedColorVariant||!configuredVariants.some(v=>v.name===selectedColorVariant.name))){showToast("Selecciona un color para continuar.");return;}
   if(currentProduct.deliveryType!=="digital"&&(!data.address||!data.neighborhood||!data.city||!data.department)){
@@ -469,8 +469,8 @@ async function submitProductCheckout(event) {
   if(useBold){
     try{
       const configured=await window.NovaShopDB?.checkBoldConfigured?.();
-      if(!configured){showToast("El pago con Bold todavía está en configuración. Elige contraentrega o inténtalo cuando se activen las llaves.");return;}
-    }catch(error){showToast(error?.message||"No pudimos comprobar la configuración de Bold.");return;}
+      if(!configured){showToast("El pago en línea todavía está en configuración. Inténtalo más tarde o consulta las formas de pago disponibles.");return;}
+    }catch(error){showToast(error?.message||"No pudimos comprobar la configuración del pago en línea.");return;}
   }
   if(!window.NovaShopDB?.isConfigured?.()){
     showToast("El sistema de pedidos no está disponible en este momento. No se ha registrado ni cobrado tu pedido.");return;
@@ -597,9 +597,9 @@ function renderProduct() {
   if(codPaymentInfo){
     codPaymentInfo.hidden=!allowsCOD;
     if(allowsCOD&&Number(currentProduct.price)>12000){
-      codPaymentInfo.textContent='Si eliges contraentrega: paga $12.000 por Bold como anticipo de envío; se resta del total de la compra. Por una unidad, el saldo estimado al recibir es '+money(Number(currentProduct.price)-12000)+'. En pedidos con varias unidades, el anticipo se aplica una sola vez.';
+      codPaymentInfo.textContent='Si eliges contraentrega: paga $12.000 como anticipo de envío; se resta del total de la compra. Por una unidad, el saldo estimado al recibir es '+money(Number(currentProduct.price)-12000)+'. En pedidos con varias unidades, el anticipo se aplica una sola vez.';
     }else if(allowsCOD){
-      codPaymentInfo.textContent='Para usar contraentrega, el total debe superar el anticipo de $12.000 pagado por Bold.';
+      codPaymentInfo.textContent='Para usar contraentrega, el total debe superar el anticipo de envío de $12.000.';
     }
   }
   $('#productDescription').textContent = currentProduct.description;
@@ -613,9 +613,9 @@ function renderProduct() {
   $('#productFulfillmentTitle').textContent=isDigitalProduct?'Antes de pagar, confirma los detalles':'Entrega clara, sin sorpresas';
   $('#productFulfillmentText').textContent=isDigitalProduct
     ? 'Es un servicio digital y no necesita envío físico. Confirma disponibilidad, duración, modalidad de acceso y condiciones con NovaShop antes de pagar.'
-    : 'Con Bold, el envío del producto físico es gratis. Si consultas contraentrega, el flete se cotiza según tu destino y se paga por anticipado a la transportadora.';
-  $('#productTrust1').textContent=isDigitalProduct?'No requiere envío físico':'Envío gratis pagando con Bold';
-  $('#productTrust2').textContent=isDigitalProduct?'Pago en línea con Bold':'Consulta contraentrega según tu destino';
+    : 'Al pagar en línea, el envío del producto físico es gratis. Si eliges contraentrega, el costo del envío depende de tu destino y se paga por anticipado a la transportadora.';
+  $('#productTrust1').textContent=isDigitalProduct?'No requiere envío físico':'Envío gratis al pagar en línea';
+  $('#productTrust2').textContent=isDigitalProduct?'Pago en línea':'Consulta contraentrega según tu destino';
   $('#productTrust3').textContent=isDigitalProduct?'Confirma disponibilidad y condiciones antes de comprar':'Consulta dudas sobre el producto por WhatsApp';
   $('#productShippingTitle').textContent=isDigitalProduct?'Entrega digital':'Envíos y entrega';
   $('#productShipping').textContent = currentProduct.shipping;
