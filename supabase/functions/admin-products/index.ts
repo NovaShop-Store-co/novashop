@@ -619,6 +619,7 @@ Deno.serve(async (req: Request) => {
       if (printfulRaw !== null && (!Number.isSafeInteger(printfulRaw) || printfulRaw <= 0)) return json({error:"El Printful Sync Variant ID debe ser un entero positivo."},400,origin);
       if (printfulEnabled && !colorVariants.length && printfulRaw === null) return json({error:"Para activar el envío automático a Printful, configura primero el Sync Variant ID del producto."},400,origin);
       if (printfulEnabled && !paymentMethods.includes("bold")) return json({error:"Los productos enviados mediante Printful requieren pago anticipado con Bold."},400,origin);
+      if (printfulEnabled && paymentMethods.includes("cash_on_delivery")) return json({error:"Los productos enviados mediante Printful deben usar solo pago anticipado con Bold; desactiva la contraentrega."},400,origin);
       if (printfulEnabled && colorVariants.length && colorVariants.some((variant: any)=>variant.printful_sync_variant_id===null)) return json({error:"Para activar el envío automático a Printful, configura el Sync Variant ID de cada color."},400,origin);
       const video = body.video_url == null || body.video_url === "" ? null : clean(body.video_url,1000);
       const tag = clean(body.tag,30);
