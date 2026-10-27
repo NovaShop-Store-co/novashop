@@ -10,6 +10,7 @@
   const email = document.querySelector("#freightEmail");
   const payButton = document.querySelector("#payShippingBold");
   const balance = document.querySelector("#codBalance");
+  const paymentBreakdown = document.querySelector("#codPaymentBreakdown");
   const paymentStatus = document.querySelector("#shippingPaymentStatus");
 
   const money = value => new Intl.NumberFormat("es-CO", {
@@ -117,6 +118,7 @@
 
     if (!orderId) {
       if (payButton) payButton.hidden = true;
+      if (paymentBreakdown) paymentBreakdown.hidden = true;
       if (balance) balance.textContent = "Este pedido se creó antes de activar el pago de envío por Bold o no incluye el identificador necesario.";
       showFreightContact();
       setStatus("Contacta a NovaShop para que verifique el flete de este pedido antes del despacho.");
