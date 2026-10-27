@@ -511,7 +511,11 @@ async function submitProductCheckout(event) {
 
 
 function productColorVariants(){
- return Array.isArray(currentProduct?.colorVariants)?currentProduct.colorVariants.filter(v=>v&&typeof v.name==="string"&&v.name.trim()):[];
+ if(!Array.isArray(currentProduct?.colorVariants))return [];
+ return currentProduct.colorVariants.filter(v=>v&&typeof v.name==="string"&&v.name.trim()).map(v=>{
+  const images=Array.isArray(v.images)?v.images.filter(Boolean):[v.front_image||v.frontImage,v.back_image||v.backImage].filter(Boolean);
+  return {...v,images};
+ });
 }
 function renderProductColorOptions(){
  const box=$("#productColorOptions");if(!box)return;
