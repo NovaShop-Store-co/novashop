@@ -248,7 +248,10 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 
 
 /* Video visibility and sizing fix for product detail media */
-.product-main-image-wrap.is-video{position:relative;display:block;width:100%;aspect-ratio:16/9;min-height:180px;overflow:hidden;background:#050b12}
+.product-main-image-wrap.is-video{position:relative;display:block;width:100%;aspect-ratio:16/9;min-height:180px;overflow:hidden;background:#050b12;transition:width .15s ease}
 .product-main-image-wrap.is-video>.product-main-video:not([hidden]){position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:none!important;object-fit:contain!important;visibility:visible!important;opacity:1!important;z-index:1}
 .product-main-image-wrap.is-video>.product-main-image[hidden],.product-main-video[hidden]{display:none!important}
 @media(max-width:580px){.product-main-image-wrap.is-video{min-height:190px;border-radius:18px}.product-main-image-wrap.is-video>.product-main-video:not([hidden]){border-radius:18px}}
+
+.product-video-status{margin:10px 2px 0;padding:11px 13px;border:1px solid #f1d4ac;border-radius:10px;background:#fff8ed;color:#80531c;font-size:13px;line-height:1.5}
+.product-video-status[hidden]{display:none!important}
