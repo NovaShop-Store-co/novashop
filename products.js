@@ -21,7 +21,7 @@ const products = [
     ],
     description: 'Un smartwatch moderno para acompañarte durante el día. Consulta notificaciones, registra tu actividad y disfruta de una pantalla clara con un diseño ligero y cómodo.',
     features: ['Pantalla táctil a color', 'Monitoreo de actividad', 'Notificaciones del teléfono', 'Diseño ligero y cómodo'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 2,
@@ -39,7 +39,7 @@ const products = [
     ],
     description: 'Auriculares inalámbricos pensados para disfrutar música, llamadas y contenido con una experiencia cómoda y práctica todos los días.',
     features: ['Conexión inalámbrica', 'Micrófono integrado', 'Estuche de carga', 'Diseño ergonómico'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 3,
@@ -57,7 +57,7 @@ const products = [
     ],
     description: 'Mochila urbana compacta para estudio, trabajo o viajes cortos. Combina un formato práctico con compartimentos para organizar tus objetos.',
     features: ['Compartimento principal amplio', 'Bolsillo frontal', 'Diseño urbano', 'Correas ajustables'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 4,
@@ -75,7 +75,7 @@ const products = [
     ],
     description: 'Lámpara de diseño minimalista para escritorio o mesa auxiliar. Una forma sencilla de mejorar la iluminación y el ambiente de tu espacio.',
     features: ['Iluminación LED', 'Diseño minimalista', 'Ideal para escritorio', 'Bajo consumo'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 5,
@@ -93,7 +93,7 @@ const products = [
     ],
     description: 'Botella térmica reutilizable con acabado moderno, pensada para llevar tus bebidas contigo en el día a día.',
     features: ['Acabado resistente', 'Tapa de cierre', 'Diseño reutilizable', 'Formato portátil'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 6,
@@ -111,7 +111,7 @@ const products = [
     ],
     description: 'Gafas de sol con una silueta urbana y fácil de combinar. Un accesorio pensado para looks casuales y modernos.',
     features: ['Montura ligera', 'Estilo urbano', 'Diseño unisex', 'Estuche protector'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 7,
@@ -129,7 +129,7 @@ const products = [
     ],
     description: 'Sneakers de estilo urbano para complementar outfits casuales. Diseño cómodo para el uso diario y una estética fácil de combinar.',
     features: ['Diseño urbano', 'Suela flexible', 'Interior acolchado', 'Uso casual'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   },
   {
     id: 8,
@@ -147,7 +147,7 @@ const products = [
     ],
     description: 'Organizador de escritorio para mantener cables, accesorios y pequeños objetos en orden mientras trabajas o estudias.',
     features: ['Formato compacto', 'Organización de accesorios', 'Diseño minimalista', 'Ideal para escritorio'],
-    shipping: 'Pago con Bold: envío gratis. Contraentrega: el flete depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
+    shipping: 'Pago en línea: envío gratis. Contraentrega: el costo del envío depende del destino y se paga por anticipado a la transportadora; el producto se paga al recibirlo.'
   }
 ,
   {
@@ -155,7 +155,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Apple TV Cuenta Completa: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -163,7 +163,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Canva Pro 1 Mes: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -171,7 +171,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Canva Pro 3 Meses: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -179,7 +179,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Crunchyroll Pantalla: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -187,7 +187,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Disney Premium Genérico: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -195,7 +195,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Disney Premium Original: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -203,7 +203,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "HBO Max Pantalla: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -211,7 +211,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Jellyfin Pantalla: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -219,7 +219,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Netflix Original 12 Días: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -227,7 +227,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Netflix Original 30 Días: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -235,7 +235,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Office 365: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -243,7 +243,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Paramount Pantalla: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -251,7 +251,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Membresía Deluxe: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -259,7 +259,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Membresía Extra: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -267,7 +267,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Plex 1 Pantalla: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -275,7 +275,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Prime Video Pantalla: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -283,7 +283,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Universal: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -291,7 +291,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "ViX Premium: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -299,7 +299,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "Xbox Game Pass: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   },
   {
@@ -307,7 +307,7 @@ const products = [
     rating: null, reviews: 0, tag: 'DIGITAL', images: ["https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=900&q=80"],
     description: "YouTube 1 Mes: servicio digital. Antes de pagar, confirma disponibilidad, duración, modalidad de acceso y condiciones vigentes con NovaShop.",
     features: ['Producto digital; no requiere envío físico', 'Disponibilidad y condiciones por confirmar', 'Entrega o activación coordinada después de confirmar la compra'],
-    shipping: 'Servicio digital; no requiere envío físico. Paga en línea con Bold y consulta tus dudas sobre el servicio por WhatsApp antes de comprar.',
+    shipping: 'Servicio digital; no requiere envío físico. El pago se realiza por anticipado en línea. Si tienes dudas sobre el servicio, escríbenos por WhatsApp antes de comprar.',
     deliveryType: 'digital'
   }
 ];
