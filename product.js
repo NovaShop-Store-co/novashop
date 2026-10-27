@@ -597,7 +597,7 @@ function renderProduct() {
   if(codPaymentInfo){
     codPaymentInfo.hidden=!allowsCOD;
     if(allowsCOD&&Number(currentProduct.price)>12000){
-      codPaymentInfo.textContent='Si eliges contraentrega: paga $12.000 por Bold como anticipo de envío y '+money(Number(currentProduct.price)-12000)+' al recibir el producto. El anticipo se descuenta del precio publicado.';
+      codPaymentInfo.textContent='Si eliges contraentrega: paga $12.000 por Bold como anticipo de envío; se resta del total de la compra. Por una unidad, el saldo estimado al recibir es '+money(Number(currentProduct.price)-12000)+'. En pedidos con varias unidades, el anticipo se aplica una sola vez.';
     }else if(allowsCOD){
       codPaymentInfo.textContent='Para usar contraentrega, el total debe superar el anticipo de $12.000 pagado por Bold.';
     }
