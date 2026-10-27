@@ -233,15 +233,26 @@ function renderCheckoutSummary(){
   const subtotal=cartTotal();
   const paymentMethod=$("#checkoutForm select[name='paymentMethod']")?.value||"";
   const contraentrega=paymentMethod==="cash_on_delivery";
+  const hasPhysicalItems=cart.some(item=>product(item.id)?.deliveryType!=="digital");
   const codAllowed=subtotal>12000;
-  const freight=contraentrega&&codAllowed
-    ? `<div class="checkout-summary-total"><span>Anticipo de $12.000 por Bold (incluido en el precio)</span><strong>${money(12000)}</strong></div><div class="checkout-summary-total"><span>Saldo tras el anticipo, a pagar al recibir</span><strong>${money(Math.max(0,subtotal-12000))}</strong></div><p class="checkout-privacy">El anticipo no se suma al precio publicado: se resta una sola vez del saldo que pagarás al recibir. Si usas un cupón, el saldo final se recalcula al validar el pedido.</p>`
-    : (cart.some(item=>product(item.id)?.deliveryType!=="digital")&&paymentMethod==="bold"
-      ? '<p class="checkout-privacy">Pago anticipado con Bold: envío gratis para productos físicos.</p>'
-      : "");
-  summary.innerHTML=`<div class="checkout-summary-title"><strong>Resumen del pedido</strong><span>${itemCount} ${itemCount===1?'producto':'productos'}</span></div><ul class="checkout-summary-list">${lines}</ul><div class="checkout-summary-total"><span>Subtotal de productos</span><strong>${money(subtotal)}</strong></div>${freight}`;
-}
 
+  let totals=`<div class="checkout-summary-total"><span>Subtotal de productos</span><strong>${money(subtotal)}</strong></div>`;
+  if(contraentrega&&codAllowed){
+    const balance=subtotal-12000;
+    totals=`
+      <div class="checkout-summary-total"><span>Precio total de los productos</span><strong>${money(subtotal)}</strong></div>
+      <div class="checkout-summary-total checkout-summary-deduction"><span>Anticipo que pagas ahora con Bold</span><strong>−${money(12000)}</strong></div>
+      <div class="checkout-summary-total checkout-summary-due"><span>Saldo a pagar a la transportadora al recibir</span><strong>${money(balance)}</strong></div>
+      <p class="checkout-summary-payment-note"><strong>Hoy pagas ${money(12000)}.</strong> Los ${money(12000)} se descuentan del valor del producto; no se suman al precio. A la transportadora le pagas únicamente el saldo mostrado.</p>`;
+  }else if(paymentMethod==="bold"){
+    totals=`<div class="checkout-summary-total checkout-summary-due"><span>Total a pagar con Bold</span><strong>${money(subtotal)}</strong></div>`
+      +(hasPhysicalItems?'<p class="checkout-summary-payment-note">Pagas el precio completo en línea con Bold. El envío de productos físicos es gratis.</p>':'<p class="checkout-summary-payment-note">El valor completo del servicio digital se paga por anticipado con Bold.</p>');
+  }else if(contraentrega&&!codAllowed){
+    totals+=`<p class="checkout-summary-payment-note">Para contraentrega, el total de productos debe ser superior a ${money(12000)} porque el anticipo se descuenta del precio.</p>`;
+  }
+
+  summary.innerHTML=`<div class="checkout-summary-title"><strong>Resumen del pedido</strong><span>${itemCount} ${itemCount===1?'producto':'productos'}</span></div><ul class="checkout-summary-list">${lines}</ul>${totals}`;
+}
 function openCheckoutModal(){
   const modal=$('#checkoutModal');
   if(!modal) return;
