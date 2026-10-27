@@ -3,7 +3,7 @@
 const $=s=>document.querySelector(s), db=window.NovaShopDB;
 const money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, editingColorVariants=[], metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, productEditorReturnFocus=null;
+let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, editingColorVariants=[], metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, ordersReloadQueued=false, ordersTotalCount=0, ordersPage=1, ordersPageSize=10, ordersSearchTimer=null, productEditorReturnFocus=null;
 function status(text,kind="info"){const el=$("#adminStatus");el.textContent=text;el.className="admin-status "+kind;}
 function setAdminSection(name){
  const nav=$("#adminSectionNav");
@@ -378,43 +378,98 @@ function orderMatchesSearch(order,query){
  const customer=[order.customer_first_name,order.customer_last_name,order.customer_email,order.customer_phone,order.order_number,order.address,order.city].join(" ").toLocaleLowerCase("es");
  return customer.includes(query);
 }
-async function loadAdminOrders(reset=false){
+async function loadAdminOrders(reset=false,preservePage=false){
  if(!["owner","admin"].includes(currentRole))return;
- if(ordersLoading)return;
- if(reset){adminOrders=[];ordersOffset=0;ordersHasMore=true;}
+ if(ordersLoading){
+  if(reset)ordersReloadQueued=true;
+  return;
+ }
+ const previousPage=ordersPage;
+ if(reset){
+  adminOrders=[];ordersOffset=0;ordersHasMore=true;ordersTotalCount=0;
+  ordersPage=preservePage?previousPage:1;
+ }
  if(!ordersHasMore&&!reset)return;
  ordersLoading=true;
  const refresh=$("#refreshAdminOrders"),more=$("#loadMoreOrders");
  if(refresh){refresh.disabled=true;refresh.textContent="Cargando…";}
  if(more&&!reset){more.disabled=true;more.textContent="Cargando…";}
  orderStatusNotice("Consultando pedidos de forma segura…");
+ renderAdminOrders();
  try{
   const state=$("#adminOrderStatusFilter")?.value||"all";
-  const result=await call({action:"list-orders",status:state,limit:40,offset:ordersOffset});
+  const search=String($("#adminOrderSearch")?.value||"").trim().slice(0,100);
+  const result=await call({action:"list-orders",status:state,search,limit:40,offset:ordersOffset});
   const rows=Array.isArray(result.orders)?result.orders:[];
   adminOrders=reset?rows:adminOrders.concat(rows);
   ordersOffset=Number(result.offset||0)+rows.length;
   ordersHasMore=!!result.hasMore;
+  ordersTotalCount=Number(result.totalCount??adminOrders.length);
   renderAdminOrders();
-  orderStatusNotice("Se cargaron "+adminOrders.length+" pedidos. Los pendientes de pago no cuentan como ventas pagadas hasta confirmar el pago del producto.","success");
+  orderStatusNotice("Esta consulta coincide con "+ordersTotalCount.toLocaleString("es-CO")+" pedido(s). La lista muestra 10 por página; los pendientes de pago no cuentan como ventas pagadas hasta confirmar el pago del producto.","success");
  }catch(error){
   orderStatusNotice(error.message||"No pudimos consultar los pedidos. Vuelve a intentarlo.","error");
-  if(reset)adminOrders=[];
+  if(reset){adminOrders=[];ordersTotalCount=0;}
   renderAdminOrders();
  }finally{
   ordersLoading=false;
   if(refresh){refresh.disabled=false;refresh.textContent="Actualizar pedidos";}
-  if(more){more.disabled=false;more.textContent="Cargar más pedidos";}
+  if(more){more.disabled=false;more.textContent="Cargar 40 más pedidos";}
+  renderAdminOrders();
+  if(ordersReloadQueued){
+   ordersReloadQueued=false;
+   void loadAdminOrders(true);
+  }
  }
+}
+async function changeAdminOrdersPage(direction){
+ if(ordersLoading)return;
+ if(direction==="prev"){
+  if(ordersPage>1)ordersPage--;
+ }else if(direction==="next"){
+  const loadedPages=Math.ceil(adminOrders.length/ordersPageSize);
+  if(ordersPage<loadedPages){
+   ordersPage++;
+  }else if(ordersHasMore){
+   const before=adminOrders.length;
+   await loadAdminOrders(false);
+   if(adminOrders.length>before)ordersPage++;
+  }
+ }
+ renderAdminOrders();
+ $("#adminOrdersPaginationTop")?.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function updateAdminOrdersPagination(){
+ const total=Math.max(0,ordersTotalCount);
+ const loaded=adminOrders.length;
+ const loadedPages=Math.max(1,Math.ceil(loaded/ordersPageSize));
+ const totalPages=Math.max(1,Math.ceil(total/ordersPageSize));
+ ordersPage=Math.max(1,Math.min(ordersPage,loadedPages));
+ const from=loaded?((ordersPage-1)*ordersPageSize)+1:0;
+ const to=Math.min(ordersPage*ordersPageSize,loaded);
+ const summary=total===0
+  ?"No hay pedidos que coincidan con estos filtros."
+  :"Mostrando "+from+"–"+to+" de "+total.toLocaleString("es-CO")+" pedido(s)"+(loaded<total?" · "+loaded+" cargados":"");
+ document.querySelectorAll("[data-orders-summary]").forEach(el=>el.textContent=summary);
+ document.querySelectorAll("[data-orders-page-label]").forEach(el=>el.textContent="Página "+ordersPage+" de "+totalPages);
+ document.querySelectorAll("[data-orders-page='prev']").forEach(button=>button.disabled=ordersLoading||ordersPage<=1);
+ document.querySelectorAll("[data-orders-page='next']").forEach(button=>button.disabled=ordersLoading||(ordersPage>=totalPages&&!ordersHasMore));
+ const count=$("#adminOrdersCount");if(count)count.textContent=total.toLocaleString("es-CO");
+ const more=$("#loadMoreOrders");if(more){more.hidden=!ordersHasMore;more.disabled=ordersLoading;more.textContent=ordersLoading?"Cargando…":"Cargar 40 más pedidos";}
 }
 function renderAdminOrders(){
  const box=$("#adminOrdersList");if(!box)return;
- const query=String($("#adminOrderSearch")?.value||"").trim().toLocaleLowerCase("es");
- const shown=adminOrders.filter(order=>orderMatchesSearch(order,query));
- if(!shown.length){
-  box.innerHTML='<div class="admin-orders-empty">'+(query?'No encontramos pedidos cargados que coincidan con esa búsqueda.':'No hay pedidos para el estado seleccionado todavía. Cuando un cliente termine una compra, aparecerá aquí.')+'</div>';
+ const query=String($("#adminOrderSearch")?.value||"").trim();
+ const shown=adminOrders;
+ const totalPages=Math.max(1,Math.ceil(ordersTotalCount/ordersPageSize));
+ const loadedPages=Math.max(1,Math.ceil(shown.length/ordersPageSize));
+ ordersPage=Math.max(1,Math.min(ordersPage,loadedPages));
+ const pageStart=(ordersPage-1)*ordersPageSize;
+ const pageOrders=shown.slice(pageStart,pageStart+ordersPageSize);
+ if(!pageOrders.length){
+  box.innerHTML='<div class="admin-orders-empty">'+(query?'No encontramos pedidos que coincidan con esa búsqueda. Prueba con otro dato del cliente o número de pedido.':'No hay pedidos para el estado seleccionado todavía. Cuando un cliente termine una compra, aparecerá aquí.')+'</div>';
  }else{
-  box.innerHTML=shown.map(order=>{
+  box.innerHTML=pageOrders.map(order=>{
    const customer=[order.customer_first_name,order.customer_last_name].filter(Boolean).join(" ")||"Cliente sin nombre";
    const address=[order.address,order.neighborhood,order.city,order.department,order.postal_code].filter(Boolean).join(", ");
    const items=Array.isArray(order.order_items)?order.order_items:[];
@@ -464,7 +519,7 @@ function renderAdminOrders(){
    return '<article class="admin-order-card" data-order-card="'+esc(order.id)+'"><div class="admin-order-top"><div><div class="admin-order-id">'+esc(order.order_number||order.id)+'</div><div class="admin-order-date">'+esc(formatDate(order.created_at))+'</div></div><div class="admin-order-badges">'+badges+'</div></div><div class="admin-order-grid"><section><div class="admin-order-label">Datos del comprador</div><div class="admin-order-customer">'+esc(customer)+'</div><div class="admin-order-meta">'+email+phone+(address?'<div>Dirección: '+esc(address)+'</div>':'<div>Dirección: No indicada</div>')+(order.delivery_reference?'<div>Referencia: '+esc(order.delivery_reference)+'</div>':"")+(order.preferred_payment_method?'<div>Pago elegido: '+esc(order.preferred_payment_method)+'</div>':"")+(coords?'<div>'+coords+'</div>':"")+(order.customer_note?'<div>Nota: '+esc(order.customer_note)+'</div>':"")+'</div></section><section><div class="admin-order-label">Resumen del pedido · '+esc(order.delivery_type||"")+'</div><ul class="admin-order-lines">'+(itemRows||'<li>Detalle de productos no disponible.</li>')+'</ul>'+priceInfo+shippingSummary+printfulSummary+'<div class="admin-order-total"><span>'+(discount?'Total de productos con descuento':'Total de productos')+'</span><strong>'+money(total)+'</strong></div>'+(fixedCODFreight?'<div class="admin-order-meta">Anticipo de envío pagado por Bold: <strong>'+money(order.shipping_payment_status==="approved"?12000:0)+'</strong>'+(order.shipping_payment_status==="approved"?'':' · Pendiente: '+money(12000))+'</div><div class="admin-order-total"><span>Saldo por cobrar al recibir</span><strong>'+money(order.cash_on_delivery_due_cop)+'</strong></div>':"")+'</section></div><div class="admin-order-foot"><div class="admin-order-meta">Última actualización: '+esc(formatDate(order.updated_at||order.created_at))+'</div><div class="admin-order-update"><label>Actualizar estado<select data-order-status="'+esc(order.id)+'">'+options+'</select></label><button type="button" data-order-update="'+esc(order.id)+'">Guardar estado</button></div></div>'+shipping+'</article>';
   }).join("");
  }
- const more=$("#loadMoreOrders");if(more){more.hidden=!ordersHasMore;more.disabled=ordersLoading;}
+ updateAdminOrdersPagination();
  box.querySelectorAll("[data-order-update]").forEach(button=>button.addEventListener("click",()=>updateOrderStatus(button.dataset.orderUpdate,button)));
  box.querySelectorAll("[data-printful-submit]").forEach(button=>button.addEventListener("click",()=>submitPrintfulOrder(button.dataset.printfulSubmit,button)));
  box.querySelectorAll("[data-shipping-save]").forEach(button=>button.addEventListener("click",()=>saveOrderShipping(button.dataset.shippingSave,button)));
@@ -544,7 +599,7 @@ async function updateOrderStatus(orderId,button){
  try{
   await call({action:"update-order-status",order_id:orderId,status:next});
   orderStatusNotice("Estado actualizado para "+(order.order_number||"el pedido")+".","success");
-  await Promise.all([loadAdminOrders(true),loadProducts()]);
+  await Promise.all([loadAdminOrders(true,true),loadProducts()]);
  }catch(error){
   orderStatusNotice(error.message||"No se pudo actualizar el pedido.","error");select.value=order.status;
  }finally{button.disabled=false;button.textContent="Guardar estado";}
@@ -853,7 +908,15 @@ async function init(){
  $("#refreshAdminReviews")?.addEventListener("click",loadAdminReviews);
  $("#filterAdminOrders")?.addEventListener("click",()=>loadAdminOrders(true));
  $("#adminOrderStatusFilter")?.addEventListener("change",()=>loadAdminOrders(true));
- $("#adminOrderSearch")?.addEventListener("input",renderAdminOrders);
+ let searchField=$("#adminOrderSearch");
+ searchField?.addEventListener("input",()=>{
+  if(ordersSearchTimer)clearTimeout(ordersSearchTimer);
+  ordersSearchTimer=setTimeout(()=>loadAdminOrders(true),300);
+ });
+ $("#adminOrdersWrap")?.addEventListener("click",event=>{
+  const button=event.target.closest("[data-orders-page]");
+  if(button&&!button.disabled)void changeAdminOrdersPage(button.dataset.ordersPage);
+ });
  $("#loadMoreOrders")?.addEventListener("click",()=>loadAdminOrders(false));
  $("#adminInviteForm")?.addEventListener("submit",inviteUser);$("#refreshAdminUsers")?.addEventListener("click",loadAdminUsers);window.addEventListener("focus",syncAdminUsersWhenFocused);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncAdminUsersWhenFocused();});$("#adminUserSearch")?.addEventListener("input",renderAdminUsers);$("#adminUserRoleFilter")?.addEventListener("change",renderAdminUsers);
  if(!db?.isConfigured?.()){status("Supabase no está conectado.","error");return;}
