@@ -10,8 +10,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=40">
+  <link rel="stylesheet" href="styles.css?v=41">
   <link rel="stylesheet" href="storefront-enhancements.css?v=6">
+  <link rel="stylesheet" href="contraentrega.css?v=1">
 </head>
 <body>
   <header class="site-header">
@@ -20,26 +21,56 @@
       <nav class="main-nav" aria-label="Navegación principal"><a href="index.html">Inicio</a><a href="index.html#productos">Productos</a><a href="cuenta.html">Mi cuenta</a></nav>
     </div>
   </header>
-  <main class="section">
-    <div class="container" style="max-width:760px">
-      <section class="modal-card" style="position:relative;margin:28px auto;padding:clamp(24px,5vw,44px);border-radius:22px">
-        <span class="eyebrow">CONTRAENTREGA</span>
-        <h1 id="orderTitle" style="margin:12px 0;font-size:clamp(28px,5vw,40px)">Pedido recibido</h1>
-        <p id="orderNumber" class="checkout-summary" aria-live="polite">Número de pedido</p>
-        <p>Tu pedido está registrado. Con contraentrega, debes pagar el anticipo fijo de envío por Bold antes del despacho; el saldo del producto se paga al recibirlo.</p>
-        <div id="codPaymentBreakdown" class="checkout-account-hint" style="margin:18px 0">
-          <strong>Anticipo de envío: $12.000 COP por Bold</strong>
-          <p>Este anticipo se resta automáticamente del total del producto. No es un cobro adicional sobre el precio publicado: pagas $12.000 ahora por Bold y el saldo restante al recibir tu pedido.</p>
-          <p id="codBalance" style="font-weight:750;margin:12px 0 0">Calculando el saldo contraentrega…</p>
+  <main class="cod-page">
+    <div class="container cod-container">
+      <section class="cod-order-card" aria-labelledby="orderTitle">
+        <div class="cod-hero">
+          <div class="cod-success-icon" aria-hidden="true">✓</div>
+          <div>
+            <span class="eyebrow">CONTRAENTREGA · CONFIRMACIÓN DE PEDIDO</span>
+            <h1 id="orderTitle">Tu pedido está registrado</h1>
+            <p>¡Gracias por comprar en NovaShop! Para avanzar con el despacho, paga primero el anticipo de envío. El resto del valor del producto se paga a la transportadora cuando recibas tu pedido.</p>
+          </div>
         </div>
-        <p id="shippingPaymentStatus" role="status" aria-live="polite">Comprobando el estado del pago de envío…</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
-          <button id="payShippingBold" class="btn btn-primary" type="button">Preparando pago de envío…</button>
-          <a id="freightEmail" class="btn btn-ghost" href="mailto:hola@novashop.co" hidden>Contactar a NovaShop</a>
-          <a class="btn btn-ghost" href="index.html">Volver a NovaShop</a>
-          <a class="btn btn-ghost" href="cuenta.html">Mi cuenta</a>
+
+        <div id="orderNumber" class="cod-order-reference" aria-live="polite">Número de pedido</div>
+
+        <div class="cod-stepper" aria-label="Pasos de tu compra">
+          <div class="cod-step"><b>1</b><span>Pedido registrado</span></div>
+          <div class="cod-step is-current" aria-current="step"><b>2</b><span>Paga el anticipo con Bold</span></div>
+          <div class="cod-step"><b>3</b><span>Recibe y paga el saldo</span></div>
         </div>
-        <p class="checkout-privacy" style="margin-top:24px">No se debe despachar un pedido contraentrega hasta que Bold confirme el pago del anticipo del flete.</p>
+
+        <div id="codPaymentBreakdown" class="cod-payment-grid">
+          <article class="cod-payment-card cod-payment-card--now">
+            <span class="cod-card-kicker">Ahora · Pago con Bold</span>
+            <h2>Anticipo de envío</h2>
+            <p class="cod-amount">$12.000 <small>COP</small></p>
+            <p class="cod-card-detail">Este anticipo se descuenta del precio total del producto. No es un cobro extra.</p>
+          </article>
+          <article class="cod-payment-card">
+            <span class="cod-card-kicker">Al recibir · Transportadora</span>
+            <h2>Saldo pendiente del producto</h2>
+            <strong id="codBalance" class="cod-amount">Calculando…</strong>
+            <p class="cod-card-detail">Este es el saldo que pagarás al recibir tu compra, una vez descontados los $12.000 del anticipo.</p>
+          </article>
+        </div>
+
+        <div class="cod-continue">
+          <div class="cod-status">
+            <p id="shippingPaymentStatus" role="status" aria-live="polite" data-status="info">Comprobando el estado del pago de envío…</p>
+          </div>
+          <div class="cod-payment-actions">
+            <button id="payShippingBold" class="btn btn-primary" type="button">Pagar $12.000 de envío con Bold</button>
+            <a id="freightEmail" class="btn btn-ghost" href="mailto:hola@novashop.co" hidden>Contactar a NovaShop</a>
+            <a class="btn btn-ghost" href="index.html">Seguir comprando</a>
+            <a class="btn btn-ghost" href="cuenta.html">Mi cuenta</a>
+          </div>
+          <div class="cod-safe-note">
+            <span aria-hidden="true">🔒</span>
+            <p>El pago del anticipo se completa en Bold. NovaShop no te pedirá los datos de tu tarjeta en esta página. El pedido no se despacha hasta que el pago se confirme.</p>
+          </div>
+        </div>
       </section>
     </div>
   </main>
@@ -48,6 +79,6 @@
   <script src="supabase-config.js?v=26"></script>
   <script src="supabase-client.js?v=34"></script>
   <script src="bold-checkout.js?v=4"></script>
-  <script src="pedido.js?v=4"></script>
+  <script src="pedido.js?v=5"></script>
 </body>
 </html>
