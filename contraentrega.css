@@ -1,0 +1,102 @@
+/* NovaShop — página de confirmación contraentrega */
+.cod-page{
+  min-height:calc(100vh - 145px);
+  padding:clamp(28px,5.5vw,70px) 0 78px;
+  background:linear-gradient(180deg,#f4f8fb 0%,#fff 82%);
+}
+.cod-container{max-width:920px}
+.cod-order-card{
+  position:relative;
+  overflow:hidden;
+  margin:0 auto;
+  padding:clamp(22px,4.7vw,48px);
+  border:1px solid #e2eaf0;
+  border-radius:28px;
+  background:#fff;
+  box-shadow:0 22px 70px rgba(18,38,58,.09);
+}
+.cod-order-card:before{
+  content:"";position:absolute;inset:0 0 auto;height:5px;
+  background:linear-gradient(90deg,#ff5a36 0%,#f59e78 48%,#d7e9f7 100%);
+}
+.cod-hero{display:flex;align-items:flex-start;gap:18px}
+.cod-success-icon{
+  flex:0 0 58px;width:58px;height:58px;display:grid;place-items:center;
+  border-radius:19px;background:#e8f7ee;color:#17814b;font-size:30px;font-weight:800;
+  box-shadow:inset 0 0 0 1px #d4efdf;
+}
+.cod-hero .eyebrow{display:inline-flex;align-items:center;gap:7px;margin:3px 0 8px;color:#c4472b;font-size:10px;font-weight:900;letter-spacing:.13em}
+.cod-hero h1{margin:0 0 10px;font-size:clamp(27px,4.5vw,40px);line-height:1.08;letter-spacing:-.05em;color:#172b3d}
+.cod-hero p{max-width:610px;margin:0;color:#637280;font-size:14px;line-height:1.75}
+.cod-order-reference{
+  display:flex;align-items:center;gap:8px;margin:25px 0 20px;padding:13px 15px;
+  border:1px solid #e6edf2;border-radius:13px;background:#f8fafc;
+  color:#344b5f;font-size:12px;font-weight:750;overflow-wrap:anywhere;
+}
+.cod-order-reference:before{content:"▦";display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;border-radius:9px;background:#e8f0f7;color:#315772;font-size:17px}
+.cod-stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 23px}
+.cod-step{
+  display:flex;align-items:center;gap:8px;min-height:43px;padding:9px 11px;
+  border:1px solid #e7edf2;border-radius:11px;background:#fbfcfd;
+  color:#6c7a86;font-size:11px;font-weight:750;line-height:1.4;
+}
+.cod-step b{display:grid;place-items:center;flex:0 0 23px;width:23px;height:23px;border-radius:50%;background:#e8eef3;color:#526879;font-size:11px}
+.cod-step.is-current{border-color:#f3c7ba;background:#fff7f4;color:#a83b24}
+.cod-step.is-current b{background:#ff5a36;color:#fff}
+.cod-payment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.cod-payment-card{
+  min-width:0;padding:22px 22px 20px;border:1px solid #e4ebf0;border-radius:20px;
+  background:#fff;
+}
+.cod-payment-card--now{
+  border-color:#f3d5cc;
+  background:linear-gradient(145deg,#fff8f5 0%,#fff 85%);
+}
+.cod-card-kicker{display:block;margin-bottom:11px;color:#687885;font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.cod-payment-card--now .cod-card-kicker{color:#bd4b31}
+.cod-payment-card h2{margin:0;color:#1c3144;font-size:17px;letter-spacing:-.025em}
+.cod-card-detail{margin:8px 0 0;color:#657481;font-size:12px;line-height:1.7}
+.cod-amount{
+  display:block;margin:12px 0 0;color:#152e42;font-size:clamp(29px,4.3vw,38px);
+  line-height:1.08;font-weight:850;letter-spacing:-.045em;font-variant-numeric:tabular-nums;
+}
+.cod-amount small{font-size:11px;font-weight:800;letter-spacing:.04em;color:#6e7d88}
+.cod-payment-card--now .cod-amount{color:#c74428}
+#codBalance{overflow-wrap:anywhere}
+.cod-continue{margin-top:20px;padding:20px;border:1px solid #e4ebf0;border-radius:19px;background:#f9fbfc}
+.cod-status{min-height:24px;margin:0 0 14px}
+#shippingPaymentStatus{margin:0;color:#526574;font-size:12px;line-height:1.65}
+#shippingPaymentStatus[data-status="success"]{color:#187548}
+#shippingPaymentStatus[data-status="error"]{color:#b63825}
+.cod-payment-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cod-payment-actions #payShippingBold{
+  flex:1 1 290px;min-height:54px;padding:14px 20px;border-radius:14px;
+  font-size:14px;font-weight:850;box-shadow:0 9px 22px rgba(221,63,31,.17);
+}
+.cod-payment-actions .btn-ghost{
+  min-height:48px;display:inline-flex;align-items:center;justify-content:center;
+  padding:12px 15px;border-radius:13px;background:#fff;border:1px solid #e0e7ec;
+}
+.cod-payment-actions [hidden]{display:none!important}
+.cod-safe-note{display:flex;align-items:flex-start;gap:10px;margin-top:17px;padding-top:15px;border-top:1px solid #e5ebf0}
+.cod-safe-note>span{flex:0 0 26px;width:26px;height:26px;display:grid;place-items:center;border-radius:9px;background:#e8f0f7;color:#2b5a78;font-size:14px}
+.cod-safe-note p{margin:1px 0 0;color:#7a8791;font-size:10px;line-height:1.7}
+@media(max-width:680px){
+  .cod-page{padding:20px 0 48px}
+  .cod-order-card{padding:26px 18px 19px;border-radius:21px}
+  .cod-hero{gap:12px}
+  .cod-success-icon{flex-basis:44px;width:44px;height:44px;border-radius:14px;font-size:24px}
+  .cod-hero h1{font-size:29px}
+  .cod-hero p{font-size:12px}
+  .cod-order-reference{margin:20px 0 15px}
+  .cod-stepper{grid-template-columns:1fr;gap:7px;margin-bottom:17px}
+  .cod-step{min-height:36px;padding:7px 10px}
+  .cod-payment-grid{grid-template-columns:1fr;gap:10px}
+  .cod-payment-card{padding:19px 17px;border-radius:17px}
+  .cod-amount{font-size:32px}
+  .cod-continue{padding:15px;border-radius:16px}
+  .cod-payment-actions{display:grid;grid-template-columns:1fr}
+  .cod-payment-actions #payShippingBold{width:100%;min-width:0}
+  .cod-payment-actions .btn-ghost{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.cod-order-card{scroll-behavior:auto}}
