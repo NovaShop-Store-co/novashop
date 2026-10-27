@@ -15,13 +15,13 @@
   if(!response.ok||!result.ok)throw new Error(result.error||"No se pudo registrar el pedido.");
   return result.order;
  }
- async function callBold(action,orderId){
+ async function callBold(action,orderId,orderNumber){
   if(!client)throw new Error("Supabase no está conectado.");
   const {data:{session}}=await client.auth.getSession();
   const token=session?.access_token||key;
   const response=await fetch(cfg.url.replace(/\/$/,"")+"/functions/v1/bold-payments",{
    method:"POST",headers:{"Content-Type":"application/json","apikey":key,"Authorization":"Bearer "+token},
-   body:JSON.stringify({action,order_id:String(orderId||"")})
+   body:JSON.stringify({action,order_id:String(orderId||""),order_number:String(orderNumber||"")})
   });
   const result=await response.json().catch(()=>({}));
   if(!response.ok||!result.ok)throw new Error(result.error||"No pudimos conectar con la pasarela de Bold.");
@@ -29,8 +29,8 @@
  }
  async function createBoldCheckout(orderId){return callBold("create-checkout",orderId);}
  async function verifyBoldPayment(orderId){return callBold("verify-checkout",orderId);}
- async function getCODShippingStatus(orderId){return callBold("shipping-status",orderId);}
- async function createShippingBoldCheckout(orderId){return callBold("create-shipping-checkout",orderId);}
+ async function getCODShippingStatus(orderId,orderNumber){return callBold("shipping-status",orderId,orderNumber);}
+ async function createShippingBoldCheckout(orderId,orderNumber){return callBold("create-shipping-checkout",orderId,orderNumber);}
  async function verifyShippingBoldPayment(shippingReference){return callBold("verify-shipping-checkout",shippingReference);}
  async function checkBoldConfigured(){
   const result=await callBold("status","");
