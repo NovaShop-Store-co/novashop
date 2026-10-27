@@ -520,10 +520,10 @@ function renderProductColorOptions(){
  if(!selectedColorVariant||!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=variants[0];
  const safeHex=value=>/^#[0-9a-f]{6}$/i.test(String(value||""))?String(value):"#d1d5db";
  box.hidden=false;
- box.innerHTML='<div class="product-color-options-head"><strong>Elige un color</strong><span>'+escProduct(selectedColorVariant?.name||"")+'</span></div><div class="product-color-swatch-list">'+variants.map((variant,index)=>{
+ box.innerHTML='<div class="product-color-options-head"><strong>Selecciona tu color</strong><span class="product-color-selected"><span aria-hidden="true">✓</span> Elegido: '+escProduct(selectedColorVariant?.name||"")+'</span></div><div class="product-color-swatch-list">'+variants.map((variant,index)=>{
   const active=variant.name===selectedColorVariant?.name;
-  return '<button type="button" class="product-color-swatch" data-color-variant="'+index+'" aria-pressed="'+(active?"true":"false")+'" aria-label="Seleccionar color '+escProduct(variant.name)+'"><span style="background:'+safeHex(variant.hex)+'"></span><span>'+escProduct(variant.name)+'</span>'+(active?'<span class="product-color-check" aria-hidden="true">✓</span>':'')+'</button>';
- }).join("")+'</div><p class="product-color-help">Las imágenes cambian según el color seleccionado. Revisa las vistas frontal y trasera en las miniaturas.</p>';
+  return '<button type="button" class="product-color-swatch" data-color-variant="'+index+'" aria-pressed="'+(active?"true":"false")+'" aria-label="Seleccionar color '+escProduct(variant.name)+'" title="'+escProduct(variant.name)+'"><span class="product-color-dot" style="background:'+safeHex(variant.hex)+'"></span><span>'+escProduct(variant.name)+'</span>'+(active?'<span class="product-color-check" aria-hidden="true">✓ Seleccionado</span>':'')+'</button>';
+ }).join("")+'</div><p class="product-color-help">La opción marcada es la que se añadirá al carrito. Las fotos se actualizan según el color disponible.</p>';
  box.querySelectorAll("[data-color-variant]").forEach(button=>button.addEventListener("click",()=>{
   const variant=variants[Number(button.dataset.colorVariant)];if(!variant)return;
   selectedColorVariant=variant;
