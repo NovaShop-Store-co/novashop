@@ -220,6 +220,7 @@ async function checkoutWhatsApp(){
   const form=$("#checkoutForm");
   const deliveryFields=$("#cartDeliveryFields");if(deliveryFields)deliveryFields.hidden=digitalOnly;
   configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,allowBold);
+  renderCheckoutSummary();
   openCheckoutModal();
   window.NovaShopDB?.prefillCheckout?.(form).catch(err=>console.warn("Perfil no precargado:",err));
 }
