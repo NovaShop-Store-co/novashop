@@ -535,34 +535,31 @@ function renderProductColorOptions(){
  }));
 }
 function renderProductMedia(){
- const mainImage=$("#productMainImage"),mainVideo=$("#productMainVideo"),mediaFrame=$("#productMediaFrame");
- const variants=productColorVariants();
- const variantImages=selectedColorVariant&&Array.isArray(selectedColorVariant.images)?selectedColorVariant.images.filter(Boolean).slice(0,2):[];
- const galleryImages=variantImages.length?variantImages:(Array.isArray(currentProduct.images)?currentProduct.images:[]);
+ const mainImage=$("#productMainImage"),mainVideo=$("#productMainVideo"),mediaFrame=$("#productMediaFrame"),thumbs=$("#productThumbnails");
+ const variantImages=selectedColorVariant&&Array.isArray(selectedColorVariant.images)?selectedColorVariant.images.filter(Boolean):[];
+ const galleryImages=variantImages.length?variantImages:(Array.isArray(currentProduct.images)?currentProduct.images.filter(Boolean):[]);
  const titlePrefix=selectedColorVariant?currentProduct.name+" · "+selectedColorVariant.name:currentProduct.name;
  const firstImage=galleryImages[0]||"images/streaming-placeholder.svg";
- currentGalleryImages=galleryImages.slice();
- currentGalleryTitle=titlePrefix;
- currentGalleryIndex=0;
- mainImage.tabIndex=0;
- mainImage.setAttribute("role","button");
- mainImage.setAttribute("aria-haspopup","dialog");
- mainImage.setAttribute("aria-label","Ampliar "+titlePrefix);
-
- mainImage.hidden=false;mainImage.src=firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?" · vista frontal":"");
- mainVideo.pause();mainVideo.hidden=true;mainVideo.removeAttribute("src");mainVideo.removeAttribute("poster");mainVideo.load();mediaFrame?.classList.remove("is-video");
- if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=firstImage;}
- $("#productThumbnails").innerHTML=galleryImages.map((image,index)=>{
-  const label=selectedColorVariant?(index===0?"Vista frontal":"Vista trasera"):("Ver imagen "+(index+1));
-  return '<button class="thumbnail '+(index===0?"active":"")+'" type="button" data-index="'+index+'" aria-label="'+escProduct(label+(selectedColorVariant?" del color "+selectedColorVariant.name:""))+'"><img src="'+escProduct(image)+'" alt="'+escProduct(titlePrefix+" · "+label)+'">'+(selectedColorVariant?'<span class="product-thumbnail-label">'+(index===0?"FRENTE":"ESPALDA")+'</span>':"")+'</button>';
- }).join("")+(currentProduct.videoUrl?'<button class="thumbnail video-thumbnail" type="button" data-video="true" aria-label="Reproducir video del producto"><span>▶</span><small>Ver video</small></button>':"");
- $("#productThumbnails").querySelectorAll(".thumbnail").forEach(button=>button.addEventListener("click",()=>{
-  $("#productThumbnails").querySelectorAll(".thumbnail").forEach(item=>item.classList.remove("active"));button.classList.add("active");
-  if(button.dataset.video==="true"){mainImage.hidden=true;mainVideo.hidden=false;mediaFrame?.classList.add("is-video");mainVideo.play().catch(()=>{});}
-  else{setProductGalleryImage(Number(button.dataset.index));}
+ currentGalleryImages=galleryImages.slice();currentGalleryTitle=titlePrefix;currentGalleryIndex=0;
+ mainImage.tabIndex=0;mainImage.setAttribute("role","button");mainImage.setAttribute("aria-haspopup","dialog");mainImage.setAttribute("aria-label","Ampliar "+titlePrefix);
+ mainImage.src=firstImage;mainImage.alt=titlePrefix+(selectedColorVariant?" · vista frontal":"");
+ mainImage.hidden=!!currentProduct.videoUrl;
+ mainVideo.pause();mainVideo.hidden=!currentProduct.videoUrl;mainVideo.removeAttribute("src");mainVideo.removeAttribute("poster");
+ mediaFrame?.classList.toggle("is-video",!!currentProduct.videoUrl);
+ if(currentProduct.videoUrl){mainVideo.src=currentProduct.videoUrl;mainVideo.poster=firstImage;mainVideo.load();}else{mainVideo.load();}
+ const imageButtons=galleryImages.map((image,index)=>{
+  const label=selectedColorVariant?(index===0?"Vista frontal":index===1?"Vista trasera":"Imagen "+(index+1)):("Ver imagen "+(index+1));
+  return '<button class="thumbnail" type="button" data-index="'+index+'" aria-label="'+escProduct(label+(selectedColorVariant?" del color "+selectedColorVariant.name:""))+'"><img src="'+escProduct(image)+'" alt="'+escProduct(titlePrefix+" · "+label)+'" loading="lazy">'+(selectedColorVariant?'<span class="product-thumbnail-label">'+(index===0?"FRENTE":index===1?"ESPALDA":"FOTO")+'</span>':"")+'</button>';
+ }).join("");
+ const videoButton=currentProduct.videoUrl?'<button class="thumbnail video-thumbnail active" type="button" data-video="true" aria-label="Ver video del producto"><span>▶</span><small>Video del producto</small></button>':"";
+ thumbs.innerHTML=videoButton+imageButtons;
+ if(!currentProduct.videoUrl)thumbs.querySelector(".thumbnail")?.classList.add("active");
+ thumbs.querySelectorAll(".thumbnail").forEach(button=>button.addEventListener("click",()=>{
+  thumbs.querySelectorAll(".thumbnail").forEach(item=>item.classList.remove("active"));button.classList.add("active");
+  if(button.dataset.video==="true"){mainImage.hidden=true;mainVideo.hidden=false;mediaFrame?.classList.add("is-video");if(mainVideo.paused)mainVideo.play().catch(()=>{});}
+  else{mainVideo.pause();mainVideo.hidden=true;mainImage.hidden=false;setProductGalleryImage(Number(button.dataset.index));}
  }));
 }
-
 function renderProduct() {
   document.title = `${currentProduct.name} — ${CONFIG.storeName}`;
   const seoDescription = String(currentProduct.description || `Compra ${currentProduct.name} en NovaShop Colombia.`)
@@ -652,7 +649,7 @@ function renderProduct() {
 
   const variants=Array.isArray(currentProduct.colorVariants)?currentProduct.colorVariants:[];
   if(!variants.length)selectedColorVariant=null;
-  else if(!selectedColorVariant||!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=variants[0];
+  else if(selectedColorVariant&&!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=null;
   renderProductColorOptions();
   renderProductMedia();
   $('#productFeatures').innerHTML = (Array.isArray(currentProduct.features)?currentProduct.features:[]).map(item => `<li>✓ ${escProduct(item)}</li>`).join('');
