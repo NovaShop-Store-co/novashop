@@ -2,7 +2,7 @@
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("modo");
   const orderNumber = String(params.get("pedido") || "").trim().slice(0, 60);
-  const orderId = String(params.get("id") || "").trim();
+  let resolvedOrderId = String(params.get("id") || "").trim();
   const returnReference = String(params.get("shipping_ref") || params.get("bold-order-id") || params.get("bold_order_id") || "").trim();
 
   const title = document.querySelector("#orderTitle");
@@ -58,7 +58,7 @@
     payButton.disabled = true;
     payButton.textContent = "Preparando pago de envío…";
     try {
-      const result = await window.NovaShopBold.prepareShipping(orderId, payButton, null);
+      const result = await window.NovaShopBold.prepareShipping(resolvedOrderId, payButton, null, orderNumber);
       if (result?.already_paid || result?.order?.shipping_payment_status === "approved") {
         hidePayAsPaid(result.order || {});
         return;
@@ -116,15 +116,6 @@
     title.textContent = "Tu pedido está registrado";
     number.textContent = "Número de pedido: " + orderNumber;
 
-    if (!orderId) {
-      if (payButton) payButton.hidden = true;
-      if (paymentBreakdown) paymentBreakdown.hidden = true;
-      if (balance) balance.textContent = "Este pedido se creó antes de activar el pago de envío por Bold o no incluye el identificador necesario.";
-      showFreightContact();
-      setStatus("Contacta a NovaShop para que verifique el flete de este pedido antes del despacho.");
-      return;
-    }
-
     if (!window.NovaShopDB?.getCODShippingStatus || !window.NovaShopBold?.prepareShipping) {
       if (payButton) payButton.disabled = true;
       showFreightContact();
@@ -138,8 +129,9 @@
     }
 
     try {
-      const result = await window.NovaShopDB.getCODShippingStatus(orderId);
+      const result = await window.NovaShopDB.getCODShippingStatus(resolvedOrderId, orderNumber);
       const order = result.order || {};
+      resolvedOrderId = String(order.id || resolvedOrderId || "");
       renderBalance(order);
       if (order.shipping_payment_status === "approved") {
         hidePayAsPaid(order);
@@ -161,8 +153,17 @@
 
   if (email) email.hidden = true;
   if (payButton) payButton.addEventListener("click", () => {
-    // The button opens the previously prepared Bold checkout. A second click refreshes its signed configuration.
-    if (payButton.dataset.boldShippingReady === "true" && typeof payButton.onclick === "function") return;
+    const checkout = payButton._novaShopBoldCheckout;
+    if (payButton.dataset.boldShippingReady === "true" && checkout && typeof checkout.open === "function") {
+      try {
+        // Open synchronously inside the user's click to avoid browser popup/gesture blocking.
+        checkout.open();
+      } catch (error) {
+        console.error("No se pudo abrir el checkout de Bold para el flete:", error);
+        setStatus("No pudimos abrir la ventana de pago de Bold. Pulsa reintentar o permite las ventanas emergentes para este sitio.", "error");
+      }
+      return;
+    }
     prepareButton();
   });
 
