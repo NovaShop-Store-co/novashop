@@ -44,7 +44,12 @@ function syncPaymentMethodControls({resetPhysical=false}={}) {
 }
 function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),payment_methods:v.getAll("payment_methods").map(value=>String(value)),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
-async function upload(file){const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});const {error}=await db.client.storage.from("products-media").uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type,upsert:false});if(error)throw error;return signed.publicUrl;}
+async function upload(file){
+ const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});
+ const {error}=await db.client.storage.from("products-media").uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type,upsert:false});
+ if(error)throw new Error("No se pudo subir «"+file.name+"»: "+(error.message||"revisa el formato y el tamaño del archivo."));
+ return signed.publicUrl;
+}
 
 
 function normalizeColorVariant(value={}){
@@ -825,12 +830,22 @@ function resetForm(){
  renderCurrentMedia();
 }
 async function save(e){
- e.preventDefault();const f=e.currentTarget;if(!f.reportValidity())return;
+ e.preventDefault();const f=e.currentTarget;
+ if(!f.reportValidity()){
+  const invalid=f.querySelector(":invalid");
+  if(invalid){
+   const labels={name:"nombre del producto",category:"categoría",price_cop:"precio actual",description:"descripción",delivery_type:"tipo de entrega"};
+   const field=labels[invalid.name]||invalid.name||"uno de los campos obligatorios";
+   status("No se puede guardar todavía. Revisa el campo: "+field+".","error");
+   invalid.focus();
+  }
+  return;
+ }
  const selectedPaymentMethods=Array.from(f.querySelectorAll('input[name="payment_methods"]:checked')).map(input=>input.value);
  if(!selectedPaymentMethods.length){status("Selecciona al menos una forma de pago.","error");return;}
  if(f.elements.delivery_type.value==="digital"&&(selectedPaymentMethods.length!==1||selectedPaymentMethods[0]!=="bold")){status("Los servicios digitales solo pueden habilitar el pago anticipado con Bold.","error");return;}
  if(f.elements.printful_enabled.checked&&!selectedPaymentMethods.includes("bold")){status("Printful requiere pago anticipado con Bold; habilita Bold para este producto.","error");return;}
- const submit=f.querySelector('[type="submit"]');submit.disabled=true;submit.textContent="Subiendo y guardando…";
+ const submit=f.querySelector('[type="submit"]');submit.disabled=true;submit.textContent="Subiendo y guardando…";status("Validando los datos y preparando las imágenes del producto…","info");
  try{
   const videoFile=f.elements.video.files?.[0]||null;
   if(!editingImages.length)throw new Error("Sube al menos una foto del producto.");
@@ -851,15 +866,19 @@ async function save(e){
    if(!(v.frontImage||v.frontFile)||!(v.backImage||v.backFile))throw new Error("Cada color necesita una foto frontal y otra trasera.");
    for(const file of [v.frontFile,v.backFile].filter(Boolean))if(file.size>12*1024*1024)throw new Error("Cada foto de color debe pesar máximo 12 MB.");
   }
+  const pendingImages=editingImages.filter(item=>item.file).length;
+  let imageNumber=0;
   for(const item of editingImages){
    if(item.file){
+    imageNumber++;
+    status("Subiendo foto "+imageNumber+" de "+pendingImages+"…","info");
     item.url=await upload(item.file);
     item.file=null;
     if(item.previewUrl){URL.revokeObjectURL(item.previewUrl);item.previewUrl=null;}
    }
   }
   renderCurrentMedia();
-  if(videoFile)editingVideo=await upload(videoFile);
+  if(videoFile){status("Subiendo el video del producto…","info");editingVideo=await upload(videoFile);}
   const colorVariantsToSave=[];
   for(const variant of editingColorVariants){
    let front=variant.frontImage,back=variant.backImage;
@@ -868,6 +887,7 @@ async function save(e){
    colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:[front,back],printful_sync_variant_id:variant.printful_sync_variant_id?Number(variant.printful_sync_variant_id):null});
   }
   const payload=formData();payload.images=editingImages.map(item=>item.url).filter(Boolean);payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
+  status("Guardando la información del producto…","info");
   const result=await call({action:"save",...payload});
   if(result.product){status("Producto guardado: "+result.product.name+". El catálogo de la tienda se actualizará al recargar.", "success");}
   resetForm();
