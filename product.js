@@ -309,17 +309,17 @@ function configureProductPaymentMethods(form){
   const select=form?.querySelector('select[name="paymentMethod"]');
   const boldOption=select?.querySelector('option[value="bold"]');
   const codOption=select?.querySelector('option[value="cash_on_delivery"]');
-  if(boldOption)boldOption.textContent=allowContraentrega?"Pagar en línea con Bold · envío gratis":"Pagar en línea con Bold";
+  if(boldOption)boldOption.textContent=allowContraentrega?"Pago en línea · envío gratis":"Pagar en línea con Bold";
   if(codOption){codOption.hidden=!allowContraentrega;codOption.disabled=!allowContraentrega;}
   if(select&&!allowContraentrega)select.value="bold";
   const policy=form?.querySelector("[data-payment-policy]");
   const intro=form?.querySelector("[data-payment-intro]");
   if(allowContraentrega){
-    if(intro)intro.textContent="Completa tus datos y elige cómo pagar. Con Bold el envío es gratis y en la pasarela podrás seleccionar uno de los medios habilitados. Con contraentrega pagarás el producto al recibirlo y el flete debe pagarse por anticipado a la transportadora.";
-    if(policy)policy.textContent="Con Bold el envío es gratis y puedes elegir un medio habilitado en la pasarela. Con contraentrega pagas el producto al recibirlo y el flete cotizado según destino por anticipado a la transportadora.";
+    if(intro)intro.textContent="Completa tus datos y elige la forma de pago disponible. Al pagar en línea, el envío es gratis. Si eliges contraentrega, el producto se paga al recibirlo y el envío se paga por anticipado a la transportadora.";
+    if(policy)policy.textContent="Al pagar en línea, el envío es gratis. Con contraentrega pagas el producto al recibirlo y el envío, según tu destino, por anticipado a la transportadora.";
   }else{
     if(intro)intro.textContent="Completa tus datos y paga este servicio digital en línea con Bold. No hay envío físico ni contraentrega; si tienes dudas del servicio, puedes consultarnos por WhatsApp antes de comprar.";
-    if(policy)policy.textContent="Este es un servicio digital: paga en línea con Bold. No aplica contraentrega ni envío físico. Si tienes preguntas sobre el servicio, consúltanos por WhatsApp antes de comprar.";
+    if(policy)policy.textContent="Este es un servicio digital: se paga por anticipado en línea y no requiere envío físico. Si tienes preguntas, escríbenos por WhatsApp antes de comprar.";
   }
 }
 function openProductCheckout() {
@@ -428,11 +428,11 @@ async function submitProductCheckout(event) {
     if(formButton){formButton.disabled=true;formButton.textContent="Preparando pago…";}
     try{
       await window.NovaShopBold.prepare(form.dataset.boldOrderId,formButton,closeProductCheckout);
-      window.NovaShopBold.setMessage(form,"Tu pedido ya está registrado. Pulsa «Pagar ahora con Bold» para completar el pago seguro.");
+      window.NovaShopBold.setMessage(form,"Tu pedido ya está registrado. Pulsa «Continuar al pago» para completar el pago seguro.");
     }catch(error){
-      if(formButton){formButton.type="submit";formButton.onclick=null;formButton.disabled=false;formButton.textContent="Reintentar pago con Bold";}
+      if(formButton){formButton.type="submit";formButton.onclick=null;formButton.disabled=false;formButton.textContent="Reintentar pago en línea";}
       window.NovaShopBold.setMessage(form,(error?.message||"No pudimos preparar el pago.")+" Tu pedido está guardado; puedes reintentar sin crear otro pedido.");
-      showToast(error?.message||"No pudimos preparar el pago con Bold.");
+      showToast(error?.message||"No pudimos preparar el pago en línea.");
     }
     return;
   }
@@ -450,9 +450,9 @@ async function submitProductCheckout(event) {
   };
   const useBold=data.paymentMethod==="bold";
   const useCOD=data.paymentMethod==="cash_on_delivery";
-  if(!useBold&&!useCOD){showToast("Selecciona Bold o contraentrega para continuar.");return;}
+  if(!useBold&&!useCOD){showToast("Elige una forma de pago para continuar.");return;}
   if(useCOD&&currentProduct.deliveryType!=="physical"){
-    showToast("La contraentrega solo está disponible para productos físicos. Para servicios digitales, paga con Bold.");return;
+    showToast("La contraentrega solo está disponible para productos físicos. Los servicios digitales se pagan por anticipado en línea.");return;
   }
   data.paymentMethod=useBold?"Pago en línea con Bold":"Contraentrega";
   const configuredVariants=productColorVariants();
@@ -501,11 +501,11 @@ async function submitProductCheckout(event) {
   try{
     if(!window.NovaShopBold?.prepare)throw new Error("La integración de Bold no está disponible. Recarga la página.");
     await window.NovaShopBold.prepare(savedOrder.id,button,closeProductCheckout);
-    window.NovaShopBold.setMessage(form,"Pedido "+(savedOrder.order_number||"registrado")+". Pulsa «Pagar ahora con Bold» para pagar y recibir envío gratis.");
+    window.NovaShopBold.setMessage(form,"Pedido "+(savedOrder.order_number||"registrado")+". Pulsa «Continuar al pago» para pagar y recibir envío gratis.");
   }catch(error){
-    if(button){button.type="submit";button.onclick=null;button.disabled=false;button.textContent="Reintentar pago con Bold";}
+    if(button){button.type="submit";button.onclick=null;button.disabled=false;button.textContent="Reintentar pago en línea";}
     window.NovaShopBold?.setMessage(form,(error?.message||"No pudimos preparar el pago.")+" Tu pedido está guardado; al reintentar no se creará otro pedido.");
-    showToast(error?.message||"No pudimos preparar el pago con Bold.");
+    showToast(error?.message||"No pudimos preparar el pago en línea.");
   }
 }
 
