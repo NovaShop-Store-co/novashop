@@ -80,20 +80,61 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: order, error: orderError } = await admin.from("orders")
-      .select("id,order_number,status,payment_status,currency,total_cop,payment_provider,payment_reference")
+    const { data: orderById, error: orderByIdError } = await admin.from("orders")
+      .select("id,order_number,status,payment_status,currency,total_cop,payment_provider,payment_reference,shipping_fee_cop,shipping_payment_status,shipping_payment_reference,cash_on_delivery_due_cop")
       .eq("id", reference).maybeSingle();
-    if (orderError) throw orderError;
-    if (!order || order.payment_provider !== "bold") return json({ ok: true, ignored: true });
+    if (orderByIdError) throw orderByIdError;
 
+    let order: any = orderById;
+    let isShippingPayment = false;
+    if (!order) {
+      const { data: shippingOrder, error: shippingOrderError } = await admin.from("orders")
+        .select("id,order_number,status,payment_status,currency,total_cop,payment_provider,payment_reference,shipping_fee_cop,shipping_payment_status,shipping_payment_reference,cash_on_delivery_due_cop")
+        .eq("shipping_payment_reference", reference).maybeSingle();
+      if (shippingOrderError) throw shippingOrderError;
+      if (!shippingOrder) return json({ ok: true, ignored: true });
+      order = shippingOrder;
+      isShippingPayment = true;
+    }
+
+    const paymentId = clean(data?.payment_id || event?.subject, 100);
+    const now = new Date().toISOString();
+
+    if (isShippingPayment) {
+      if (order.payment_provider !== "cash_on_delivery" || Number(order.shipping_fee_cop) !== 12000 ||
+          String(data?.amount?.currency ?? "") !== "COP" || Number(data?.amount?.total) !== 12000) {
+        console.error("bold-webhook: monto de flete no coincide con el pedido " + order.order_number);
+        return json({ error: "El monto o la moneda del pago de flete no coincide con el pedido." }, 409);
+      }
+      if (eventType === "SALE_APPROVED") {
+        if (order.shipping_payment_status === "approved") return json({ ok: true, duplicate: true });
+        const { error } = await admin.from("orders").update({
+          shipping_payment_status: "approved",
+          shipping_payment_transaction_id: paymentId || reference,
+          updated_at: now,
+        }).eq("id", order.id).eq("shipping_payment_status", "pending");
+        if (error) throw error;
+        return json({ ok: true, processed: true, payment_type: "shipping" });
+      }
+      if (eventType === "VOID_APPROVED" && order.shipping_payment_status === "approved") {
+        const { error } = await admin.from("orders").update({
+          shipping_payment_status: "pending",
+          shipping_payment_transaction_id: paymentId || reference,
+          updated_at: now,
+        }).eq("id", order.id).eq("shipping_payment_status", "approved");
+        if (error) throw error;
+        return json({ ok: true, processed: true, payment_type: "shipping", voided: true });
+      }
+      // A rejected or not-yet-final shipping transaction never marks the freight paid.
+      return json({ ok: true, ignored: true, payment_type: "shipping" });
+    }
+
+    if (order.payment_provider !== "bold") return json({ ok: true, ignored: true });
     if (String(data?.amount?.currency ?? "") !== String(order.currency) ||
         Number(data?.amount?.total) !== Number(order.total_cop)) {
       console.error("bold-webhook: monto o moneda no coincide con el pedido " + order.order_number);
       return json({ error: "El monto o la moneda de la notificación no coincide con el pedido." }, 409);
     }
-
-    const paymentId = clean(data?.payment_id || event?.subject, 100);
-    const now = new Date().toISOString();
 
     if (eventType === "SALE_APPROVED") {
       if (order.payment_status === "approved" || ["paid", "preparing", "shipped", "delivered"].includes(order.status)) {
