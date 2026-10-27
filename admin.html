@@ -282,7 +282,7 @@ body.product-editor-open{overflow:hidden}
 <label>Descripción *<textarea name="description" required maxlength="4000" placeholder="Describe claramente qué recibe el cliente, compatibilidad, tamaño, vigencia, etc."></textarea></label>
 <label>Características (una por línea)<textarea name="features" rows="4" placeholder="Característica 1&#10;Característica 2"></textarea></label>
 <label>Fotos del producto *<input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple><span class="admin-help">Hasta 8 fotos por producto, máximo 12 MB cada una. Selecciona una o varias; verás una vista previa antes de guardar. La primera foto es la portada que aparece en el catálogo y al abrir el producto. Puedes elegir otra con el botón «Usar como portada».</span></label><div id="adminCurrentImages" class="admin-current-media" hidden></div>
-<label>Video del producto (opcional)<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime"><span class="admin-help">MP4 con video H.264 y audio AAC (recomendado), WEBM o MOV, máximo 50 MB. La vista previa usa 16:9. El archivo no se convierte automáticamente: si se oye el sonido pero no se ve la imagen, expórtalo como MP4 H.264 + AAC antes de subirlo. Puedes reemplazarlo o quitarlo.</span></label><div id="adminCurrentVideo" class="admin-current-video" hidden></div>
+<label>Video del producto (opcional)<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime"><span class="admin-help">MP4 con video H.264 y audio AAC (recomendado), WEBM o MOV, máximo 50 MB. El reproductor detecta automáticamente la orientación horizontal o vertical. El archivo no se convierte automáticamente: si se oye el sonido pero no se ve la imagen, expórtalo como MP4 H.264 + AAC antes de subirlo. Puedes reemplazarlo o quitarlo.</span></label><div id="adminCurrentVideo" class="admin-current-video" hidden></div>
 <div class="admin-color-variants-editor">
  <div class="admin-color-variants-heading"><div><strong>Colores y vistas del producto</strong><p class="admin-help">Las fotos de la galería de arriba no crean colores automáticamente: pulsa «+ Añadir color» una vez por cada color y asigna su foto principal. La vista trasera es opcional. Máximo 12 colores.</p></div><button type="button" class="btn btn-ghost" id="addAdminColorVariant">+ Añadir color</button></div>
  <div id="adminColorVariantsList" class="admin-color-variants-list"><p class="admin-help">Todavía no has añadido variantes de color. Si el producto solo tiene una versión, puedes dejarlo vacío.</p></div>
@@ -309,5 +309,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=35"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=29"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=35"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=30"></script>
 </body></html>
