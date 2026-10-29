@@ -42,7 +42,7 @@ function syncPaymentMethodControls({resetPhysical=false}={}) {
    ? "Los productos configurados para Printful requieren pago anticipado con Bold. La contraentrega está desactivada."
    : "Marca al menos una forma de pago. En productos físicos puedes habilitar una o ambas.";
 }
-function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),payment_methods:v.getAll("payment_methods").map(value=>String(value)),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
+function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),size_variants:String(v.get("size_variants")||"").split(",").map(size=>size.trim()).filter(Boolean),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),payment_methods:v.getAll("payment_methods").map(value=>String(value)),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
 async function upload(file){
  const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});
@@ -500,7 +500,7 @@ function renderAdminOrders(){
    const customer=[order.customer_first_name,order.customer_last_name].filter(Boolean).join(" ")||"Cliente sin nombre";
    const address=[order.address,order.neighborhood,order.city,order.department,order.postal_code].filter(Boolean).join(", ");
    const items=Array.isArray(order.order_items)?order.order_items:[];
-   const itemRows=items.map(item=>'<li><span>'+esc(item.product_name||"Producto")+(item.selected_variant?' · Color: '+esc(item.selected_variant):"")+' ×'+Number(item.quantity||0)+'</span><strong>'+money(item.line_total_cop??(Number(item.unit_price_cop||0)*Number(item.quantity||0)))+'</strong></li>').join("");
+   const itemRows=items.map(item=>'<li><span>'+esc(item.product_name||"Producto")+(item.selected_variant?' · Color: '+esc(item.selected_variant):"")+(item.selected_size?' · Talla: '+esc(item.selected_size):"")+' ×'+Number(item.quantity||0)+'</span><strong>'+money(item.line_total_cop??(Number(item.unit_price_cop||0)*Number(item.quantity||0)))+'</strong></li>').join("");
    const wa=whatsappHref(order.customer_phone);
    const validCoords=order.latitude!==null&&order.latitude!==undefined&&order.longitude!==null&&order.longitude!==undefined&&Number.isFinite(Number(order.latitude))&&Number.isFinite(Number(order.longitude));
    const mapUrl=validCoords?'https://www.google.com/maps?q='+Number(order.latitude)+','+Number(order.longitude):(address?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address):"");
@@ -833,7 +833,7 @@ function editProduct(id){
   const option=document.createElement("option");option.value=p.category;option.textContent=p.category;categorySelect.add(option);
  }
  f.elements.id.value=p.id;f.elements.name.value=p.name;f.elements.category.value=p.category;f.elements.delivery_type.value=p.delivery_type;
- f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.sort_order.value=p.sort_order??100;
+ f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.size_variants.value=(Array.isArray(p.size_variants)?p.size_variants:[]).join(", ");f.elements.sort_order.value=p.sort_order??100;
  f.elements.description.value=p.description||"";f.elements.features.value=(p.features||[]).join("\n");
  f.elements.tag.value=p.tag||"";f.elements.shipping.value=p.shipping||"";const configuredPaymentMethods=Array.isArray(p.payment_methods)?p.payment_methods:(p.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]);f.querySelectorAll('input[name="payment_methods"]').forEach(input=>{input.checked=configuredPaymentMethods.includes(input.value);});syncPaymentMethodControls();f.elements.printful_enabled.checked=!!p.printful_enabled;f.elements.printful_sync_variant_id.value=p.printful_sync_variant_id??"";f.elements.is_active.checked=!!p.is_active;
  disposeEditingImagePreviews();editingImages=(p.images||[]).filter(Boolean).map(url=>({url,file:null,previewUrl:null}));editingVideo=p.video_url||null;disposeColorVariantPreviews();editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
@@ -867,6 +867,7 @@ async function save(e){
  if(!selectedPaymentMethods.length){status("Selecciona al menos una forma de pago.","error");return;}
  if(f.elements.delivery_type.value==="digital"&&(selectedPaymentMethods.length!==1||selectedPaymentMethods[0]!=="bold")){status("Los servicios digitales solo pueden habilitar el pago anticipado con Bold.","error");return;}
  if(f.elements.printful_enabled.checked&&!selectedPaymentMethods.includes("bold")){status("Printful requiere pago anticipado con Bold; habilita Bold para este producto.","error");return;}
+  if(f.elements.printful_enabled.checked&&String(f.elements.size_variants.value||"").trim()){status("Para combinar tallas con Printful, primero debemos configurar el ID de Printful de cada combinación de color y talla. Deja las tallas vacías en este producto.","error");return;}
  const submit=f.querySelector('[type="submit"]');submit.disabled=true;submit.textContent="Subiendo y guardando…";status("Validando los datos y preparando las imágenes del producto…","info");
  try{
   const videoFile=f.elements.video.files?.[0]||null;
@@ -910,13 +911,19 @@ async function save(e){
    colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:variantImages,printful_sync_variant_id:variant.printful_sync_variant_id?Number(variant.printful_sync_variant_id):null});
   }
   const payload=formData();payload.images=editingImages.map(item=>item.url).filter(Boolean);payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
+  if(payload.size_variants.length>20)throw new Error("Un producto admite hasta 20 tallas.");
+  const normalizedSizes=payload.size_variants.map(size=>size.toLocaleLowerCase("es"));
+  if(new Set(normalizedSizes).size!==normalizedSizes.length)throw new Error("No repitas tallas. Usa una sola entrada por talla.");
   status("Guardando la información del producto…","info");
   const result=await call({action:"save",...payload});
   if(!result.product)throw new Error("El servidor no confirmó el guardado del producto. Revisa el estado e inténtalo otra vez.");
   const expectedColorCount=colorVariantsToSave.length;
   const savedColorCount=Array.isArray(result.product.color_variants)?result.product.color_variants.length:0;
   if(savedColorCount!==expectedColorCount)throw new Error("Se prepararon "+expectedColorCount+" colores, pero el servidor confirmó "+savedColorCount+". No cerré el editor para que puedas revisar y volver a guardar.");
-  status("Producto guardado: "+result.product.name+" · "+savedColorCount+" color(es). El catálogo de la tienda se actualizará al recargar.", "success");
+  const expectedSizeCount=payload.size_variants.length;
+  const savedSizeCount=Array.isArray(result.product.size_variants)?result.product.size_variants.length:0;
+  if(savedSizeCount!==expectedSizeCount)throw new Error("Se prepararon "+expectedSizeCount+" tallas, pero el servidor confirmó "+savedSizeCount+". No cerré el editor para que puedas revisar y volver a guardar.");
+  status("Producto guardado: "+result.product.name+" · "+savedColorCount+" color(es) · "+savedSizeCount+" talla(s). El catálogo se actualizará al recargar.", "success");
   resetForm();
   if(!$("#productEditorModal")?.hidden)closeProductEditor(true);
   await loadProducts();
