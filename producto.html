@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=50">
+  <link rel="stylesheet" href="styles.css?v=51">
 <link rel="stylesheet" href="storefront-enhancements.css?v=6"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body class="product-page">
@@ -27,7 +27,7 @@
         <a href="index.html#categorias">Categorías</a>
         <a href="index.html#productos">Productos</a><a href="streaming.html">Streaming</a><a href="favoritos.html">♡ Favoritos</a>
       </nav>
-      <div class="header-actions account-actions"><a class="account-btn auth-nav-link" data-auth-nav="login" href="cuenta.html?tab=login">Iniciar sesión</a><a class="account-btn auth-nav-link" data-auth-nav="register" href="cuenta.html?tab=register">Crear cuenta</a><a class="account-btn auth-nav-link" data-auth-nav="account" href="cuenta.html" hidden>Mi cuenta</a><a class="cart-btn product-cart-link" href="index.html#carrito" aria-label="Ver carrito">🛒 <span>Carrito</span><b id="productCartCount">0</b></a></div>
+      <div class="header-actions account-actions"><a class="account-btn auth-nav-link" data-auth-nav="login" href="cuenta.html?tab=login">Iniciar sesión</a><a class="account-btn auth-nav-link" data-auth-nav="register" href="cuenta.html?tab=register">Crear cuenta</a><a class="account-btn auth-nav-link" data-auth-nav="account" href="cuenta.html" hidden>Mi cuenta</a><a class="cart-btn product-cart-link" id="productCartLink" href="#productCartDrawer" aria-controls="productCartDrawer" aria-expanded="false" aria-label="Abrir carrito">🛒 <span>Carrito</span><b id="productCartCount">0</b></a></div>
     </div>
   </header>
 
@@ -291,6 +291,20 @@
     <div class="product-lightbox-counter" id="productLightboxCounter" aria-live="polite">1 / 1</div>
   </div>
 
+  <div class="drawer-overlay" id="productCartDrawerOverlay"></div>
+  <aside class="cart-drawer product-cart-drawer" id="productCartDrawer" role="dialog" aria-modal="true" aria-labelledby="productCartDrawerTitle" aria-hidden="true">
+    <div class="drawer-head">
+      <div><span class="eyebrow">TU PEDIDO</span><h2 id="productCartDrawerTitle">Tu carrito</h2></div>
+      <button class="close-btn" id="productCartClose" type="button" aria-label="Cerrar carrito">×</button>
+    </div>
+    <div id="productCartItems" class="cart-items" aria-live="polite"></div>
+    <div class="cart-footer" id="productCartFooter">
+      <div class="subtotal"><span>Subtotal</span><strong id="productCartSubtotal">$0</strong></div>
+      <a class="btn btn-primary wide" id="productCartCheckout" href="index.html#carrito">Ir a finalizar compra</a>
+      <small>Puedes seguir explorando esta ficha. Tus productos permanecerán guardados en el carrito.</small>
+    </div>
+  </aside>
+
   <div class="toast" id="productToast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -298,7 +312,7 @@
   <script src="supabase-client.js?v=36"></script><script src="auth-nav.js?v=19"></script>
   <script src="products.js?v=20"></script>
   <script src="bold-checkout.js?v=3"></script>
-  <script src="product.js?v=51"></script>
+  <script src="product.js?v=52"></script>
   <a class="floating-product-help" href="https://wa.me/573003358382?text=Hola%20NovaShop%2C%20tengo%20una%20consulta%20sobre%20un%20producto." target="_blank" rel="noopener noreferrer" aria-label="Consultar por WhatsApp sobre un producto">
     <span class="floating-help-icon" aria-hidden="true">✆</span>
     <span class="floating-help-copy"><strong>¿Te ayudamos?</strong><small>Consultas sobre productos</small></span>
