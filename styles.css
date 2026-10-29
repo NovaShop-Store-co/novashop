@@ -389,3 +389,7 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 .product-cart-drawer .cart-footer a{display:flex;align-items:center;justify-content:center;text-decoration:none}
 .product-cart-drawer .cart-footer small{line-height:1.55}
 @media(max-width:480px){.product-cart-drawer .drawer-head{padding:22px 18px}.product-cart-drawer .cart-items{padding:12px 15px}.product-cart-drawer .cart-footer{padding:16px 15px}}
+
+/* Capture fallback: keep the cart panel functional with cached product-page markup. */
+.product-cart-drawer[aria-hidden="true"]{visibility:hidden;pointer-events:none}
+.product-cart-drawer.open[aria-hidden="false"]{visibility:visible;pointer-events:auto}
