@@ -143,24 +143,33 @@ function refreshProductQuantityControls() {
   $('#qtyPlus').disabled=soldOut||(stockKnown&&quantity>=stock);
 }
 
-function showToast(message) {
+function showToast(message, duration = 1800) {
   const toast = $('#productToast');
   toast.textContent = message;
   toast.classList.add('show');
   clearTimeout(window.__productToast);
-  window.__productToast = setTimeout(() => toast.classList.remove('show'), 1800);
+  window.__productToast = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+function showAddedToCartFeedback(){
+  const feedback=$("#productCartFeedback");
+  if(feedback){
+    feedback.hidden=false;
+    feedback.classList.remove("is-visible");
+    requestAnimationFrame(()=>feedback.classList.add("is-visible"));
+  }
 }
 
 function addCurrentProduct(amount = quantity) {
   const cart = cartData();
   const variants=productColorVariants();
   const sizes=productSizes();
-  if(variants.length&&!selectedColorVariant){showToast("Selecciona el color que quieres comprar.");$("#productColorOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
-  if(sizes.length&&(!selectedSize||!sizes.includes(selectedSize))){showToast("Selecciona la talla que quieres comprar.");$("#productSizeOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
+  if(variants.length&&!selectedColorVariant){showToast("Selecciona el color que quieres comprar.");$("#productColorOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return false;}
+  if(sizes.length&&(!selectedSize||!sizes.includes(selectedSize))){showToast("Selecciona la talla que quieres comprar.");$("#productSizeOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return false;}
   const selectedVariant=selectedColorVariant?.name||null;
   const existing = cart.find(item => Number(item.id) === Number(currentProduct.id) && (item.selectedVariant||null)===selectedVariant && (item.selectedSize||null)===(selectedSize||null));
-  if(currentProduct.stockQuantity!=null&&Number(currentProduct.stockQuantity)<=0){showToast('Este producto está agotado');return;}
-  if(existing&&currentProduct.stockQuantity!=null&&existing.qty+amount>Number(currentProduct.stockQuantity)){showToast('No hay más unidades disponibles');return;}
+  if(currentProduct.stockQuantity!=null&&Number(currentProduct.stockQuantity)<=0){showToast('Este producto está agotado');return false;}
+  if(existing&&currentProduct.stockQuantity!=null&&existing.qty+amount>Number(currentProduct.stockQuantity)){showToast('No hay más unidades disponibles');return false;}
   if(existing) {
     existing.qty += amount;
   } else {
@@ -177,7 +186,9 @@ function addCurrentProduct(amount = quantity) {
 
   saveCart(cart);
   updateCartCount();
-  showToast(`${currentProduct.name}${selectedVariant?" · "+selectedVariant:""}${selectedSize?" · Talla "+selectedSize:""} añadido al carrito`);
+  showAddedToCartFeedback();
+  showToast(`${currentProduct.name}${selectedVariant?" · "+selectedVariant:""}${selectedSize?" · Talla "+selectedSize:""} añadido al carrito. Puedes seguir explorando.`, 3200);
+  return true;
 }
 
 function cleanField(value) {
@@ -757,8 +768,22 @@ $('#qtyPlus').addEventListener('click', () => {
   refreshProductQuantityControls();
 });
 
-$('#addProductToCart').addEventListener('click', () => addCurrentProduct());
-$('#productMobileAddToCart')?.addEventListener('click', () => addCurrentProduct());
+$('#addProductToCart').addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
+  addCurrentProduct();
+});
+$('#productMobileAddToCart')?.addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
+  addCurrentProduct();
+});
+$('#continueExploringProducts')?.addEventListener('click', event => {
+  const section=$('#recentlyViewedSection');
+  if(!section||section.hidden)return;
+  event.preventDefault();
+  section.scrollIntoView({behavior:'smooth',block:'start'});
+});
 $('#toggleProductFavorite')?.addEventListener('click',toggleCurrentProductFavorite);
 $('#productReviewForm')?.addEventListener('submit',submitProductReview);
 initReviewStarPicker();
