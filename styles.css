@@ -365,3 +365,5 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
  .product-mobile-buybar .btn{padding:9px 10px;font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){.product-size-choice,.product-thumbnails .thumbnail{transition:none}}
+
+@media(max-width:700px){body:has(.product-mobile-buybar) .floating-product-help{bottom:calc(88px + env(safe-area-inset-bottom))}}
