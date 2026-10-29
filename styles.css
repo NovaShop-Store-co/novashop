@@ -378,3 +378,14 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 .product-cart-feedback p{margin:2px 0 7px;color:#426655}
 .product-cart-feedback a{display:inline-flex;align-items:center;gap:6px;color:#146c49;font-weight:750;text-decoration:underline;text-underline-offset:3px}
 @media(prefers-reduced-motion:reduce){.product-cart-feedback{transition:none}}
+
+
+/* Cart drawer on product detail pages */
+.product-cart-drawer[aria-hidden="true"]{visibility:hidden;pointer-events:none}
+.product-cart-drawer.open[aria-hidden="false"]{visibility:visible;pointer-events:auto}
+.product-cart-drawer .cart-footer[hidden]{display:none}
+.product-cart-item-details{min-width:0}
+.product-cart-item-details h4{overflow-wrap:anywhere}
+.product-cart-drawer .cart-footer a{display:flex;align-items:center;justify-content:center;text-decoration:none}
+.product-cart-drawer .cart-footer small{line-height:1.55}
+@media(max-width:480px){.product-cart-drawer .drawer-head{padding:22px 18px}.product-cart-drawer .cart-items{padding:12px 15px}.product-cart-drawer .cart-footer{padding:16px 15px}}
