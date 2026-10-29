@@ -799,7 +799,9 @@ function renderProduct() {
   $('#breadcrumbProduct').textContent = currentProduct.name;
   $('#breadcrumbCategory').href = isDigitalProduct ? 'streaming.html' : `index.html?category=${encodeURIComponent(currentProduct.category)}#productos`;
 
-  $('#productCategory').textContent = currentProduct.category.toUpperCase();
+  const productAudiences=Array.isArray(currentProduct.targetAudiences)?currentProduct.targetAudiences:[];
+  const productAudienceLabel=productAudiences.includes('hombre')&&productAudiences.includes('mujer')?'UNISEX':productAudiences.includes('hombre')?'HOMBRE':productAudiences.includes('mujer')?'MUJER':'';
+  $('#productCategory').textContent = currentProduct.category.toUpperCase()+(currentProduct.category==='Moda'&&productAudienceLabel?' · '+productAudienceLabel:'');
   $('#productName').textContent = currentProduct.name;
   // Public ratings are calculated only from actual approved customer reviews.
   const ratingRow = document.querySelector('.rating-row');
