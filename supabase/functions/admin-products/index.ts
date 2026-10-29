@@ -507,12 +507,40 @@ Deno.serve(async (req: Request) => {
       const productRows = data || [];
       const productIds = productRows.map((product: any)=>Number(product.id)).filter((value: number)=>Number.isSafeInteger(value));
       const dropiByProduct = new Map<number,string>();
+      const dropiVariantsByProduct = new Map<number,any[]>();
       if (productIds.length) {
         const {data:refs,error:refsError} = await admin.from("product_supplier_refs").select("product_id,dropi_product_id").in("product_id",productIds);
         if (refsError) throw refsError;
         for (const ref of refs || []) dropiByProduct.set(Number(ref.product_id),String(ref.dropi_product_id || ""));
+        const {data:variants,error:variantsError} = await admin.from("product_variants").select("id,product_id,audience,color,size,stock_quantity,is_active,sort_order").in("product_id",productIds).order("sort_order",{ascending:true});
+        if (variantsError) throw variantsError;
+        const variantIds = (variants||[]).map((variant: any)=>Number(variant.id));
+        const refsByVariant = new Map<number,any>();
+        if (variantIds.length) {
+          const {data:supplierRefs,error:supplierRefsError} = await admin.from("product_variant_supplier_refs")
+            .select("product_variant_id,dropi_variant_id,supplier_price_cop").in("product_variant_id",variantIds);
+          if (supplierRefsError) throw supplierRefsError;
+          for (const ref of supplierRefs||[]) refsByVariant.set(Number(ref.product_variant_id),ref);
+        }
+        for (const variant of variants||[]) {
+          const supplierRef = refsByVariant.get(Number(variant.id));
+          const productId = Number(variant.product_id);
+          const list = dropiVariantsByProduct.get(productId)||[];
+          list.push({
+            audience:variant.audience,color:variant.color,size:variant.size,
+            dropi_variant_id:supplierRef?.dropi_variant_id||"",
+            stock_quantity:variant.stock_quantity,
+            supplier_price_cop:supplierRef?.supplier_price_cop??null,
+            is_active:variant.is_active,sort_order:variant.sort_order
+          });
+          dropiVariantsByProduct.set(productId,list);
+        }
       }
-      return json({ok:true,products:productRows.map((product: any)=>({...product,dropi_product_id:dropiByProduct.get(Number(product.id)) || ""}))},200,origin);
+      return json({ok:true,products:productRows.map((product: any)=>({
+        ...product,
+        dropi_product_id:dropiByProduct.get(Number(product.id)) || "",
+        dropi_variants:dropiVariantsByProduct.get(Number(product.id)) || []
+      }))},200,origin);
     }
 
     if (action === "metrics") {
@@ -626,10 +654,54 @@ Deno.serve(async (req: Request) => {
       const category = clean(body.category,80);
       const delivery = clean(body.delivery_type,20);
       const dropiProductId = clean(body.dropi_product_id,100).replace(/\s+/g," ").trim();
+      const rawDropiVariants = Array.isArray(body.dropi_variants) ? body.dropi_variants : [];
+      if (rawDropiVariants.length > 250) return json({error:"Un producto admite hasta 250 combinaciones de Dropi."},400,origin);
+      const dropiVariants = rawDropiVariants.map((item: any)=>({
+        audience: clean(item?.audience,20).toLowerCase()==="dama" ? "mujer" : clean(item?.audience,20).toLowerCase(),
+        color: clean(item?.color,40),
+        size: clean(item?.size,24),
+        dropi_variant_id: clean(item?.dropi_variant_id,100).replace(/\s+/g,"").trim(),
+        stock_quantity: Number(item?.stock_quantity),
+        supplier_price_cop: item?.supplier_price_cop==null || item?.supplier_price_cop==="" ? null : Number(item.supplier_price_cop)
+      }));
+      const seenVariantKeys = new Set<string>();
+      const seenDropiVariantIds = new Set<string>();
+      for (const variant of dropiVariants) {
+        if (!["hombre","mujer"].includes(variant.audience) || !variant.color || !variant.size ||
+            !/^[A-Za-z0-9_-]{1,100}$/.test(variant.dropi_variant_id) ||
+            !Number.isSafeInteger(variant.stock_quantity) || variant.stock_quantity < 0 ||
+            (variant.supplier_price_cop!==null && (!Number.isSafeInteger(variant.supplier_price_cop)||variant.supplier_price_cop<0))) {
+          return json({error:"Cada variante de Dropi requiere corte Hombre/Dama, color, talla, ID válido, existencias enteras y costo opcional en COP."},400,origin);
+        }
+        const key = [variant.audience,variant.color,variant.size].map((value: string)=>value.toLocaleLowerCase("es")).join("|");
+        if (seenVariantKeys.has(key)) return json({error:"Hay combinaciones repetidas de corte, color y talla en las variantes de Dropi."},400,origin);
+        if (seenDropiVariantIds.has(variant.dropi_variant_id)) return json({error:"No repitas un ID de variante de Dropi en el mismo producto."},400,origin);
+        seenVariantKeys.add(key);
+        seenDropiVariantIds.add(variant.dropi_variant_id);
+      }
+      if (dropiVariants.length && delivery === "digital") return json({error:"Las variantes de Dropi solo se pueden asociar a productos físicos."},400,origin);
       const rawTargetAudiences = Array.isArray(body.target_audiences) ? body.target_audiences : [];
-      const targetAudiences = [...new Set(rawTargetAudiences.map((value: unknown)=>clean(value,20).toLowerCase()).filter(Boolean))];
+      const requestedAudiences = [...new Set(rawTargetAudiences.map((value: unknown)=>clean(value,20).toLowerCase()).filter(Boolean))];
+      const targetAudiences = dropiVariants.length
+        ? [...new Set(dropiVariants.map((variant: any)=>variant.audience))]
+        : requestedAudiences;
       if (targetAudiences.some((value: string)=>!["hombre","mujer"].includes(value))) {
         return json({error:"El público objetivo solo puede ser Hombre o Mujer."},400,origin);
+      }
+      if (dropiVariants.length) {
+        const dropiIds = dropiVariants.map((variant: any)=>variant.dropi_variant_id);
+        const {data:existingRefs,error:existingRefsError} = await admin.from("product_variant_supplier_refs")
+          .select("dropi_variant_id,product_variant_id").in("dropi_variant_id",dropiIds);
+        if (existingRefsError) throw existingRefsError;
+        const refVariantIds = [...new Set((existingRefs||[]).map((ref: any)=>Number(ref.product_variant_id)).filter((value: number)=>Number.isSafeInteger(value)))];
+        const ownerByVariantId = new Map<number,number>();
+        if (refVariantIds.length) {
+          const {data:owners,error:ownersError} = await admin.from("product_variants").select("id,product_id").in("id",refVariantIds);
+          if (ownersError) throw ownersError;
+          for (const owner of owners||[]) ownerByVariantId.set(Number(owner.id),Number(owner.product_id));
+        }
+        const conflict = (existingRefs||[]).find((ref: any)=>id===null||ownerByVariantId.get(Number(ref.product_variant_id))!==id);
+        if (conflict) return json({error:"El ID de variante "+clean(conflict.dropi_variant_id,100)+" ya está vinculado a otro producto de NovaShop."},409,origin);
       }
       const rawPaymentMethods = Array.isArray(body.payment_methods)
         ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
@@ -697,6 +769,36 @@ Deno.serve(async (req: Request) => {
       const {data,error} = await query;
       if (error) throw error;
       if (!data) return json({error:"No encontramos el producto que intentabas editar."},404,origin);
+
+      const {error:deleteVariantsError} = await admin.from("product_variants").delete().eq("product_id",data.id);
+      if (deleteVariantsError) throw deleteVariantsError;
+      let savedDropiVariants:any[] = [];
+      if (dropiVariants.length) {
+        const publicRows = dropiVariants.map((variant: any,index: number)=>({
+          product_id:data.id,audience:variant.audience,color:variant.color,size:variant.size,
+          stock_quantity:variant.stock_quantity,is_active:true,sort_order:index+1,updated_at:new Date().toISOString()
+        }));
+        const {data:insertedVariants,error:insertVariantsError} = await admin.from("product_variants").insert(publicRows).select("id,product_id,audience,color,size,stock_quantity,is_active,sort_order");
+        if (insertVariantsError) throw insertVariantsError;
+        const idByKey = new Map<string,number>((insertedVariants||[]).map((variant: any)=>[
+          [variant.audience,variant.color,variant.size].map((value: string)=>value.toLocaleLowerCase("es")).join("|"),
+          Number(variant.id)
+        ]));
+        const supplierRows = dropiVariants.map((variant: any)=>({
+          product_variant_id:idByKey.get([variant.audience,variant.color,variant.size].map((value: string)=>value.toLocaleLowerCase("es")).join("|")),
+          dropi_variant_id:variant.dropi_variant_id,
+          supplier_price_cop:variant.supplier_price_cop,
+          updated_at:new Date().toISOString()
+        }));
+        if (supplierRows.some((ref: any)=>!Number.isSafeInteger(ref.product_variant_id))) throw new Error("No se pudo asociar cada variante de Dropi a su opción pública.");
+        const {error:supplierInsertError} = await admin.from("product_variant_supplier_refs").insert(supplierRows);
+        if (supplierInsertError) {
+          if (String((supplierInsertError as any).code||"")==="23505") return json({error:"Uno de los IDs de Dropi ya está vinculado a otra variante. Revisa los IDs y vuelve a guardar."},409,origin);
+          throw supplierInsertError;
+        }
+        savedDropiVariants = dropiVariants;
+      }
+
       if (dropiProductId) {
         const {error:dropiRefError} = await admin.from("product_supplier_refs").upsert(
           {product_id:data.id,dropi_product_id:dropiProductId,updated_at:new Date().toISOString()},
@@ -717,7 +819,7 @@ Deno.serve(async (req: Request) => {
         const {error:dropiRefError} = await admin.from("product_supplier_refs").delete().eq("product_id",data.id);
         if (dropiRefError) throw dropiRefError;
       }
-      return json({ok:true,product:{...data,dropi_product_id:dropiProductId}},200,origin);
+      return json({ok:true,product:{...data,dropi_product_id:dropiProductId,dropi_variants:savedDropiVariants}},200,origin);
     }
 
     if (action === "deactivate") {
