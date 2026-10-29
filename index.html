@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=46">
+  <link rel="stylesheet" href="styles.css?v=47">
   <link rel="stylesheet" href="storefront-enhancements.css?v=6">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
@@ -191,6 +191,27 @@
     <div class="container footer-bottom"><span>© 2026 NovaShop</span><span>Cerca de ti cuando nos necesites · Compra con tranquilidad</span></div>
   </footer>
 
+  <div class="modal quick-add-modal" id="quickAddModal" aria-hidden="true">
+    <div class="modal-card quick-add-card" role="dialog" aria-modal="true" aria-labelledby="quickAddTitle">
+      <button class="close-btn" id="quickAddClose" type="button" aria-label="Cerrar selección">×</button>
+      <span class="eyebrow">PERSONALIZA TU COMPRA</span>
+      <div class="quick-add-product">
+        <img id="quickAddImage" src="" alt="">
+        <div><h2 id="quickAddTitle">Añadir al carrito</h2><strong id="quickAddPrice"></strong><p id="quickAddStock" aria-live="polite"></p></div>
+      </div>
+      <div class="quick-add-section" id="quickAddColorSection" hidden>
+        <strong>Elige un color</strong>
+        <div class="quick-add-options" id="quickAddColorOptions"></div>
+      </div>
+      <div class="quick-add-section" id="quickAddSizeSection" hidden>
+        <strong>Elige una talla</strong>
+        <div class="quick-add-options quick-add-size-options" id="quickAddSizeOptions"></div>
+      </div>
+      <p class="quick-add-help" id="quickAddHelp" role="status" aria-live="polite">Selecciona las opciones para añadir este producto.</p>
+      <button type="button" class="btn btn-primary wide" id="quickAddConfirm">Añadir al carrito</button>
+    </div>
+  </div>
+
   <div class="drawer-overlay" id="drawerOverlay"></div>
   <aside class="cart-drawer" id="cartDrawer" aria-label="Carrito de compras">
     <div class="drawer-head"><div><span class="eyebrow">TU PEDIDO</span><h2>Carrito</h2></div><button class="close-btn" id="cartClose" aria-label="Cerrar carrito">×</button></div>
@@ -316,7 +337,7 @@
   <script src="supabase-client.js?v=36"></script><script src="auth-nav.js?v=17"></script>
   <script src="products.js?v=19"></script>
   <script src="bold-checkout.js?v=3"></script>
-  <script src="script.js?v=51"></script>
+  <script src="script.js?v=52"></script>
   <script src="storefront-enhancements.js?v=3"></script>
 </body>
 </html>
