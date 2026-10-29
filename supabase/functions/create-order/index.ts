@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     if (!Array.isArray(itemsInput) || itemsInput.length < 1 || itemsInput.length > 25) {
       return json({ error: "El pedido debe contener entre 1 y 25 productos distintos." }, 400);
     }
-    const items = itemsInput.map((x: any) => ({
+    const items: any[] = itemsInput.map((x: any) => ({
       product_id: Number(x?.product_id),
       quantity: Number(x?.quantity),
       selected_variant: clean(x?.selected_variant,40),
