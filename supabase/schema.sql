@@ -733,3 +733,8 @@ create trigger apply_novashop_order_stock
 before update of status on public.orders
 for each row when (old.status is distinct from new.status)
 execute function private.apply_order_stock();
+
+
+-- Service role grants for Dropi variants (2026-10-29).
+grant all on table public.product_variants to service_role;
+grant usage, select, update on sequence public.product_variants_id_seq to service_role;
