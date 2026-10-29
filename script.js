@@ -153,7 +153,16 @@ function catalogDropiVariants(p){
   return Array.isArray(p?.dropiVariants)?p.dropiVariants.filter(v=>v&&v.is_active!==false&&["hombre","mujer"].includes(String(v.audience||"").toLowerCase())):[];
 }
 function catalogDropiAudiences(p){
-  return [...new Set(catalogDropiVariants(p).map(v=>String(v.audience).toLowerCase()))];
+  const values=new Set(catalogDropiVariants(p).map(v=>String(v.audience).toLowerCase()));
+  return ["mujer","hombre"].filter(value=>values.has(value));
+}
+function catalogProductAudiences(p){
+  const rows=catalogDropiVariants(p);
+  if(rows.length)return catalogDropiAudiences(p);
+  const raw=p?.targetAudiences??p?.target_audiences;
+  const values=new Set((Array.isArray(raw)?raw:[]).map(value=>String(value??"").trim().toLowerCase())
+   .filter(value=>["hombre","mujer"].includes(value)));
+  return ["mujer","hombre"].filter(value=>values.has(value));
 }
 function selectedQuickAddDropiVariant(p){
   if(!p||!quickAddSelectedAudience||!quickAddSelectedColor||!quickAddSelectedSize)return null;
@@ -199,7 +208,7 @@ function openQuickAdd(id){
   const dropi=catalogDropiVariants(p);
   if(!dropi.length&&p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast("Este producto está agotado");return;}
   quickAddProductId=Number(id);
-  const audiences=catalogDropiAudiences(p);
+  const audiences=catalogProductAudiences(p);
   quickAddSelectedAudience=audiences.length===1?audiences[0]:null;
   quickAddSelectedColor=null;quickAddSelectedSize=null;
   const colors=catalogColorVariants(p);
@@ -225,13 +234,13 @@ function openQuickAdd(id){
 }
 function renderQuickAddOptions(){
   const p=product(quickAddProductId);if(!p)return;
-  const dropi=catalogDropiVariants(p),audiences=catalogDropiAudiences(p);
+  const dropi=catalogDropiVariants(p),audiences=catalogProductAudiences(p);
   const colors=catalogColorVariants(p),sizes=catalogSizeVariants(p);
   const audienceSection=$("#quickAddAudienceSection"),audienceBox=$("#quickAddAudienceOptions");
-  if(audienceSection)audienceSection.hidden=dropi.length===0||audiences.length<2;
+  if(audienceSection)audienceSection.hidden=audiences.length<2;
   if(audienceBox)audienceBox.innerHTML=audiences.map(audience=>{
     const selected=audience===quickAddSelectedAudience;
-    const label=audience==="mujer"?"Dama":"Hombre";
+    const label=audience==="mujer"?"Dama":"Caballero";
     return '<button type="button" class="quick-add-option" data-quick-audience="'+audience+'" aria-pressed="'+selected+'">'+label+(selected?' <b aria-hidden="true">✓</b>':'')+'</button>';
   }).join("");
   const colorSection=$("#quickAddColorSection"),sizeSection=$("#quickAddSizeSection");
@@ -256,7 +265,7 @@ function renderQuickAddOptions(){
   const help=$("#quickAddHelp");
   if(help){
     const missing=[];
-    if(dropi.length&&audiences.length>1&&!quickAddSelectedAudience)missing.push("el corte");
+    if(audiences.length>1&&!quickAddSelectedAudience)missing.push("si es para Dama o Caballero");
     if(colors.length&&!quickAddSelectedColor)missing.push("el color");
     if((sizes.length|| (dropi.length&&!!quickAddSelectedColor))&&!quickAddSelectedSize)missing.push("la talla");
     if(dropi.length&&quickAddSelectedSize&&!selectedQuickAddDropiVariant(p))missing.push("una combinación disponible");
@@ -272,15 +281,15 @@ function closeQuickAdd(){
 }
 function confirmQuickAdd(){
   const p=product(quickAddProductId);if(!p)return;
-  const dropi=catalogDropiVariants(p),audiences=catalogDropiAudiences(p);
+  const dropi=catalogDropiVariants(p),audiences=catalogProductAudiences(p);
   const colors=catalogColorVariants(p),sizes=catalogSizeVariants(p);
-  if(dropi.length&&audiences.length>1&&!quickAddSelectedAudience){toast("Selecciona si quieres el corte de Hombre o Dama.");return;}
+  if(audiences.length>1&&!quickAddSelectedAudience){toast("Selecciona si lo quieres para Dama o Caballero.");return;}
   if(colors.length&&!quickAddSelectedColor){toast("Selecciona un color para continuar");return;}
   if((dropi.length||sizes.length)&&!quickAddSelectedSize){toast("Selecciona una talla para continuar");return;}
   const chosenDropi=dropi.length?selectedQuickAddDropiVariant(p):null;
   if(dropi.length&&(!chosenDropi||!chosenDropi.is_active||Number(chosenDropi.stock_quantity)<=0)){toast("Esa combinación no está disponible. Elige otro color o talla.");return;}
   const totalForChoice=cart.filter(item=>Number(item.id)===Number(p.id)&&
-    (item.selectedAudience||null)===(dropi.length?quickAddSelectedAudience:null)&&
+    (item.selectedAudience||null)===((dropi.length||audiences.length)?quickAddSelectedAudience:null)&&
     (item.selectedVariant||null)===(quickAddSelectedColor||null)&&
     (item.selectedSize||null)===(quickAddSelectedSize||null)).reduce((sum,item)=>sum+Number(item.qty||0),0);
   if(dropi.length&&totalForChoice+1>Number(chosenDropi.stock_quantity)){toast("No quedan más unidades de esa combinación en Dropi.");return;}
@@ -294,8 +303,8 @@ function confirmQuickAdd(){
     (item.selectedAudience||null)===(dropi.length?quickAddSelectedAudience:null)&&
     (item.selectedVariant||null)===(quickAddSelectedColor||null)&&(item.selectedSize||null)===(quickAddSelectedSize||null));
   if(found)found.qty=Number(found.qty||0)+1;
-  else cart.push({id:p.id,name:p.name,price:Number(p.price)||0,image,selectedAudience:dropi.length?quickAddSelectedAudience:null,selectedVariant:quickAddSelectedColor||null,selectedSize:quickAddSelectedSize||null,qty:1});
-  const details=[dropi.length?"Corte "+(quickAddSelectedAudience==="mujer"?"Dama":"Hombre"):"",quickAddSelectedColor,quickAddSelectedSize?"Talla "+quickAddSelectedSize:""].filter(Boolean).join(" · ");
+  else cart.push({id:p.id,name:p.name,price:Number(p.price)||0,image,selectedAudience:(dropi.length||audiences.length)?quickAddSelectedAudience:null,selectedVariant:quickAddSelectedColor||null,selectedSize:quickAddSelectedSize||null,qty:1});
+  const details=[quickAddSelectedAudience?"Corte "+(quickAddSelectedAudience==="mujer"?"Dama":"Caballero"):"",quickAddSelectedColor,quickAddSelectedSize?"Talla "+quickAddSelectedSize:""].filter(Boolean).join(" · ");
   saveCart();renderCart();closeQuickAdd();openCart();
   toast("¡Añadido al carrito!"+(details?" · "+details:""));
 }
@@ -303,7 +312,7 @@ function addToCart(id){
   const p=product(id);if(!p)return;
   const dropi=catalogDropiVariants(p);
   if(!dropi.length&&p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast("Este producto está agotado");return;}
-  if(dropi.length||catalogColorVariants(p).length||catalogSizeVariants(p).length){
+  if(dropi.length||catalogProductAudiences(p).length>1||catalogColorVariants(p).length||catalogSizeVariants(p).length){
     openQuickAdd(id);
     return;
   }
@@ -335,7 +344,7 @@ function removeItem(index){if(!Number.isInteger(index)||index<0||index>=cart.len
 function renderCart(){
   $('#cartCount').textContent=cartCount();
   if(!cart.length){ $('#cartItems').innerHTML='<div class="cart-empty">Tu carrito está esperando algo que te guste.<br>Explora la tienda y añade tu primer producto.</div>'; $('#cartSubtotal').textContent=money(0); return; }
-  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedAudience?`<p class="cart-item-variant">Corte: ${i.selectedAudience==="mujer"?"Dama":"Hombre"}</p>`:""}${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}${i.selectedSize?`<p class="cart-item-variant">Talla: ${escapeHTML(i.selectedSize)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
+  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedAudience?`<p class="cart-item-variant">Corte: ${i.selectedAudience==="mujer"?"Dama":"Caballero"}</p>`:""}${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}${i.selectedSize?`<p class="cart-item-variant">Talla: ${escapeHTML(i.selectedSize)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
   $('#cartSubtotal').textContent=money(cartTotal());
   document.querySelectorAll('#cartItems button').forEach(b=>b.addEventListener('click',()=>{const index=Number(b.dataset.index);const a=b.dataset.action;if(a==='dec')changeQty(index,-1);if(a==='inc')changeQty(index,1);if(a==='remove')removeItem(index);}));
 }
@@ -709,7 +718,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const button=event.target.closest('[data-quick-audience]');if(!button)return;
     const p=product(quickAddProductId);if(!p)return;
     const audience=button.dataset.quickAudience;
-    if(!catalogDropiAudiences(p).includes(audience))return;
+    if(!catalogProductAudiences(p).includes(audience))return;
     quickAddSelectedAudience=audience;quickAddSelectedColor=null;quickAddSelectedSize=null;
     const colors=catalogColorVariants(p);
     if(colors.length===1)quickAddSelectedColor=colors[0].name;
