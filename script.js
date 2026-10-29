@@ -258,7 +258,7 @@ function renderQuickAddOptions(){
     const missing=[];
     if(dropi.length&&audiences.length>1&&!quickAddSelectedAudience)missing.push("el corte");
     if(colors.length&&!quickAddSelectedColor)missing.push("el color");
-    if((sizes.length||dropi.length)&&!quickAddSelectedSize)missing.push("la talla");
+    if((sizes.length|| (dropi.length&&!!quickAddSelectedColor))&&!quickAddSelectedSize)missing.push("la talla");
     if(dropi.length&&quickAddSelectedSize&&!selectedQuickAddDropiVariant(p))missing.push("una combinación disponible");
     help.textContent=missing.length?"Para añadirlo, selecciona "+missing.join(", ")+".":"Listo. Pulsa «Añadir al carrito» para continuar.";
   }
