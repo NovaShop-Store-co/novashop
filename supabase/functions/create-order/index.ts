@@ -74,12 +74,15 @@ Deno.serve(async (req: Request) => {
       product_id: Number(x?.product_id),
       quantity: Number(x?.quantity),
       selected_variant: clean(x?.selected_variant,40),
+      selected_size: clean(x?.selected_size,24),
+      selected_audience: clean(x?.selected_audience,20).toLowerCase()
     }));
-    if (items.some((x: any) => !Number.isInteger(x.product_id) || !Number.isInteger(x.quantity) || x.quantity < 1 || x.quantity > 10)) {
-      return json({ error: "Hay productos o cantidades no válidos." }, 400);
+    if (items.some((x: any) => !Number.isInteger(x.product_id) || !Number.isInteger(x.quantity) || x.quantity < 1 || x.quantity > 10 ||
+      (x.selected_audience && !["hombre","mujer"].includes(x.selected_audience)))) {
+      return json({ error: "Hay productos, cortes o cantidades no válidos." }, 400);
     }
-    if (new Set(items.map((x: any) => String(x.product_id)+"::"+String(x.selected_variant||"").toLocaleLowerCase("es"))).size !== items.length) {
-      return json({ error: "Hay productos duplicados con la misma variante en el pedido." }, 400);
+    if (new Set(items.map((x: any) => [x.product_id,x.selected_audience,x.selected_variant.toLocaleLowerCase("es"),x.selected_size.toLocaleLowerCase("es")].join("::"))).size !== items.length) {
+      return json({ error: "Hay productos duplicados con la misma combinación de corte, color y talla en el pedido." }, 400);
     }
     if (items.reduce((n: number, x: any) => n + x.quantity, 0) > 50) {
       return json({ error: "La cantidad total excede el límite por pedido." }, 400);
@@ -164,7 +167,7 @@ Deno.serve(async (req: Request) => {
 
     const ids = items.map((x: any) => x.product_id);
     const { data: catalog, error: catalogError } = await admin
-      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,printful_enabled,printful_sync_variant_id,payment_methods")
+      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,size_variants,printful_enabled,printful_sync_variant_id,payment_methods")
       .in("id", ids).eq("is_active", true);
     if (catalogError) throw catalogError;
     if (!catalog || catalog.length !== new Set(ids).size) {
@@ -174,6 +177,45 @@ Deno.serve(async (req: Request) => {
       .select("product_id,dropi_product_id").in("product_id",ids);
     if (dropiRefsError) throw dropiRefsError;
     const dropiByProductId = new Map<number,string>((dropiRefs || []).map((ref: any)=>[Number(ref.product_id),String(ref.dropi_product_id || "")]));
+
+    const {data:productVariantRows,error:productVariantError} = await admin.from("product_variants")
+      .select("id,product_id,audience,color,size,stock_quantity,is_active").in("product_id",ids);
+    if (productVariantError) throw productVariantError;
+    const dropiVariantsByProduct = new Map<number,any[]>();
+    for (const variant of productVariantRows||[]) {
+      const list = dropiVariantsByProduct.get(Number(variant.product_id))||[];
+      list.push(variant);
+      dropiVariantsByProduct.set(Number(variant.product_id),list);
+    }
+    const productVariantIds = (productVariantRows||[]).map((variant: any)=>Number(variant.id));
+    const dropiByVariantId = new Map<number,string>();
+    if (productVariantIds.length) {
+      const {data:variantRefs,error:variantRefsError} = await admin.from("product_variant_supplier_refs")
+        .select("product_variant_id,dropi_variant_id").in("product_variant_id",productVariantIds);
+      if (variantRefsError) throw variantRefsError;
+      for (const ref of variantRefs||[]) dropiByVariantId.set(Number(ref.product_variant_id),String(ref.dropi_variant_id||""));
+    }
+    for (const item of items) {
+      const productVariants = dropiVariantsByProduct.get(item.product_id)||[];
+      if (!productVariants.length) {
+        if (item.selected_audience) return json({error:"El corte seleccionado para el producto no tiene variantes configuradas. Vuelve a cargar la página y selecciona de nuevo."},409);
+        continue;
+      }
+      const chosen = productVariants.find((variant: any)=>variant.is_active===true &&
+        String(variant.audience||"").toLowerCase()===item.selected_audience &&
+        String(variant.color||"").trim().toLocaleLowerCase("es")===item.selected_variant.toLocaleLowerCase("es") &&
+        String(variant.size||"").trim().toLocaleLowerCase("es")===item.selected_size.toLocaleLowerCase("es"));
+      if (!item.selected_audience || !item.selected_variant || !item.selected_size || !chosen) {
+        return json({error:"Selecciona un corte, color y talla disponibles para "+clean((catalog||[]).find((p: any)=>Number(p.id)===item.product_id)?.name||"uno de los productos",140)+"."},409);
+      }
+      const dropiVariantId = dropiByVariantId.get(Number(chosen.id));
+      if (!dropiVariantId) {
+        return json({error:"La variante seleccionada no está vinculada a un ID de Dropi. Contacta a la tienda antes de pagar."},409);
+      }
+      item.product_variant_id = Number(chosen.id);
+      item.dropi_variant_id = dropiVariantId;
+      item.variant_stock_quantity = Number(chosen.stock_quantity);
+    }
 
     const catalogById = new Map(catalog.map((p: any) => [p.id, p]));
     const unavailablePaymentItem = items.find((item: any) => {
@@ -193,13 +235,25 @@ Deno.serve(async (req: Request) => {
     }
     const invalidVariant = items.find((item: any) => {
       const p: any = catalogById.get(item.product_id);
+      if ((dropiVariantsByProduct.get(item.product_id)||[]).length) return false;
       const variants = Array.isArray(p?.color_variants) ? p.color_variants : [];
-      if (variants.length) return !item.selected_variant || !variants.some((v: any) => clean(v?.name,40) === item.selected_variant);
+      if (variants.length) return !item.selected_variant || !variants.some((v: any) => clean(v?.name,40).toLocaleLowerCase("es") === item.selected_variant.toLocaleLowerCase("es"));
       return !!item.selected_variant;
     });
     if (invalidVariant) {
       const p: any = catalogById.get(invalidVariant.product_id);
       return json({error:"Selecciona un color válido para "+clean(p?.name||"uno de los productos",140)+"."},400);
+    }
+    const invalidSize = items.find((item: any)=>{
+      const p: any = catalogById.get(item.product_id);
+      if ((dropiVariantsByProduct.get(item.product_id)||[]).length) return false;
+      const sizes = Array.isArray(p?.size_variants) ? p.size_variants.map((value: any)=>clean(value,24).toLocaleLowerCase("es")) : [];
+      if (sizes.length) return !item.selected_size || !sizes.includes(item.selected_size.toLocaleLowerCase("es"));
+      return !!item.selected_size;
+    });
+    if (invalidSize) {
+      const p: any = catalogById.get(invalidSize.product_id);
+      return json({error:"Selecciona una talla válida para "+clean(p?.name||"uno de los productos",140)+"."},400);
     }
     const missingPrintfulMapping = items.find((item: any) => {
       const p: any = catalogById.get(item.product_id);
@@ -219,7 +273,21 @@ Deno.serve(async (req: Request) => {
     }
     const quantityByProduct = new Map<number, number>();
     for (const item of items) quantityByProduct.set(item.product_id,(quantityByProduct.get(item.product_id)||0)+item.quantity);
+    const quantityByVariant = new Map<number,number>();
+    for (const item of items) if (item.product_variant_id) {
+      const id = Number(item.product_variant_id);
+      quantityByVariant.set(id,(quantityByVariant.get(id)||0)+item.quantity);
+    }
+    const outOfStockVariant = items.find((item: any)=>{
+      if (!item.product_variant_id) return false;
+      return (quantityByVariant.get(Number(item.product_variant_id))||0)>Number(item.variant_stock_quantity);
+    });
+    if (outOfStockVariant) {
+      const p: any = catalogById.get(outOfStockVariant.product_id);
+      return json({error:"No hay existencias suficientes para "+clean(p?.name||"el producto",140)+" · "+(outOfStockVariant.selected_audience==="mujer"?"Dama":"Hombre")+" · "+outOfStockVariant.selected_variant+" · "+outOfStockVariant.selected_size+"."},409);
+    }
     const outOfStock = items.find((item: any) => {
+      if ((dropiVariantsByProduct.get(item.product_id)||[]).length) return false;
       const product: any = catalogById.get(item.product_id);
       const requested = quantityByProduct.get(item.product_id)||0;
       return product && product.stock_quantity !== null && product.stock_quantity !== undefined
@@ -241,7 +309,10 @@ Deno.serve(async (req: Request) => {
       const syncVariantId = rawSyncId == null || rawSyncId === "" ? null : Number(rawSyncId);
       return {
         product_id: p.id, product_name: p.name, unit_price_cop: p.price_cop,
-        quantity: item.quantity, delivery_type: p.delivery_type, selected_variant: item.selected_variant || null,
+        quantity: item.quantity, delivery_type: p.delivery_type,
+        selected_variant: item.selected_variant || null,
+        selected_size: item.selected_size || null,
+        selected_audience: item.selected_audience || null,
         printful_sync_variant_id: syncVariantId,
       };
     });
@@ -335,13 +406,17 @@ Deno.serve(async (req: Request) => {
     if (orderError) throw orderError;
 
     const orderLines = lines.map((line: any) => ({ ...line, order_id: order.id }));
-    const {data:createdOrderLines,error:linesError} = await admin.from("order_items").insert(orderLines).select("id,product_id");
+    const {data:createdOrderLines,error:linesError} = await admin.from("order_items").insert(orderLines).select("id,product_id,selected_variant,selected_size,selected_audience");
     if (linesError) {
       await admin.from("orders").delete().eq("id", order.id);
       throw linesError;
     }
     const dropiSnapshots = (createdOrderLines || []).flatMap((line: any)=>{
-      const dropiId = dropiByProductId.get(Number(line.product_id));
+      const matchingItem = items.find((item: any)=>Number(item.product_id)===Number(line.product_id) &&
+        String(item.selected_variant||"")===String(line.selected_variant||"") &&
+        String(item.selected_size||"")===String(line.selected_size||"") &&
+        String(item.selected_audience||"")===String(line.selected_audience||""));
+      const dropiId = matchingItem?.dropi_variant_id || dropiByProductId.get(Number(line.product_id));
       return dropiId ? [{order_item_id:line.id,dropi_product_id:dropiId}] : [];
     });
     if (dropiSnapshots.length) {
