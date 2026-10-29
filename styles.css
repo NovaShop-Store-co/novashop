@@ -420,6 +420,13 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 @media(prefers-reduced-motion:reduce){.quick-add-option{transition:none}}
 
 
-/* Cut selector matches the compact, accessible product-option controls. */
-#productAudienceOptions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;border:0;background:transparent}
-#productAudienceOptions .product-size-choice{min-width:110px}
+/* Audience/cut selector: clear prompt and accessible choice buttons. */
+#productAudienceOptions{display:grid;gap:10px;margin:14px 0 18px;padding:14px;border:1px solid #e1e8ee;border-radius:14px;background:#fbfcfd}
+#productAudienceOptions[hidden]{display:none!important}
+.product-audience-options-head{display:grid;gap:4px}
+.product-audience-options-head strong{font-size:13px;font-weight:850;color:#203a4d}
+.product-audience-options-head span{font-size:11px;color:#6a7a86;line-height:1.5}
+.product-audience-option-list{display:flex;flex-wrap:wrap;gap:9px}
+#productAudienceOptions .product-size-choice{min-width:124px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+#productAudienceOptions .product-size-choice[aria-pressed=true]{border-color:#203c51;background:#203c51;color:#fff;box-shadow:0 0 0 3px rgba(32,60,81,.1)}
+@media(max-width:560px){#productAudienceOptions{padding:12px;margin:12px 0 14px}#productAudienceOptions .product-size-choice{flex:1;min-width:0}}
