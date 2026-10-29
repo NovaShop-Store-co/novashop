@@ -177,7 +177,7 @@ function addCurrentProduct(amount = quantity) {
 
   saveCart(cart);
   updateCartCount();
-  showToast(`${currentProduct.name}${selectedVariant?" · "+selectedVariant:""} añadido al carrito`);
+  showToast(`${currentProduct.name}${selectedVariant?" · "+selectedVariant:""}${selectedSize?" · Talla "+selectedSize:""} añadido al carrito`);
 }
 
 function cleanField(value) {
@@ -551,7 +551,8 @@ function renderProductSizeOptions(){
  if(!sizes.length){box.hidden=true;box.innerHTML="";selectedSize=null;return;}
  if(selectedSize&&!sizes.includes(selectedSize))selectedSize=null;
  box.hidden=false;
- box.innerHTML='<div class="product-size-options-head"><strong>Elige tu talla</strong>'+(selectedSize?'<span aria-live="polite">Elegida: '+escProduct(selectedSize)+'</span>':'<span>Selecciona antes de comprar</span>')+'</div><div class="product-size-list">'+sizes.map((size,index)=>'<button type="button" class="product-size-choice" data-product-size="'+index+'" aria-pressed="'+(selectedSize===size?'true':'false')+'">'+escProduct(size)+'</button>').join("")+'</div><p class="product-size-help">Confirma la talla antes de añadir el producto al carrito.</p>';
+ const sizeHelpUrl="https://wa.me/"+CONFIG.whatsapp+"?text="+encodeURIComponent("Hola, necesito ayuda para elegir la talla de "+currentProduct.name+". ¿Me pueden orientar?");
+ box.innerHTML='<div class="product-size-options-head"><strong>Elige tu talla</strong>'+(selectedSize?'<span class="product-size-selected" aria-live="polite">✓ Elegida: '+escProduct(selectedSize)+'</span>':'<span>Selecciona antes de comprar</span>')+'</div><div class="product-size-list">'+sizes.map((size,index)=>'<button type="button" class="product-size-choice" data-product-size="'+index+'" aria-pressed="'+(selectedSize===size?'true':'false')+'">'+escProduct(size)+'</button>').join("")+'</div><details class="product-size-guide"><summary>¿Cómo elegir la talla correcta?</summary><div><p>Compara las medidas con una prenda que ya te quede bien y revisa las tallas disponibles de este producto. El ajuste puede variar según el fabricante.</p><a href="'+escProduct(sizeHelpUrl)+'" target="_blank" rel="noopener noreferrer">¿Tienes dudas? Consulta tu talla por WhatsApp ↗</a></div></details>';
  box.querySelectorAll("[data-product-size]").forEach(button=>button.addEventListener("click",()=>{
   const size=sizes[Number(button.dataset.productSize)];if(!size)return;
   selectedSize=size;renderProductSizeOptions();renderProductCheckoutSummary();
@@ -701,6 +702,8 @@ function renderProduct() {
   }
   $('#addProductToCart').disabled=soldOut;
   $('#addProductToCart').textContent=soldOut?'Agotado':'Agregar al carrito';
+  const mobileBuyPrice=$("#productMobileBuyPrice");if(mobileBuyPrice)mobileBuyPrice.textContent=money(currentProduct.price);
+  const mobileBuyButton=$("#productMobileAddToCart");if(mobileBuyButton){mobileBuyButton.disabled=soldOut;mobileBuyButton.textContent=soldOut?"Agotado":"Agregar al carrito";}
   $('#buyNow').disabled=soldOut;
   $('#buyNow').textContent=soldOut?'Agotado':'Comprar ahora';
   if(stockKnown&&stock>0)quantity=Math.min(quantity,stock);
@@ -737,6 +740,7 @@ $('#qtyPlus').addEventListener('click', () => {
 });
 
 $('#addProductToCart').addEventListener('click', () => addCurrentProduct());
+$('#productMobileAddToCart')?.addEventListener('click', () => addCurrentProduct());
 $('#toggleProductFavorite')?.addEventListener('click',toggleCurrentProductFavorite);
 $('#productReviewForm')?.addEventListener('submit',submitProductReview);
 initReviewStarPicker();
