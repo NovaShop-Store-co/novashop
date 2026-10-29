@@ -132,7 +132,7 @@ function renderProducts(){
 
 function addToCart(id){
   const p=product(id);if(!p)return;
-  if(Array.isArray(p.colorVariants)&&p.colorVariants.length){window.location.href="producto.html?id="+encodeURIComponent(id);return;}
+  if((Array.isArray(p.colorVariants)&&p.colorVariants.length)||(Array.isArray(p.sizeVariants)&&p.sizeVariants.length)){window.location.href="producto.html?id="+encodeURIComponent(id);return;}
   const found=cart.find(i=>Number(i.id)===Number(id)&&!i.selectedVariant);
   if(p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast('Este producto está agotado');return;}
   if(found){if(p.stockQuantity!=null&&found.qty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}found.qty++;}
@@ -144,7 +144,7 @@ function removeItem(index){if(!Number.isInteger(index)||index<0||index>=cart.len
 function renderCart(){
   $('#cartCount').textContent=cartCount();
   if(!cart.length){ $('#cartItems').innerHTML='<div class="cart-empty">Tu carrito está esperando algo que te guste.<br>Explora la tienda y añade tu primer producto.</div>'; $('#cartSubtotal').textContent=money(0); return; }
-  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
+  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}${i.selectedSize?`<p class="cart-item-variant">Talla: ${escapeHTML(i.selectedSize)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
   $('#cartSubtotal').textContent=money(cartTotal());
   document.querySelectorAll('#cartItems button').forEach(b=>b.addEventListener('click',()=>{const index=Number(b.dataset.index);const a=b.dataset.action;if(a==='dec')changeQty(index,-1);if(a==='inc')changeQty(index,1);if(a==='remove')removeItem(index);}));
 }
@@ -228,7 +228,7 @@ function renderCheckoutSummary(){
   const summary=$('#checkoutSummary');
   if(!summary) return;
   const itemCount=cartCount();
-  const lines=cart.map(i=>`<li>${escapeHTML(i.name)}${i.selectedVariant?` · Color: ${escapeHTML(i.selectedVariant)}`:""} ×${i.qty} — <strong>${money(i.price*i.qty)}</strong></li>`).join('');
+  const lines=cart.map(i=>`<li>${escapeHTML(i.name)}${i.selectedVariant?` · Color: ${escapeHTML(i.selectedVariant)}`:""}${i.selectedSize?` · Talla: ${escapeHTML(i.selectedSize)}`:""} ×${i.qty} — <strong>${money(i.price*i.qty)}</strong></li>`).join('');
   const subtotal=cartTotal();
   const paymentMethod=$("#checkoutForm select[name='paymentMethod']")?.value||"";
   const contraentrega=paymentMethod==="cash_on_delivery";
@@ -296,6 +296,8 @@ function buildWhatsAppMessage(data, orderInfo={}){
   const lines=cart.map((i,index)=>[
     `${index+1}. ${i.name}`,
     `   Cantidad: ${i.qty}`,
+    i.selectedVariant ? `   Color: ${i.selectedVariant}` : null,
+    i.selectedSize ? `   Talla: ${i.selectedSize}` : null,
     `   Precio: ${money(i.price)} c/u`,
     `   Total: ${money(i.price*i.qty)}`
   ].join('\n')).join('\n\n');
@@ -392,6 +394,8 @@ async function submitCheckoutForm(event){
   };
   const missingColor=cart.find(item=>Array.isArray(product(item.id)?.colorVariants)&&product(item.id).colorVariants.length&&!item.selectedVariant);
   if(missingColor){toast("En el carrito falta elegir el color de "+(missingColor.name||"uno de los productos")+". Elimina ese producto y vuelve a seleccionarlo desde su ficha.");return;}
+  const invalidSize=cart.find(item=>{const sizes=product(item.id)?.sizeVariants;return Array.isArray(sizes)&&sizes.length?(!item.selectedSize||!sizes.includes(item.selectedSize)):!!item.selectedSize;});
+  if(invalidSize){toast("Falta una talla válida para "+(invalidSize.name||"uno de los productos")+". Elimina ese artículo y vuelve a seleccionarlo desde su ficha.");return;}
   const useBold=data.paymentMethod==="bold";
   const useCOD=data.paymentMethod==="cash_on_delivery";
   if(useBold&&cart.some(item=>!getProductPaymentCapabilities(product(item.id)).allowBold)){
@@ -428,7 +432,7 @@ async function submitCheckoutForm(event){
   const button=form.querySelector('button[type="submit"]');
   if(button){button.disabled=true;button.textContent="Registrando pedido…";}
   try{
-    savedOrder=await window.NovaShopDB.createOrder(data,cart.map(item=>({product_id:Number(item.id),quantity:Number(item.qty),selected_variant:item.selectedVariant||null})));
+    savedOrder=await window.NovaShopDB.createOrder(data,cart.map(item=>({product_id:Number(item.id),quantity:Number(item.qty),selected_variant:item.selectedVariant||null,selected_size:item.selectedSize||null})));
   }catch(error){
     toast(error?.message||"No pudimos registrar el pedido. Inténtalo de nuevo.");
     if(button){button.disabled=false;button.type="submit";button.textContent="Confirmar pedido";}
