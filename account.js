@@ -253,12 +253,12 @@ async function showDashboard(user){
 async function loadOrders(){
  if(!client||!session?.user)return;
  $("#ordersList").innerHTML='<p class="account-help">Cargando pedidos…</p>';
- const {data,error}=await client.from("orders").select("id,order_number,status,payment_provider,subtotal_cop,discount_cop,total_cop,cash_on_delivery_due_cop,shipping_fee_cop,shipping_payment_status,coupon_code,shipping_carrier,tracking_number,estimated_delivery_date,shipped_at,delivered_at,created_at,order_items(product_name,quantity,unit_price_cop,line_total_cop)").order("created_at",{ascending:false}).limit(50);
+ const {data,error}=await client.from("orders").select("id,order_number,status,payment_provider,subtotal_cop,discount_cop,total_cop,cash_on_delivery_due_cop,shipping_fee_cop,shipping_payment_status,coupon_code,shipping_carrier,tracking_number,estimated_delivery_date,shipped_at,delivered_at,created_at,order_items(product_name,quantity,unit_price_cop,line_total_cop,selected_variant,selected_size)").order("created_at",{ascending:false}).limit(50);
  if(error){$("#ordersList").innerHTML='<p class="account-help">No pudimos cargar el historial. Comprueba la conexión y las políticas RLS.</p>';return;}
  if(!data?.length){$("#ordersList").innerHTML='<div class="account-order"><strong>Aún no tienes pedidos vinculados</strong><p class="account-help">Cuando compres con tu sesión iniciada, el historial aparecerá aquí.</p><a href="index.html#productos">Explorar productos →</a></div>';return;}
  const labels={pending_payment:"Pendiente de pago",paid:"Pago confirmado",preparing:"En preparación",shipped:"Enviado",delivered:"Entregado",cancelled:"Cancelado",payment_failed:"Pago rechazado",refunded:"Reembolsado"};
  $("#ordersList").innerHTML=data.map(o=>{
-  const items=(o.order_items||[]).map(i=>'<li>'+esc(i.product_name)+' ×'+Number(i.quantity)+' — '+money(i.line_total_cop??i.unit_price_cop*i.quantity)+'</li>').join("");
+  const items=(o.order_items||[]).map(i=>'<li>'+esc(i.product_name)+(i.selected_variant?' · Color: '+esc(i.selected_variant):"")+(i.selected_size?' · Talla: '+esc(i.selected_size):"")+' ×'+Number(i.quantity)+' — '+money(i.line_total_cop??i.unit_price_cop*i.quantity)+'</li>').join("");
   const subtotal=Number(o.subtotal_cop)||0,discount=Number(o.discount_cop)||0,total=Number(o.total_cop??(subtotal-discount));
   const fixedCODFreight=o.payment_provider==="cash_on_delivery"&&o.cash_on_delivery_due_cop!=null;
   const paymentSplit=fixedCODFreight?'<div class="account-order-shipping"><strong>Pago contraentrega</strong><div>Anticipo de envío por Bold: <strong>'+money(12000)+'</strong> · '+(o.shipping_payment_status==="approved"?'Confirmado':'Pendiente de pago')+'</div><div>Saldo por pagar al recibir: <strong>'+money(o.cash_on_delivery_due_cop)+'</strong></div></div>':"";
