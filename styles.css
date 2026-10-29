@@ -418,3 +418,8 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 #quickAddConfirm{min-height:48px;border-radius:13px}
 @media(max-width:480px){.quick-add-card{padding:24px 18px;border-radius:18px}.quick-add-product{gap:11px;padding:9px}.quick-add-product img{width:70px;height:70px;flex-basis:70px}.quick-add-product h2{font-size:17px}.quick-add-product strong{font-size:17px}.quick-add-options{gap:7px}.quick-add-option{padding:6px 8px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.quick-add-option{transition:none}}
+
+
+/* Cut selector matches the compact, accessible product-option controls. */
+#productAudienceOptions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;border:0;background:transparent}
+#productAudienceOptions .product-size-choice{min-width:110px}
