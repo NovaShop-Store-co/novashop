@@ -145,10 +145,35 @@ function renderProducts(){
 }
 
 let quickAddProductId=null;
+let quickAddSelectedAudience=null;
 let quickAddSelectedColor=null;
 let quickAddSelectedSize=null;
 
+function catalogDropiVariants(p){
+  return Array.isArray(p?.dropiVariants)?p.dropiVariants.filter(v=>v&&v.is_active!==false&&["hombre","mujer"].includes(String(v.audience||"").toLowerCase())):[];
+}
+function catalogDropiAudiences(p){
+  return [...new Set(catalogDropiVariants(p).map(v=>String(v.audience).toLowerCase()))];
+}
+function selectedQuickAddDropiVariant(p){
+  if(!p||!quickAddSelectedAudience||!quickAddSelectedColor||!quickAddSelectedSize)return null;
+  return catalogDropiVariants(p).find(v=>String(v.audience).toLowerCase()===quickAddSelectedAudience&&
+   String(v.color||"").trim().toLocaleLowerCase("es")===quickAddSelectedColor.toLocaleLowerCase("es")&&
+   String(v.size||"").trim().toLocaleLowerCase("es")===quickAddSelectedSize.toLocaleLowerCase("es"))||null;
+}
 function catalogColorVariants(p){
+  const dropi=catalogDropiVariants(p);
+  const selectedAudience=Number(quickAddProductId)===Number(p?.id)?quickAddSelectedAudience:null;
+  if(dropi.length){
+    const colors=[...new Set(dropi.filter(v=>!selectedAudience||String(v.audience).toLowerCase()===selectedAudience).map(v=>String(v.color||"").trim()).filter(Boolean))];
+    const raw=p?.colorVariants??p?.color_variants;
+    const existing=Array.isArray(raw)?raw:[];
+    return colors.map(name=>{
+      const found=existing.find(v=>String(v?.name||"").trim().toLocaleLowerCase("es")===name.toLocaleLowerCase("es"));
+      const images=Array.isArray(found?.images)?found.images.filter(Boolean):[found?.front_image||found?.frontImage,found?.back_image||found?.backImage].filter(Boolean);
+      return {...(found||{}),name,hex:found?.hex||"#d1d5db",images};
+    });
+  }
   const raw=p?.colorVariants??p?.color_variants;
   if(!Array.isArray(raw))return [];
   return raw.filter(v=>v&&typeof v.name==="string"&&v.name.trim()).map(v=>{
@@ -157,27 +182,38 @@ function catalogColorVariants(p){
   });
 }
 function catalogSizeVariants(p){
+  const dropi=catalogDropiVariants(p);
+  if(dropi.length){
+    if(Number(quickAddProductId)!==Number(p?.id)||!quickAddSelectedAudience||!quickAddSelectedColor)return [];
+    return [...new Set(dropi.filter(v=>String(v.audience).toLowerCase()===quickAddSelectedAudience&&
+      String(v.color||"").trim().toLocaleLowerCase("es")===quickAddSelectedColor.toLocaleLowerCase("es")).map(v=>String(v.size||"").trim()).filter(Boolean))];
+  }
   const raw=p?.sizeVariants??p?.size_variants;
   if(!Array.isArray(raw))return [];
   return [...new Set(raw.map(v=>String(v??"").trim()).filter(Boolean))].slice(0,20);
 }
 function openQuickAdd(id){
   const p=product(id);if(!p)return;
-  if(p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast("Este producto está agotado");return;}
-  const colors=catalogColorVariants(p),sizes=catalogSizeVariants(p);
+  const dropi=catalogDropiVariants(p);
+  if(!dropi.length&&p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast("Este producto está agotado");return;}
+  quickAddProductId=Number(id);
+  const audiences=catalogDropiAudiences(p);
+  quickAddSelectedAudience=audiences.length===1?audiences[0]:null;
+  quickAddSelectedColor=null;quickAddSelectedSize=null;
+  const colors=catalogColorVariants(p);
+  if(colors.length===1)quickAddSelectedColor=colors[0].name;
+  const sizes=catalogSizeVariants(p);
+  if(sizes.length===1)quickAddSelectedSize=sizes[0];
   if(p.printfulEnabled&&sizes.length){
     toast("Este producto necesita una combinación de talla y color configurada antes de venderse.");
     return;
   }
-  quickAddProductId=Number(id);
-  quickAddSelectedColor=colors.length===1?colors[0].name:null;
-  quickAddSelectedSize=sizes.length===1?sizes[0]:null;
   $("#quickAddTitle").textContent=p.name;
   $("#quickAddPrice").textContent=money(p.price);
   $("#quickAddImage").src=(p.images&&p.images[0])||"images/streaming-placeholder.svg";
   $("#quickAddImage").alt=p.name;
   const stockLabel=$("#quickAddStock");
-  if(stockLabel)stockLabel.textContent=p.stockQuantity==null?"":(Number(p.stockQuantity)===1?"Disponible · 1 unidad":"Disponible: "+Number(p.stockQuantity)+" unidades");
+  if(stockLabel)stockLabel.textContent=dropi.length?"Elige el corte, color y talla que prefieras.":(p.stockQuantity==null?"":(Number(p.stockQuantity)===1?"Disponible · 1 unidad":"Disponible: "+Number(p.stockQuantity)+" unidades"));
   renderQuickAddOptions();
   const modal=$("#quickAddModal");
   modal.classList.add("show");
@@ -187,7 +223,15 @@ function openQuickAdd(id){
 }
 function renderQuickAddOptions(){
   const p=product(quickAddProductId);if(!p)return;
+  const dropi=catalogDropiVariants(p),audiences=catalogDropiAudiences(p);
   const colors=catalogColorVariants(p),sizes=catalogSizeVariants(p);
+  const audienceSection=$("#quickAddAudienceSection"),audienceBox=$("#quickAddAudienceOptions");
+  if(audienceSection)audienceSection.hidden=dropi.length===0||audiences.length<2;
+  if(audienceBox)audienceBox.innerHTML=audiences.map(audience=>{
+    const selected=audience===quickAddSelectedAudience;
+    const label=audience==="mujer"?"Dama":"Hombre";
+    return '<button type="button" class="quick-add-option" data-quick-audience="'+audience+'" aria-pressed="'+selected+'">'+label+(selected?' <b aria-hidden="true">✓</b>':'')+'</button>';
+  }).join("");
   const colorSection=$("#quickAddColorSection"),sizeSection=$("#quickAddSizeSection");
   if(colorSection)colorSection.hidden=!colors.length;
   if(sizeSection)sizeSection.hidden=!sizes.length;
@@ -203,14 +247,18 @@ function renderQuickAddOptions(){
   const sizeBox=$("#quickAddSizeOptions");
   if(sizeBox)sizeBox.innerHTML=sizes.map((size,index)=>{
     const selected=size===quickAddSelectedSize;
-    return '<button type="button" class="quick-add-option quick-add-size-option" data-quick-size="'+index+'" aria-pressed="'+selected+'">'+escapeHTML(size)+'</button>';
+    const variant=dropi.length?dropi.find(v=>String(v.audience).toLowerCase()===quickAddSelectedAudience&&String(v.color||"").trim().toLocaleLowerCase("es")===String(quickAddSelectedColor||"").toLocaleLowerCase("es")&&String(v.size||"").trim().toLocaleLowerCase("es")===size.toLocaleLowerCase("es")):null;
+    const soldOut=!!variant&&Number(variant.stock_quantity)<=0;
+    return '<button type="button" class="quick-add-option quick-add-size-option" data-quick-size="'+index+'" aria-pressed="'+selected+'" '+(soldOut?'disabled aria-disabled="true"':'')+'>'+escapeHTML(size)+(soldOut?' · Agotada':'')+'</button>';
   }).join("");
   const help=$("#quickAddHelp");
   if(help){
     const missing=[];
+    if(dropi.length&&audiences.length>1&&!quickAddSelectedAudience)missing.push("el corte");
     if(colors.length&&!quickAddSelectedColor)missing.push("el color");
-    if(sizes.length&&!quickAddSelectedSize)missing.push("la talla");
-    help.textContent=missing.length?"Para añadirlo, selecciona "+missing.join(" y ")+".":"Listo. Pulsa «Añadir al carrito» para continuar.";
+    if((sizes.length||dropi.length)&&!quickAddSelectedSize)missing.push("la talla");
+    if(dropi.length&&quickAddSelectedSize&&!selectedQuickAddDropiVariant(p))missing.push("una combinación disponible");
+    help.textContent=missing.length?"Para añadirlo, selecciona "+missing.join(", ")+".":"Listo. Pulsa «Añadir al carrito» para continuar.";
   }
 }
 function closeQuickAdd(){
@@ -222,36 +270,48 @@ function closeQuickAdd(){
 }
 function confirmQuickAdd(){
   const p=product(quickAddProductId);if(!p)return;
+  const dropi=catalogDropiVariants(p),audiences=catalogDropiAudiences(p);
   const colors=catalogColorVariants(p),sizes=catalogSizeVariants(p);
+  if(dropi.length&&audiences.length>1&&!quickAddSelectedAudience){toast("Selecciona si quieres el corte de Hombre o Dama.");return;}
   if(colors.length&&!quickAddSelectedColor){toast("Selecciona un color para continuar");return;}
-  if(sizes.length&&!quickAddSelectedSize){toast("Selecciona una talla para continuar");return;}
-  if(p.stockQuantity!=null){
+  if((dropi.length||sizes.length)&&!quickAddSelectedSize){toast("Selecciona una talla para continuar");return;}
+  const chosenDropi=dropi.length?selectedQuickAddDropiVariant(p):null;
+  if(dropi.length&&(!chosenDropi||!chosenDropi.is_active||Number(chosenDropi.stock_quantity)<=0)){toast("Esa combinación no está disponible. Elige otro color o talla.");return;}
+  const totalForChoice=cart.filter(item=>Number(item.id)===Number(p.id)&&
+    (item.selectedAudience||null)===(dropi.length?quickAddSelectedAudience:null)&&
+    (item.selectedVariant||null)===(quickAddSelectedColor||null)&&
+    (item.selectedSize||null)===(quickAddSelectedSize||null)).reduce((sum,item)=>sum+Number(item.qty||0),0);
+  if(dropi.length&&totalForChoice+1>Number(chosenDropi.stock_quantity)){toast("No quedan más unidades de esa combinación en Dropi.");return;}
+  if(!dropi.length&&p.stockQuantity!=null){
     const total=cart.filter(item=>Number(item.id)===Number(p.id)).reduce((sum,item)=>sum+Number(item.qty||0),0);
     if(total>=Number(p.stockQuantity)){toast("No hay más unidades disponibles");return;}
   }
   const imageColor=colors.find(v=>v.name===quickAddSelectedColor);
   const image=(imageColor?.images?.[0])||(p.images&&p.images[0])||"images/streaming-placeholder.svg";
-  const found=cart.find(item=>Number(item.id)===Number(p.id)&&(item.selectedVariant||null)===(quickAddSelectedColor||null)&&(item.selectedSize||null)===(quickAddSelectedSize||null));
+  const found=cart.find(item=>Number(item.id)===Number(p.id)&&
+    (item.selectedAudience||null)===(dropi.length?quickAddSelectedAudience:null)&&
+    (item.selectedVariant||null)===(quickAddSelectedColor||null)&&(item.selectedSize||null)===(quickAddSelectedSize||null));
   if(found)found.qty=Number(found.qty||0)+1;
-  else cart.push({id:p.id,name:p.name,price:Number(p.price)||0,image,selectedVariant:quickAddSelectedColor||null,selectedSize:quickAddSelectedSize||null,qty:1});
-  const details=[quickAddSelectedColor,quickAddSelectedSize?"Talla "+quickAddSelectedSize:""].filter(Boolean).join(" · ");
+  else cart.push({id:p.id,name:p.name,price:Number(p.price)||0,image,selectedAudience:dropi.length?quickAddSelectedAudience:null,selectedVariant:quickAddSelectedColor||null,selectedSize:quickAddSelectedSize||null,qty:1});
+  const details=[dropi.length?"Corte "+(quickAddSelectedAudience==="mujer"?"Dama":"Hombre"):"",quickAddSelectedColor,quickAddSelectedSize?"Talla "+quickAddSelectedSize:""].filter(Boolean).join(" · ");
   saveCart();renderCart();closeQuickAdd();openCart();
   toast("¡Añadido al carrito!"+(details?" · "+details:""));
 }
 function addToCart(id){
   const p=product(id);if(!p)return;
-  if(p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast("Este producto está agotado");return;}
-  if(catalogColorVariants(p).length||catalogSizeVariants(p).length){
+  const dropi=catalogDropiVariants(p);
+  if(!dropi.length&&p.stockQuantity!=null&&Number(p.stockQuantity)<=0){toast("Este producto está agotado");return;}
+  if(dropi.length||catalogColorVariants(p).length||catalogSizeVariants(p).length){
     openQuickAdd(id);
     return;
   }
-  const found=cart.find(i=>Number(i.id)===Number(id)&&!i.selectedVariant&&!i.selectedSize);
+  const found=cart.find(i=>Number(i.id)===Number(id)&&!i.selectedAudience&&!i.selectedVariant&&!i.selectedSize);
   if(p.stockQuantity!=null){
-    const total=cart.filter(item=>Number(item.id)===Number(p.id)).reduce((sum,item)=>sum+Number(item.qty||0),0);
+    const total=cart.filter(item=>Number(item.id)===Number(p.id)).reduce((sum,row)=>sum+Number(row.qty||0),0);
     if(total>=Number(p.stockQuantity)){toast("No hay más unidades disponibles");return;}
   }
   if(found)found.qty++;
-  else cart.push({id:p.id,name:p.name,price:p.price,image:p.images?.[0]||"images/streaming-placeholder.svg",selectedVariant:null,selectedSize:null,qty:1});
+  else cart.push({id:p.id,name:p.name,price:p.price,image:p.images?.[0]||"images/streaming-placeholder.svg",selectedAudience:null,selectedVariant:null,selectedSize:null,qty:1});
   saveCart();renderCart();openCart();toast("¡Listo! Añadimos el producto a tu carrito");
 }
 function changeQty(index,delta){const item=cart[index];if(!item)return;const p=product(Number(item.id));const productQty=cart.filter(row=>Number(row.id)===Number(item.id)).reduce((sum,row)=>sum+Number(row.qty||0),0);if(delta>0&&p?.stockQuantity!=null&&productQty>=Number(p.stockQuantity)){toast('No hay más unidades disponibles');return;}item.qty+=delta;if(item.qty<=0)cart.splice(index,1);saveCart();renderCart();}
@@ -259,7 +319,7 @@ function removeItem(index){if(!Number.isInteger(index)||index<0||index>=cart.len
 function renderCart(){
   $('#cartCount').textContent=cartCount();
   if(!cart.length){ $('#cartItems').innerHTML='<div class="cart-empty">Tu carrito está esperando algo que te guste.<br>Explora la tienda y añade tu primer producto.</div>'; $('#cartSubtotal').textContent=money(0); return; }
-  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}${i.selectedSize?`<p class="cart-item-variant">Talla: ${escapeHTML(i.selectedSize)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
+  $('#cartItems').innerHTML=cart.map((i,index)=>`<div class="cart-item"><img src="${escapeHTML(i.image||"")}" alt=""><div><h4>${escapeHTML(i.name)}</h4>${i.selectedAudience?`<p class="cart-item-variant">Corte: ${i.selectedAudience==="mujer"?"Dama":"Hombre"}</p>`:""}${i.selectedVariant?`<p class="cart-item-variant">Color: ${escapeHTML(i.selectedVariant)}</p>`:""}${i.selectedSize?`<p class="cart-item-variant">Talla: ${escapeHTML(i.selectedSize)}</p>`:""}<p>${money(i.price)} c/u</p><div class="qty-control"><button data-action="dec" data-index="${index}">−</button><span>${i.qty}</span><button data-action="inc" data-index="${index}">+</button></div></div><div><strong>${money(i.price*i.qty)}</strong><br><button class="remove" data-action="remove" data-index="${index}">Eliminar</button></div></div>`).join('');
   $('#cartSubtotal').textContent=money(cartTotal());
   document.querySelectorAll('#cartItems button').forEach(b=>b.addEventListener('click',()=>{const index=Number(b.dataset.index);const a=b.dataset.action;if(a==='dec')changeQty(index,-1);if(a==='inc')changeQty(index,1);if(a==='remove')removeItem(index);}));
 }
@@ -519,9 +579,19 @@ async function submitCheckoutForm(event){
     couponCode:cleanField(raw.get("couponCode")).toUpperCase(),
     latitude:cleanField(raw.get("latitude")),longitude:cleanField(raw.get("longitude"))
   };
-  const missingColor=cart.find(item=>Array.isArray(product(item.id)?.colorVariants)&&product(item.id).colorVariants.length&&!item.selectedVariant);
+  const missingDropiVariant=cart.find(item=>{
+    const p=product(item.id),dropi=catalogDropiVariants(p);
+    if(!dropi.length)return false;
+    return !item.selectedAudience||!item.selectedVariant||!item.selectedSize||
+      !dropi.some(v=>String(v.audience).toLowerCase()===String(item.selectedAudience).toLowerCase()&&
+       String(v.color||"").trim().toLocaleLowerCase("es")===String(item.selectedVariant).toLocaleLowerCase("es")&&
+       String(v.size||"").trim().toLocaleLowerCase("es")===String(item.selectedSize).toLocaleLowerCase("es")&&
+       v.is_active!==false&&Number(v.stock_quantity)>=Number(item.qty||1));
+  });
+  if(missingDropiVariant){toast("Revisa el corte, color, talla o existencias de "+(missingDropiVariant.name||"uno de los productos")+". Vuelve a seleccionarlo desde la ficha.");return;}
+  const missingColor=cart.find(item=>!catalogDropiVariants(product(item.id)).length&&Array.isArray(product(item.id)?.colorVariants)&&product(item.id).colorVariants.length&&!item.selectedVariant);
   if(missingColor){toast("En el carrito falta elegir el color de "+(missingColor.name||"uno de los productos")+". Elimina ese producto y vuelve a seleccionarlo desde su ficha.");return;}
-  const invalidSize=cart.find(item=>{const sizes=product(item.id)?.sizeVariants;return Array.isArray(sizes)&&sizes.length?(!item.selectedSize||!sizes.includes(item.selectedSize)):!!item.selectedSize;});
+  const invalidSize=cart.find(item=>{if(catalogDropiVariants(product(item.id)).length)return false;const sizes=product(item.id)?.sizeVariants;return Array.isArray(sizes)&&sizes.length?(!item.selectedSize||!sizes.includes(item.selectedSize)):!!item.selectedSize;});
   if(invalidSize){toast("Falta una talla válida para "+(invalidSize.name||"uno de los productos")+". Elimina ese artículo y vuelve a seleccionarlo desde su ficha.");return;}
   const useBold=data.paymentMethod==="bold";
   const useCOD=data.paymentMethod==="cash_on_delivery";
@@ -559,7 +629,7 @@ async function submitCheckoutForm(event){
   const button=form.querySelector('button[type="submit"]');
   if(button){button.disabled=true;button.textContent="Registrando pedido…";}
   try{
-    savedOrder=await window.NovaShopDB.createOrder(data,cart.map(item=>({product_id:Number(item.id),quantity:Number(item.qty),selected_variant:item.selectedVariant||null,selected_size:item.selectedSize||null})));
+    savedOrder=await window.NovaShopDB.createOrder(data,cart.map(item=>({product_id:Number(item.id),quantity:Number(item.qty),selected_audience:item.selectedAudience||null,selected_variant:item.selectedVariant||null,selected_size:item.selectedSize||null})));
   }catch(error){
     toast(error?.message||"No pudimos registrar el pedido. Inténtalo de nuevo.");
     if(button){button.disabled=false;button.type="submit";button.textContent="Confirmar pedido";}
