@@ -209,7 +209,7 @@ Deno.serve(async (req: Request) => {
         return json({error:"Filtro de estado no válido."},400,origin);
       }
       let query = admin.from("orders").select(
-        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant,selected_size)",
+        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant,selected_size,selected_audience)",
         {count:"exact"}
       );
       if (requestedStatus && requestedStatus !== "all") query = query.eq("status",requestedStatus);
