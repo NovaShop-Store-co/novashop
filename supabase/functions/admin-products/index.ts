@@ -209,7 +209,7 @@ Deno.serve(async (req: Request) => {
         return json({error:"Filtro de estado no válido."},400,origin);
       }
       let query = admin.from("orders").select(
-        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant)",
+        "id,order_number,user_id,status,payment_status,payment_provider,payment_reference,currency,subtotal_cop,discount_cop,total_cop,coupon_code,delivery_type,customer_first_name,customer_last_name,customer_email,customer_phone,address,neighborhood,city,department,postal_code,delivery_reference,preferred_payment_method,customer_note,shipping_carrier,tracking_number,estimated_delivery_date,shipping_fee_cop,shipping_payment_status,cash_on_delivery_due_cop,shipping_payment_reference,shipping_payment_transaction_id,shipped_at,delivered_at,created_at,updated_at,latitude,longitude,order_items(id,product_id,product_name,quantity,unit_price_cop,line_total_cop,delivery_type,selected_variant,selected_size)",
         {count:"exact"}
       );
       if (requestedStatus && requestedStatus !== "all") query = query.eq("status",requestedStatus);
@@ -229,6 +229,22 @@ Deno.serve(async (req: Request) => {
       const {data,error,count} = await query;
       if (error) throw error;
       const rows = data || [];
+      const orderItems = rows.flatMap((order: any)=>Array.isArray(order.order_items)?order.order_items:[]);
+      const orderItemIds = orderItems.map((item: any)=>Number(item.id)).filter((value: number)=>Number.isSafeInteger(value));
+      const relatedProductIds = [...new Set(orderItems.map((item: any)=>Number(item.product_id)).filter((value: number)=>Number.isSafeInteger(value)))];
+      const dropiByOrderItem = new Map<number,string>();
+      const dropiByProduct = new Map<number,string>();
+      if (orderItemIds.length) {
+        const {data:refs,error:refsError} = await admin.from("order_item_supplier_refs").select("order_item_id,dropi_product_id").in("order_item_id",orderItemIds);
+        if (refsError) throw refsError;
+        for (const ref of refs || []) dropiByOrderItem.set(Number(ref.order_item_id),String(ref.dropi_product_id || ""));
+      }
+      if (relatedProductIds.length) {
+        const {data:refs,error:refsError} = await admin.from("product_supplier_refs").select("product_id,dropi_product_id").in("product_id",relatedProductIds);
+        if (refsError) throw refsError;
+        for (const ref of refs || []) dropiByProduct.set(Number(ref.product_id),String(ref.dropi_product_id || ""));
+      }
+      for (const item of orderItems) item.dropi_product_id = dropiByOrderItem.get(Number(item.id)) || dropiByProduct.get(Number(item.product_id)) || null;
       return json({ok:true,orders:rows,offset,limit,hasMore:offset+rows.length<(count||0),totalCount:count??rows.length},200,origin);
     }
 
@@ -488,7 +504,15 @@ Deno.serve(async (req: Request) => {
       if (!canEditCatalog && role !== "analyst") return json({error:"No tienes permiso para ver el catálogo administrativo."},403,origin);
       const {data,error} = await admin.from("products").select("*").order("sort_order",{ascending:true}).order("id",{ascending:true});
       if (error) throw error;
-      return json({ok:true,products:data || []},200,origin);
+      const productRows = data || [];
+      const productIds = productRows.map((product: any)=>Number(product.id)).filter((value: number)=>Number.isSafeInteger(value));
+      const dropiByProduct = new Map<number,string>();
+      if (productIds.length) {
+        const {data:refs,error:refsError} = await admin.from("product_supplier_refs").select("product_id,dropi_product_id").in("product_id",productIds);
+        if (refsError) throw refsError;
+        for (const ref of refs || []) dropiByProduct.set(Number(ref.product_id),String(ref.dropi_product_id || ""));
+      }
+      return json({ok:true,products:productRows.map((product: any)=>({...product,dropi_product_id:dropiByProduct.get(Number(product.id)) || ""}))},200,origin);
     }
 
     if (action === "metrics") {
@@ -601,6 +625,7 @@ Deno.serve(async (req: Request) => {
       const name = clean(body.name,140);
       const category = clean(body.category,80);
       const delivery = clean(body.delivery_type,20);
+      const dropiProductId = clean(body.dropi_product_id,100).replace(/\s+/g," ").trim();
       const rawPaymentMethods = Array.isArray(body.payment_methods)
         ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
         : (delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"]);
@@ -667,7 +692,27 @@ Deno.serve(async (req: Request) => {
       const {data,error} = await query;
       if (error) throw error;
       if (!data) return json({error:"No encontramos el producto que intentabas editar."},404,origin);
-      return json({ok:true,product:data},200,origin);
+      if (dropiProductId) {
+        const {error:dropiRefError} = await admin.from("product_supplier_refs").upsert(
+          {product_id:data.id,dropi_product_id:dropiProductId,updated_at:new Date().toISOString()},
+          {onConflict:"product_id"}
+        );
+        if (dropiRefError) {
+          if (String((dropiRefError as any).code || "") === "23505") return json({error:"Ese ID de Dropi ya está asociado a otro producto de NovaShop. Revisa el ID que copiaste."},409,origin);
+          throw dropiRefError;
+        }
+        const {data:historicItems,error:historicError} = await admin.from("order_items").select("id").eq("product_id",data.id);
+        if (historicError) throw historicError;
+        if (historicItems?.length) {
+          const snapshots = historicItems.map((item: any)=>({order_item_id:item.id,dropi_product_id:dropiProductId}));
+          const {error:snapshotError} = await admin.from("order_item_supplier_refs").upsert(snapshots,{onConflict:"order_item_id",ignoreDuplicates:true});
+          if (snapshotError) throw snapshotError;
+        }
+      } else {
+        const {error:dropiRefError} = await admin.from("product_supplier_refs").delete().eq("product_id",data.id);
+        if (dropiRefError) throw dropiRefError;
+      }
+      return json({ok:true,product:{...data,dropi_product_id:dropiProductId}},200,origin);
     }
 
     if (action === "deactivate") {
