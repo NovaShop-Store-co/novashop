@@ -202,6 +202,9 @@ function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,all
     if(intro)intro.textContent="Este pedido solo admite contraentrega. El anticipo de envío es de $12.000 y el saldo del producto se paga al recibirlo.";
     if(policy)policy.textContent="Para este pedido puedes elegir contraentrega: el anticipo de envío es de $12.000 y el saldo del producto se paga al recibirlo.";
   }
+  if(intro&&!digitalOnly){
+    intro.textContent += " Tiempo estimado de entrega: 1 a 5 días hábiles, sin contar fines de semana.";
+  }
 }
 
 async function checkoutWhatsApp(){
@@ -220,6 +223,15 @@ async function checkoutWhatsApp(){
   const deliveryFields=$("#cartDeliveryFields");if(deliveryFields)deliveryFields.hidden=digitalOnly;
   configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,allowBold);
   renderCheckoutSummary();
+  const accountHint=$("#checkoutModal .checkout-account-hint");
+  if(accountHint){
+    try{
+      const session=await window.NovaShopDB?.getSession?.();
+      accountHint.hidden=!!session?.user;
+    }catch(error){
+      accountHint.hidden=false;
+    }
+  }
   openCheckoutModal();
   window.NovaShopDB?.prefillCheckout?.(form).catch(err=>console.warn("Perfil no precargado:",err));
 }
