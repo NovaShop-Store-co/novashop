@@ -626,6 +626,11 @@ Deno.serve(async (req: Request) => {
       const category = clean(body.category,80);
       const delivery = clean(body.delivery_type,20);
       const dropiProductId = clean(body.dropi_product_id,100).replace(/\s+/g," ").trim();
+      const rawTargetAudiences = Array.isArray(body.target_audiences) ? body.target_audiences : [];
+      const targetAudiences = [...new Set(rawTargetAudiences.map((value: unknown)=>clean(value,20).toLowerCase()).filter(Boolean))];
+      if (targetAudiences.some((value: string)=>!["hombre","mujer"].includes(value))) {
+        return json({error:"El público objetivo solo puede ser Hombre o Mujer."},400,origin);
+      }
       const rawPaymentMethods = Array.isArray(body.payment_methods)
         ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
         : (delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"]);
@@ -682,7 +687,7 @@ Deno.serve(async (req: Request) => {
       if (id !== null && (!Number.isInteger(id) || id <= 0)) return json({error:"Identificador de producto no válido."},400,origin);
 
       const payload = {
-        name,category,delivery_type:delivery,price_cop:price,old_price_cop:oldPrice,
+        name,category,delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
         description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,payment_methods:paymentMethods,is_active:active,sort_order:sortOrder,
         stock_quantity:stock,printful_enabled:printfulEnabled,printful_sync_variant_id:printfulRaw,updated_at:new Date().toISOString()
       };
