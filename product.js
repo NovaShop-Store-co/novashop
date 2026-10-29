@@ -12,6 +12,7 @@ const $ = (selector) => document.querySelector(selector);
 let quantity = 1;
 let productFavoriteIds = new Set();
 let selectedColorVariant = null;
+let selectedSize = null;
 let currentGalleryImages = [];
 let currentGalleryTitle = "";
 let currentGalleryIndex = 0;
@@ -152,10 +153,12 @@ function showToast(message) {
 
 function addCurrentProduct(amount = quantity) {
   const cart = cartData();
-  const variants=Array.isArray(currentProduct.colorVariants)?currentProduct.colorVariants:[];
-  if(variants.length&&!selectedColorVariant){showToast("Selecciona el color que quieres comprar.");return;}
+  const variants=productColorVariants();
+  const sizes=productSizes();
+  if(variants.length&&!selectedColorVariant){showToast("Selecciona el color que quieres comprar.");$("#productColorOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
+  if(sizes.length&&(!selectedSize||!sizes.includes(selectedSize))){showToast("Selecciona la talla que quieres comprar.");$("#productSizeOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
   const selectedVariant=selectedColorVariant?.name||null;
-  const existing = cart.find(item => Number(item.id) === Number(currentProduct.id) && (item.selectedVariant||null)===selectedVariant);
+  const existing = cart.find(item => Number(item.id) === Number(currentProduct.id) && (item.selectedVariant||null)===selectedVariant && (item.selectedSize||null)===(selectedSize||null));
   if(currentProduct.stockQuantity!=null&&Number(currentProduct.stockQuantity)<=0){showToast('Este producto está agotado');return;}
   if(existing&&currentProduct.stockQuantity!=null&&existing.qty+amount>Number(currentProduct.stockQuantity)){showToast('No hay más unidades disponibles');return;}
   if(existing) {
@@ -167,6 +170,7 @@ function addCurrentProduct(amount = quantity) {
       price: currentProduct.price,
       image: selectedColorVariant?.images?.[0]||currentProduct.images[0],
       selectedVariant,
+      selectedSize:selectedSize||null,
       qty: amount
     });
   }
@@ -318,7 +322,7 @@ function renderProductCheckoutSummary() {
   summary.innerHTML = `
     <div class="checkout-summary-title"><strong>🛍️ Tu compra</strong><span>${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}</span></div>
     <ul class="checkout-summary-list">
-      <li>${escProduct(currentProduct.name)}${selectedColorVariant?" · Color: "+escProduct(selectedColorVariant.name):""} ×${quantity} — <strong>${money(total)}</strong></li>
+      <li>${escProduct(currentProduct.name)}${selectedColorVariant?" · Color: "+escProduct(selectedColorVariant.name):""}${selectedSize?" · Talla: "+escProduct(selectedSize):""} ×${quantity} — <strong>${money(total)}</strong></li>
     </ul>
     <div class="checkout-summary-total"><span>Subtotal de productos</span><strong>${money(total)}</strong></div>
   `;
@@ -343,6 +347,10 @@ function configureProductPaymentMethods(form){
   }
 }
 function openProductCheckout() {
+  const variants=productColorVariants();
+  if(variants.length&&!selectedColorVariant){showToast("Selecciona el color antes de comprar.");$("#productColorOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
+  const sizes=productSizes();
+  if(sizes.length&&(!selectedSize||!sizes.includes(selectedSize))){showToast("Selecciona la talla antes de comprar.");$("#productSizeOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
   renderProductCheckoutSummary();
   const modal=$('#productCheckoutModal');
   modal.classList.add('show');
@@ -476,7 +484,9 @@ async function submitProductCheckout(event) {
   }
   data.paymentMethod=useBold?"Pago en línea":"Contraentrega";
   const configuredVariants=productColorVariants();
-  if(configuredVariants.length&&(!selectedColorVariant||!configuredVariants.some(v=>v.name===selectedColorVariant.name))){showToast("Selecciona un color para continuar.");return;}
+  if(configuredVariants.length&&(!selectedColorVariant||!configuredVariants.some(v=>v.name===selectedColorVariant.name))){showToast("Selecciona un color para continuar.");$("#productColorOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
+  const configuredSizes=productSizes();
+  if(configuredSizes.length&&(!selectedSize||!configuredSizes.includes(selectedSize))){showToast("Selecciona una talla para continuar.");$("#productSizeOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
   if(currentProduct.deliveryType!=="digital"&&(!data.address||!data.neighborhood||!data.city||!data.department)){
     showToast("Para productos físicos, completa dirección, barrio, ciudad y departamento.");return;
   }
@@ -499,7 +509,7 @@ async function submitProductCheckout(event) {
   const button=form.querySelector('button[type="submit"]');
   if(button){button.disabled=true;button.textContent="Registrando pedido…";}
   try{
-    savedOrder=await window.NovaShopDB.createOrder(data,[{product_id:Number(currentProduct.id),quantity:Number(quantity),selected_variant:selectedColorVariant?.name||null}]);
+    savedOrder=await window.NovaShopDB.createOrder(data,[{product_id:Number(currentProduct.id),quantity:Number(quantity),selected_variant:selectedColorVariant?.name||null,selected_size:selectedSize||null}]);
   }catch(error){
     showToast(error?.message||"No pudimos registrar el pedido. Inténtalo de nuevo.");
     if(button){button.disabled=false;button.type="submit";button.textContent="Confirmar pedido";}
@@ -530,6 +540,23 @@ async function submitProductCheckout(event) {
 }
 
 
+function productSizes(){
+ const raw=currentProduct?.sizeVariants??currentProduct?.size_variants;
+ if(!Array.isArray(raw))return [];
+ return [...new Set(raw.map(value=>String(value??"").trim()).filter(Boolean))].slice(0,20);
+}
+function renderProductSizeOptions(){
+ const box=$("#productSizeOptions");if(!box)return;
+ const sizes=productSizes();
+ if(!sizes.length){box.hidden=true;box.innerHTML="";selectedSize=null;return;}
+ if(selectedSize&&!sizes.includes(selectedSize))selectedSize=null;
+ box.hidden=false;
+ box.innerHTML='<div class="product-size-options-head"><strong>Elige tu talla</strong>'+(selectedSize?'<span aria-live="polite">Elegida: '+escProduct(selectedSize)+'</span>':'<span>Selecciona antes de comprar</span>')+'</div><div class="product-size-list">'+sizes.map((size,index)=>'<button type="button" class="product-size-choice" data-product-size="'+index+'" aria-pressed="'+(selectedSize===size?'true':'false')+'">'+escProduct(size)+'</button>').join("")+'</div><p class="product-size-help">Confirma la talla antes de añadir el producto al carrito.</p>';
+ box.querySelectorAll("[data-product-size]").forEach(button=>button.addEventListener("click",()=>{
+  const size=sizes[Number(button.dataset.productSize)];if(!size)return;
+  selectedSize=size;renderProductSizeOptions();renderProductCheckoutSummary();
+ }));
+}
 function productColorVariants(){
  if(!Array.isArray(currentProduct?.colorVariants))return [];
  return currentProduct.colorVariants.filter(v=>v&&typeof v.name==="string"&&v.name.trim()).map(v=>{
@@ -693,6 +720,7 @@ function renderProduct() {
   if(!variants.length)selectedColorVariant=null;
   else if(selectedColorVariant&&!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=null;
   renderProductColorOptions();
+  renderProductSizeOptions();
   renderProductMedia();
   $('#productFeatures').innerHTML = (Array.isArray(currentProduct.features)?currentProduct.features:[]).map(item => `<li>✓ ${escProduct(item)}</li>`).join('');
 }
