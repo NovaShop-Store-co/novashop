@@ -720,6 +720,9 @@ function renderProduct() {
   $('#productRatingStars').textContent = '';
 
   const variants=Array.isArray(currentProduct.colorVariants)?currentProduct.colorVariants:[];
+  const sizes=productSizes();
+  const selectionDivider=$("#productSelectionDivider");
+  if(selectionDivider)selectionDivider.hidden=!(variants.length||sizes.length);
   if(!variants.length)selectedColorVariant=null;
   else if(selectedColorVariant&&!variants.some(v=>v.name===selectedColorVariant.name))selectedColorVariant=null;
   renderProductColorOptions();
