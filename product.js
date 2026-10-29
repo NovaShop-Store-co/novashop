@@ -329,11 +329,12 @@ function renderProductCheckoutSummary() {
 }
 
 function configureProductPaymentMethods(form){
-  const allowContraentrega=currentProduct.deliveryType==="physical";
+  const hasPhysicalShipping=currentProduct.deliveryType!=="digital"&&currentProduct.category!=="Streaming";
+  const allowContraentrega=hasPhysicalShipping&&currentProduct.deliveryType==="physical"&&!currentProduct.printfulEnabled;
   const select=form?.querySelector('select[name="paymentMethod"]');
   const boldOption=select?.querySelector('option[value="bold"]');
   const codOption=select?.querySelector('option[value="cash_on_delivery"]');
-  if(boldOption)boldOption.textContent=allowContraentrega?"Pago en línea · envío gratis":"Pago en línea";
+  if(boldOption)boldOption.textContent=hasPhysicalShipping?"Pago en línea · envío gratis":"Pago en línea";
   if(codOption){codOption.hidden=!allowContraentrega;codOption.disabled=!allowContraentrega;}
   if(select&&!allowContraentrega)select.value="bold";
   const policy=form?.querySelector("[data-payment-policy]");
@@ -341,24 +342,38 @@ function configureProductPaymentMethods(form){
   if(allowContraentrega){
     if(intro)intro.textContent="Completa tus datos y elige la forma de pago disponible. Al pagar en línea, el envío es gratis. Si eliges contraentrega, el producto se paga al recibirlo y el envío se paga por anticipado a la transportadora.";
     if(policy)policy.textContent="Al pagar en línea, el envío es gratis. Con contraentrega pagas el producto al recibirlo y el envío, según tu destino, por anticipado a la transportadora.";
+  }else if(hasPhysicalShipping){
+    if(intro)intro.textContent="Este pedido se paga por anticipado en línea. Completa tus datos para continuar al pago seguro; el envío de los productos físicos es gratis.";
+    if(policy)policy.textContent="Este pedido solo admite pago en línea; la contraentrega no está disponible para estos artículos.";
   }else{
     if(intro)intro.textContent="Completa tus datos y continúa al pago en línea. Este servicio es digital, así que no requiere envío físico ni permite contraentrega. Si tienes dudas, escríbenos antes de comprar.";
     if(policy)policy.textContent="Este es un servicio digital: se paga por anticipado en línea y no requiere envío físico. Si tienes preguntas, escríbenos por WhatsApp antes de comprar.";
   }
+  if(intro&&hasPhysicalShipping)intro.textContent+=" Tiempo estimado de entrega: 1 a 5 días hábiles, sin contar fines de semana.";
 }
-function openProductCheckout() {
+async function openProductCheckout() {
   const variants=productColorVariants();
   if(variants.length&&!selectedColorVariant){showToast("Selecciona el color antes de comprar.");$("#productColorOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
   const sizes=productSizes();
   if(sizes.length&&(!selectedSize||!sizes.includes(selectedSize))){showToast("Selecciona la talla antes de comprar.");$("#productSizeOptions")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
   renderProductCheckoutSummary();
   const modal=$('#productCheckoutModal');
+  const form=$('#productCheckoutForm');
+  const accountHint=modal?.querySelector(".checkout-account-hint");
+  if(accountHint){
+    try{
+      const session=await window.NovaShopDB?.getSession?.();
+      accountHint.hidden=!!session?.user;
+    }catch(error){
+      accountHint.hidden=false;
+    }
+  }
   modal.classList.add('show');
   modal.setAttribute('aria-hidden','false');
   document.body.style.overflow='hidden';
   const deliveryFields=$('#productDeliveryFields');if(deliveryFields)deliveryFields.hidden=currentProduct.deliveryType==='digital';
-  configureProductPaymentMethods($('#productCheckoutForm'));
-  window.NovaShopDB?.prefillCheckout?.($('#productCheckoutForm')).catch(err=>console.warn('Perfil no precargado:',err));
+  configureProductPaymentMethods(form);
+  window.NovaShopDB?.prefillCheckout?.(form).catch(err=>console.warn('Perfil no precargado:',err));
   window.NovaShopDeliveryMaps?.invalidate('productCheckoutMap');
   window.setTimeout(() => $('#productCheckoutForm input[name="firstName"]')?.focus(), 50);
 }
