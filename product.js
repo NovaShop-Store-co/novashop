@@ -271,6 +271,8 @@ function refreshProductQuantityControls() {
   const stockKnown=variants.length?!!chosen:(currentProduct?.stockQuantity!=null&&Number.isFinite(Number(currentProduct.stockQuantity)));
   const stock=variants.length?Number(chosen?.stock_quantity||0):(stockKnown?Number(currentProduct.stockQuantity):null);
   const soldOut=variants.length?allVariantsSoldOut||(!!chosen&&stock<=0):(stockKnown&&stock<=0);
+  if(soldOut)quantity=1;
+  else if(stockKnown&&stock!==null&&stock>0)quantity=Math.min(quantity,stock);
   $('#quantityValue').textContent=String(quantity);
   $('#qtyMinus').disabled=soldOut||quantity<=1;
   $('#qtyPlus').disabled=soldOut||(stockKnown&&quantity>=stock);
@@ -990,7 +992,9 @@ $('#qtyMinus').addEventListener('click', () => {
 });
 
 $('#qtyPlus').addEventListener('click', () => {
-  if(currentProduct.stockQuantity!=null&&quantity>=Number(currentProduct.stockQuantity)){showToast('No hay más unidades disponibles');return;}
+  const variants=productDropiVariants(),chosen=currentDropiVariant();
+  if(variants.length&&chosen&&quantity>=Number(chosen.stock_quantity)){showToast('No hay más unidades de esa combinación');return;}
+  if(!variants.length&&currentProduct.stockQuantity!=null&&quantity>=Number(currentProduct.stockQuantity)){showToast('No hay más unidades disponibles');return;}
   quantity += 1;
   refreshProductQuantityControls();
 });
