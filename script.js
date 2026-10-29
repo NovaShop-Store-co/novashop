@@ -84,17 +84,27 @@ async function loadCatalogReviewStats(){
   if($("#productGrid"))renderProducts();
  }catch(error){console.warn("No se pudieron cargar las calificaciones reales del catálogo:",error.message);}
 }
+function productAudienceLabel(p){
+  const audiences=Array.isArray(p?.targetAudiences)?p.targetAudiences:[];
+  if(audiences.includes('hombre')&&audiences.includes('mujer'))return 'Unisex';
+  if(audiences.includes('hombre'))return 'Hombre';
+  if(audiences.includes('mujer'))return 'Mujer';
+  return '';
+}
 function renderProducts(){
   const query = $('#searchInput').value.trim().toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const cat = $('#categoryFilter').value;
+  const audience = $('#audienceFilter')?.value || 'all';
   const sort = $('#sortSelect').value;
   const streamingPage = document.body.dataset.page === 'streaming';
   const minValue=Number($('#minPriceFilter')?.value||0),maxRaw=$('#maxPriceFilter')?.value;
   const maxValue=maxRaw==null||maxRaw===''?Infinity:Number(maxRaw);
   const hideSoldOut=!!$('#hideSoldOut')?.checked,onlyOffers=!!$('#onlyOffers')?.checked;
   let list = products.filter(p=>{
-    const searchText=[p.name,p.category,p.description,p.tag,...(Array.isArray(p.features)?p.features:[])].filter(Boolean).join(' ').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    return (streamingPage ? p.category==='Streaming' : p.category!=='Streaming')&&(cat==='all'||p.category===cat)&&searchText.includes(query)&&Number(p.price)>=minValue&&Number(p.price)<=maxValue&&(!hideSoldOut||p.stockQuantity==null||Number(p.stockQuantity)>0)&&(!onlyOffers||(Number(p.oldPrice)>Number(p.price)));
+    const targetAudiences=Array.isArray(p.targetAudiences)?p.targetAudiences:[];
+    const audienceNames=targetAudiences.map(value=>value==='hombre'?'hombre':value==='mujer'?'mujer':'').filter(Boolean);
+    const searchText=[p.name,p.category,p.description,p.tag,...audienceNames,...(Array.isArray(p.features)?p.features:[])].filter(Boolean).join(' ').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return (streamingPage ? p.category==='Streaming' : p.category!=='Streaming')&&(cat==='all'||p.category===cat)&&(audience==='all'||targetAudiences.includes(audience))&&searchText.includes(query)&&Number(p.price)>=minValue&&Number(p.price)<=maxValue&&(!hideSoldOut||p.stockQuantity==null||Number(p.stockQuantity)>0)&&(!onlyOffers||(Number(p.oldPrice)>Number(p.price)));
   });
   if(sort==='priceAsc') list.sort((a,b)=>a.price-b.price);
   if(sort==='priceDesc') list.sort((a,b)=>b.price-a.price);
@@ -103,7 +113,7 @@ function renderProducts(){
   $('#productGrid').innerHTML=list.map(p=>`<article class="product-card">
     <a class="product-link" href="producto.html?id=${p.id}" aria-label="Ver ${p.name}">
       <div class="product-media"><img src="${p.images[0]}" alt="${p.name}" loading="lazy">${p.category==='Streaming'?'':(p.oldPrice?'<span class="tag">OFERTA</span>':(p.tag?'<span class="tag">'+p.tag+'</span>':''))}</div>
-      <div class="product-body"><div class="category-label">${p.category}</div>${renderLiveRating(p.id)}<div class="product-title">${p.name}</div>
+      <div class="product-body"><div class="category-label">${p.category}${p.category==='Moda'&&productAudienceLabel(p)?' · '+productAudienceLabel(p):''}</div>${renderLiveRating(p.id)}<div class="product-title">${p.name}</div>
         <div class="price-row"><span class="price">${money(p.price)}</span>${p.oldPrice?`<span class="old-price">${money(p.oldPrice)}</span>`:''}</div>
         <div class="product-fulfillment-note ${p.category==='Streaming'?'is-digital':'is-physical'}"><span aria-hidden="true">${p.category==='Streaming'?'💻':'🚚'}</span><span>${p.category==='Streaming'?'Servicio digital · sin envío físico':'Envío gratis pagando con Bold'}</span></div>
       </div>
@@ -603,7 +613,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   renderFeaturedProduct(); renderCategories(); renderProducts(); renderCart();
   loadCatalogReviewStats();
   window.NovaShopDB?.syncCatalog?.(products).then(()=>{renderCategories();renderProducts();renderFeaturedProduct();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
-  $('#categoryFilter').addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
+  $('#categoryFilter').addEventListener('change',renderProducts); $('#audienceFilter')?.addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
   $('#minPriceFilter')?.addEventListener('input',renderProducts);$('#maxPriceFilter')?.addEventListener('input',renderProducts);$('#hideSoldOut')?.addEventListener('change',renderProducts);$('#onlyOffers')?.addEventListener('change',renderProducts);
   refreshFavoriteIds();
   $('#searchToggle').addEventListener('click',()=>{ const x=$('#searchBarWrap'); x.classList.toggle('open'); if(x.classList.contains('open')) $('#searchInput').focus(); });
