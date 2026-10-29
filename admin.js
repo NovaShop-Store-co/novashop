@@ -596,12 +596,12 @@ function csvCell(value){
 function exportAdminOrdersCsv(){
  if(!["owner","admin"].includes(currentRole)){orderStatusNotice("No tienes permiso para exportar pedidos.","error");return;}
  if(!adminOrders.length){orderStatusNotice("No hay pedidos cargados para exportar.","error");return;}
- const headers=["Pedido","Creado","Estado","Pago producto","Nombres","Apellidos","Correo","Teléfono","Dirección","Barrio","Ciudad","Departamento","Código postal","Referencia","Flete COP","Estado del flete","Transportadora","Número de guía","Entrega estimada","Productos","IDs Dropi","Subtotal COP","Descuento COP","Total productos COP","Cupón","Método de pago"];
+ const headers=["Pedido","Creado","Estado","Pago producto","Nombres","Apellidos","Correo","Teléfono","Dirección","Barrio","Ciudad","Departamento","Código postal","Referencia","Flete COP","Estado del flete","Transportadora","Número de guía","Entrega estimada","Productos y variantes","IDs Dropi por producto","Subtotal COP","Descuento COP","Total productos COP","Cupón","Método de pago"];
  const rows=adminOrders.map(o=>[
   o.order_number,o.created_at,orderStateLabel(o.status),paymentLabel(o.payment_status),o.customer_first_name,o.customer_last_name,o.customer_email,o.customer_phone,
   o.address,o.neighborhood,o.city,o.department,o.postal_code,o.delivery_reference,o.shipping_fee_cop,o.shipping_payment_status,o.shipping_carrier,o.tracking_number,o.estimated_delivery_date,
-  (o.order_items||[]).map(it=>(it.product_name||"Producto")+" x"+Number(it.quantity||0)).join(" | "),
-  (o.order_items||[]).map(it=>it.dropi_product_id||"").filter(Boolean).join(" | "),
+  (o.order_items||[]).map(it=>(it.product_name||"Producto")+(it.selected_audience?" · Corte "+(it.selected_audience==="mujer"?"Dama":"Hombre"):"")+(it.selected_variant?" · Color "+it.selected_variant:"")+(it.selected_size?" · Talla "+it.selected_size:"")+" x"+Number(it.quantity||0)).join(" | "),
+  (o.order_items||[]).map(it=>(it.product_name||"Producto")+" = "+(it.dropi_product_id||"sin ID Dropi")).join(" | "),
   Number(o.subtotal_cop||0),Number(o.discount_cop||0),Number(o.total_cop??(Number(o.subtotal_cop||0)-Number(o.discount_cop||0))),o.coupon_code,o.preferred_payment_method
  ]);
  const csv="\uFEFF"+[headers,...rows].map(row=>row.map(csvCell).join(",")).join("\r\n");
