@@ -559,3 +559,9 @@ execute function private.apply_order_stock();
 -- Keep internal stock-adjustment records inaccessible to browser roles.
 drop policy if exists "No direct access to stock adjustments" on public.order_stock_adjustments;
 create policy "No direct access to stock adjustments" on public.order_stock_adjustments for all to anon,authenticated using(false) with check(false);
+
+
+-- Dropi per-combination variants and internal supplier mapping (2026-10-29).
+-- Historical migration files: supabase/migrations/20261029190000_add_dropi_product_variants.sql
+-- and supabase/migrations/20261029191000_support_dropi_variant_inventory.sql.
+-- Public catalogue fields expose cut/color/size/stock only; Dropi IDs and supplier prices are private.
