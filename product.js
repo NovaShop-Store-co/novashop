@@ -246,7 +246,14 @@ function handleProductCartAction(event){
     if(Number(item.qty)>1)item.qty=Number(item.qty)-1;
   }else if(action==='increase'){
     const catalogItem=Array.isArray(products)?products.find(p=>Number(p.id)===Number(item.id)):null;
-    if(catalogItem?.stockQuantity!=null){
+    const dropiRows=Array.isArray(catalogItem?.dropiVariants)?catalogItem.dropiVariants:[];
+    if(dropiRows.length){
+      const variant=dropiRows.find(v=>String(v.audience).toLowerCase()===String(item.selectedAudience||"").toLowerCase()&&
+        String(v.color||"").trim().toLocaleLowerCase("es")===String(item.selectedVariant||"").toLocaleLowerCase("es")&&
+        String(v.size||"").trim().toLocaleLowerCase("es")===String(item.selectedSize||"").toLocaleLowerCase("es"));
+      const totalForVariant=cart.filter(row=>Number(row.id)===Number(item.id)&&(row.selectedAudience||null)===(item.selectedAudience||null)&&(row.selectedVariant||null)===(item.selectedVariant||null)&&(row.selectedSize||null)===(item.selectedSize||null)).reduce((sum,row)=>sum+Number(row.qty||0),0);
+      if(!variant||totalForVariant>=Number(variant.stock_quantity)){showToast('No hay más unidades de esa combinación');return;}
+    }else if(catalogItem?.stockQuantity!=null){
       const totalForProduct=cart.filter(row=>Number(row.id)===Number(item.id)).reduce((sum,row)=>sum+Number(row.qty||0),0);
       if(totalForProduct>=Number(catalogItem.stockQuantity)){showToast('No hay más unidades disponibles');return;}
     }
