@@ -173,12 +173,33 @@ grant select (
   tag, shipping, sort_order
 ) on table public.products to anon, authenticated;
 grant select (color_variants) on table public.products to anon, authenticated;
+grant select (target_audiences) on table public.products to anon, authenticated;
 grant select,update on public.profiles to authenticated;
 grant select on public.orders,public.order_items to authenticated;
 
 comment on table public.orders is 'Los pedidos nuevos empiezan pendientes de pago; no marcar como pagado hasta confirmar con el proveedor de pagos.';
 
 
+
+alter table public.products
+  add column if not exists target_audiences text[] not null default '{}';
+
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'products_target_audiences_allowed'
+      and conrelid = 'public.products'::regclass
+  ) then
+    alter table public.products
+      add constraint products_target_audiences_allowed
+      check (target_audiences <@ array['hombre','mujer']::text[]);
+  end if;
+end $;
+
+grant select (target_audiences) on table public.products to anon, authenticated;
+create index if not exists products_target_audiences_idx
+  on public.products using gin (target_audiences);
 
 -- Color variants: each color has a name, hex swatch and exactly two images (front/back).
 alter table public.products add column if not exists color_variants jsonb not null default '[]'::jsonb;
