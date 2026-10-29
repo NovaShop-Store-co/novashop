@@ -170,6 +170,10 @@ Deno.serve(async (req: Request) => {
     if (!catalog || catalog.length !== new Set(ids).size) {
       return json({ error: "Uno de los productos ya no está disponible." }, 409);
     }
+    const {data:dropiRefs,error:dropiRefsError} = await admin.from("product_supplier_refs")
+      .select("product_id,dropi_product_id").in("product_id",ids);
+    if (dropiRefsError) throw dropiRefsError;
+    const dropiByProductId = new Map<number,string>((dropiRefs || []).map((ref: any)=>[Number(ref.product_id),String(ref.dropi_product_id || "")]));
 
     const catalogById = new Map(catalog.map((p: any) => [p.id, p]));
     const unavailablePaymentItem = items.find((item: any) => {
@@ -331,10 +335,21 @@ Deno.serve(async (req: Request) => {
     if (orderError) throw orderError;
 
     const orderLines = lines.map((line: any) => ({ ...line, order_id: order.id }));
-    const { error: linesError } = await admin.from("order_items").insert(orderLines);
+    const {data:createdOrderLines,error:linesError} = await admin.from("order_items").insert(orderLines).select("id,product_id");
     if (linesError) {
       await admin.from("orders").delete().eq("id", order.id);
       throw linesError;
+    }
+    const dropiSnapshots = (createdOrderLines || []).flatMap((line: any)=>{
+      const dropiId = dropiByProductId.get(Number(line.product_id));
+      return dropiId ? [{order_item_id:line.id,dropi_product_id:dropiId}] : [];
+    });
+    if (dropiSnapshots.length) {
+      const {error:snapshotError} = await admin.from("order_item_supplier_refs").insert(dropiSnapshots);
+      if (snapshotError) {
+        await admin.from("orders").delete().eq("id", order.id);
+        throw snapshotError;
+      }
     }
 
     // Consume a coupon using an optimistic conditional update so simultaneous checkouts
