@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
 
     const ids = items.map((x: any) => x.product_id);
     const { data: catalog, error: catalogError } = await admin
-      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,size_variants,printful_enabled,printful_sync_variant_id,payment_methods")
+      .from("products").select("id,name,price_cop,delivery_type,is_active,stock_quantity,color_variants,size_variants,printful_enabled,printful_sync_variant_id,payment_methods,target_audiences")
       .in("id", ids).eq("is_active", true);
     if (catalogError) throw catalogError;
     if (!catalog || catalog.length !== new Set(ids).size) {
@@ -198,7 +198,15 @@ Deno.serve(async (req: Request) => {
     for (const item of items) {
       const productVariants = dropiVariantsByProduct.get(item.product_id)||[];
       if (!productVariants.length) {
-        if (item.selected_audience) return json({error:"El corte seleccionado para el producto no tiene variantes configuradas. Vuelve a cargar la página y selecciona de nuevo."},409);
+        // Si no hay combinaciones Dropi mapeadas, el corte es una preferencia del cliente.
+        // Se conserva en el pedido, pero el inventario sigue usando el stock general del producto.
+        const catalogProduct = (catalog || []).find((p: any) => Number(p.id) === item.product_id);
+        const targetAudiences = Array.isArray(catalogProduct?.target_audiences)
+          ? catalogProduct.target_audiences.map((value: any) => String(value).toLowerCase())
+          : [];
+        if (item.selected_audience && !targetAudiences.includes(item.selected_audience)) {
+          return json({error:"El corte seleccionado no está habilitado para este producto."},409);
+        }
         continue;
       }
       const chosen = productVariants.find((variant: any)=>variant.is_active===true &&
