@@ -767,7 +767,7 @@ function renderProductSizeOptions(){
  box.innerHTML='<div class="product-size-options-head"><strong>Elige tu talla</strong>'+(selectedSize?'<span class="product-size-selected" aria-live="polite">✓ Elegida: '+escProduct(selectedSize)+'</span>':'<span>Selecciona antes de comprar</span>')+'</div><div class="product-size-list">'+sizes.map((size,index)=>{const row=productDropiVariants().length?productDropiVariants().find(v=>String(v.audience).toLowerCase()===selectedAudience&&String(v.color||"").trim().toLocaleLowerCase("es")===selectedColorVariant?.name?.toLocaleLowerCase("es")&&String(v.size||"").trim().toLocaleLowerCase("es")===size.toLocaleLowerCase("es")):null;const unavailable=!!row&&Number(row.stock_quantity)<=0;return '<button type="button" class="product-size-choice" data-product-size="'+index+'" aria-pressed="'+(selectedSize===size?'true':'false')+'" '+(unavailable?'disabled aria-disabled="true"':'')+'>'+escProduct(size)+(unavailable?' · Agotada':'')+'</button>';}).join("")+'</div><details class="product-size-guide"><summary>¿Cómo elegir la talla correcta?</summary><div><p>Compara las medidas con una prenda que ya te quede bien y revisa las tallas disponibles de este producto. El ajuste puede variar según el fabricante.</p><a href="'+escProduct(sizeHelpUrl)+'" target="_blank" rel="noopener noreferrer">¿Tienes dudas? Consulta tu talla por WhatsApp ↗</a></div></details>';
  box.querySelectorAll("[data-product-size]").forEach(button=>button.addEventListener("click",()=>{
   const size=sizes[Number(button.dataset.productSize)];if(!size)return;
-  selectedSize=size;renderProductSizeOptions();renderProductCheckoutSummary();
+  selectedSize=size;renderProductSizeOptions();renderProductCheckoutSummary();refreshProductQuantityControls();
  }));
 }
 function productColorVariants(){
@@ -954,6 +954,7 @@ function renderProduct() {
   renderProductColorOptions();
   renderProductSizeOptions();
   renderProductMedia();
+  refreshProductQuantityControls();
   $('#productFeatures').innerHTML = (Array.isArray(currentProduct.features)?currentProduct.features:[]).map(item => `<li>✓ ${escProduct(item)}</li>`).join('');
 }
 
