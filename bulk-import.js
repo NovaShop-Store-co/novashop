@@ -147,7 +147,7 @@ function currentAiThreshold() {
   const value = Number($("#bulkAiThreshold")?.value || 78);
   return Math.max(0.65,Math.min(0.95,value/100));
 }
-function createAiGroup(fileEntries,index,minimumSimilarity) {
+function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false) {
   const firstNamed = fileEntries.find(entry => !isGenericName(filenameStem(entry.file)));
   const sourceName = firstNamed ? filenameStem(firstNamed.file) : "";
   return {
@@ -164,7 +164,9 @@ function createAiGroup(fileEntries,index,minimumSimilarity) {
     importedProductId:null,
     error:"",
     aiSimilarity:minimumSimilarity,
-    aiSuggested:true
+    aiSuggested:true,
+    aiAnalysisFailed:analysisFailed,
+    aiError:analysisFailed?(fileEntries[0]?.aiError||"No se pudo analizar esta imagen con el modelo visual."):""
   };
 }
 function rebuildAiGroups() {
@@ -195,7 +197,7 @@ function rebuildAiGroups() {
     }
     if (bestCluster) {
       bestCluster.items.push(entry);
-      bestCluster.minimum=Math.min(bestCluster.minimum,bestMinimum);
+      bestCluster.minimum=bestCluster.minimum==null?bestMinimum:Math.min(bestCluster.minimum,bestMinimum);
     } else {
       clusters.push({items:[entry],minimum:null});
     }
@@ -205,7 +207,7 @@ function rebuildAiGroups() {
   failed.forEach(entry=>clusters.push({items:[entry],minimum:null,analysisFailed:true}));
 
   groups=clusters.map((cluster,index)=>createAiGroup(
-    cluster.items,index,cluster.minimum
+    cluster.items,index,cluster.minimum,!!cluster.analysisFailed
   ));
   page=0;
   selectedGroups.clear();
@@ -243,6 +245,10 @@ async function getAiExtractor() {
 }
 async function runVisualAi() {
   if (aiProcessing || importing || !entries.length) return;
+  if (groups.some(group=>group.importedProductId)) {
+    message("Ya se importaron productos en esta sesión. Limpia la importación antes de volver a agrupar, para evitar duplicados.", "error");
+    return;
+  }
   aiProcessing=true;
   const button=$("#bulkVisualAiButton");
   const addFolder=$("#bulkFolder"),addFilesInput=$("#bulkImages");
@@ -304,10 +310,11 @@ function updateStats() {
     (bytes/1024/1024).toFixed(1) + " MB seleccionados";
   const importButton = $("#bulkImportButton");
   if (importButton) importButton.disabled = !authorized || importing || aiProcessing || !groups.some(group => !group.importedProductId);
+  const hasImported=groups.some(group=>group.importedProductId);
   const aiButton=$("#bulkVisualAiButton");
-  if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length;
+  if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length||hasImported;
   const recluster=$("#bulkReclusterAiButton");
-  if (recluster) recluster.disabled=aiProcessing||importing||!entries.some(entry=>entry.aiVector?.length);
+  if (recluster) recluster.disabled=aiProcessing||importing||hasImported||!entries.some(entry=>entry.aiVector?.length);
 }
 async function hashEntries(list) {
   if (!window.crypto || !window.crypto.subtle) {
@@ -379,9 +386,10 @@ function render() {
       const imported = group.importedProductId ?
         '<div class="bulk-product-success">Guardado como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
+      const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
       return '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
-        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + duplicateWarning + genericWarning + imageWarning +
+        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
@@ -630,6 +638,10 @@ async function runImport() {
   render();
 }
 async function addFiles(fileList) {
+  if (groups.some(group=>group.importedProductId)) {
+    message("Ya se importaron productos en esta sesión. Limpia la importación antes de añadir nuevas imágenes.", "error");
+    return;
+  }
   const incoming = Array.from(fileList || []);
   if (!incoming.length) return;
   const valid = [];
