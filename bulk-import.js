@@ -225,8 +225,11 @@ function matchProductRecord(group, usedIds) {
     entry.file.name,
     entry.path || entry.file.webkitRelativePath || ""
   ].join(" ")).join(" ");
-  const tokens = new Set(source.match(/[A-Za-z0-9_-]+/g) || []);
-  const matches = productRecords.filter(record=>!usedIds.has(record.id) && tokens.has(record.id));
+  const matches = productRecords.filter(record=>{
+    if (usedIds.has(record.id) || !record.id || !/^[A-Za-z0-9_-]+$/.test(record.id)) return false;
+    const exactIdPattern = new RegExp("(^|[^A-Za-z0-9])" + record.id + "(?=$|[^A-Za-z0-9])","i");
+    return exactIdPattern.test(source);
+  });
   return matches.length === 1 ? matches[0] : null;
 }
 function applyProductRecordsToGroups() {
