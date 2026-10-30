@@ -31,6 +31,8 @@ let importing = false;
 let loadedNoteText = "";
 let productRecords = [];
 let productRecordsFromStandalone = false;
+let categoryView = "all";
+let xlsxLoaderPromise = null;
 
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
@@ -40,6 +42,23 @@ function esc(value) {
 function normalize(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .toLowerCase().replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ");
+}
+function categoryFromValue(value) {
+  const key=normalize(value);
+  return CATEGORIES.find(category=>normalize(category)===key) || "";
+}
+function deliveryTypeFromValue(value, category="") {
+  const key=normalize(value);
+  if(["digital","servicio digital","producto digital","descargable"].includes(key))return "digital";
+  if(["fisico","producto fisico","fisica","mercancia"].includes(key))return "physical";
+  return normalize(category)==="streaming" ? "digital" : "";
+}
+function categoryFromFiles(fileEntries) {
+  const matches=(fileEntries||[]).flatMap(entry=>
+    String(entry.path||entry.file?.webkitRelativePath||entry.file?.name||"").split("/")
+  ).map(categoryFromValue).filter(Boolean);
+  const unique=[...new Set(matches)];
+  return unique.length===1?unique[0]:"";
 }
 function fileMime(file) {
   if (file.type && file.type.startsWith("image/")) return file.type.toLowerCase();
@@ -156,7 +175,8 @@ function parseStructuredProductNote(source) {
   function createRecord(name,id) {
     return {
       id:String(id || "").trim(),name:cleanName(name),category:"",price:"",oldPrice:"",
-      sizes:[],audience:"",color:"",descriptionText:"",description:"",features:[]
+      stock:"",deliveryType:"",sizes:[],audience:"",color:"",
+      descriptionText:"",description:"",features:[]
     };
   }
 
@@ -188,7 +208,15 @@ function parseStructuredProductNote(source) {
       continue;
     }
     if (key === "categoria" || key === "categoría") {
-      current.category = value;
+      current.category = categoryFromValue(value) || value;
+      continue;
+    }
+    if (key === "stock" || key === "stock general" || key === "existencias" || key === "inventario") {
+      current.stock = value.trim();
+      continue;
+    }
+    if (key === "tipo de entrega" || key === "entrega" || key === "delivery type") {
+      current.deliveryType = deliveryTypeFromValue(value,current.category);
       continue;
     }
     if (key === "publico objetivo" || key === "publico" || key === "audiencia") {
@@ -238,9 +266,13 @@ function applyProductRecord(group, record) {
   group.txtRecordId = record.id;
   group.name = record.name;
   group.dropiProductId = record.id;
-  if (record.category && CATEGORIES.includes(record.category)) group.category = record.category;
+  const mappedCategory=categoryFromValue(record.category);
+  if (mappedCategory) group.category = mappedCategory;
   if (record.price) group.price = record.price;
   if (record.oldPrice) group.oldPrice = record.oldPrice;
+  if (record.stock !== "" && record.stock != null) group.stock = record.stock;
+  const delivery=record.deliveryType || deliveryTypeFromValue("",record.category);
+  if (delivery) group.deliveryType = delivery;
   if (record.sizes.length) group.sizes = record.sizes.join(", ");
   if (record.audience) group.audience = record.audience;
   const mappedColor = colorFromRecord(record.color);
@@ -423,7 +455,9 @@ function makeGroups(list) {
     }
     if (!map.has(key)) {
       map.set(key,{
-        id:nextGroupId++, name:prettyName(label,map.size+1), category:$("#bulkCategory")?.value||"",
+        id:nextGroupId++, name:prettyName(label,map.size+1),
+        category:categoryFromFiles([entry])||$("#bulkCategory")?.value||"",
+        deliveryType:deliveryTypeFromValue($("#bulkDeliveryType")?.value||""),
         price:$("#bulkPrice")?.value||"", oldPrice:$("#bulkOldPrice")?.value||"",
         stock:$("#bulkStock")?.value||"", sizes:$("#bulkSizes")?.value||"",
         description:$("#bulkDescription")?.value||"", color:"",
@@ -460,7 +494,8 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
   return {
     id:nextGroupId++,
     name:prettyName(sourceName,index+1),
-    category:$("#bulkCategory")?.value||"",
+    category:categoryFromFiles(fileEntries)||$("#bulkCategory")?.value||"",
+    deliveryType:deliveryTypeFromValue($("#bulkDeliveryType")?.value||""),
     price:$("#bulkPrice")?.value||"",
     oldPrice:$("#bulkOldPrice")?.value||"",
     stock:$("#bulkStock")?.value||"",
@@ -759,6 +794,7 @@ function render() {
 function applyDefaults() {
   groups.forEach(group => {
     group.category = $("#bulkCategory").value;
+    group.deliveryType = $("#bulkDeliveryType").value;
     group.price = $("#bulkPrice").value;
     group.oldPrice = $("#bulkOldPrice").value;
     group.stock = $("#bulkStock").value;
@@ -790,6 +826,7 @@ function splitGroup(id) {
       id:nextGroupId++, name:prettyName(stem,groups.length+1), category:group.category,
       price:group.price, oldPrice:group.oldPrice, stock:group.stock, sizes:group.sizes,
       description:group.description, color:detectColor([entry]), audience:group.audience,
+      deliveryType:group.deliveryType||"physical",
       dropiProductId:index===0?(group.dropiProductId||""):"",
       features:(group.features || []).slice(), txtRecordId:index===0?(group.txtRecordId||""):"", txtMatched:index===0&&!!group.txtMatched,
       files:[entry], importedProductId:null,error:""
@@ -849,6 +886,8 @@ function validateGroup(group) {
   const oldPrice = group.oldPrice === "" || group.oldPrice == null ? null : Number(group.oldPrice);
   if (oldPrice !== null && (!Number.isSafeInteger(oldPrice) || oldPrice < price || oldPrice > 100000000)) return "El precio anterior debe ser mayor o igual al precio actual.";
   if (!String(group.description || "").trim()) return "Añade una descripción general o específica.";
+  if (group.stock !== "" && group.stock != null && (!Number.isSafeInteger(Number(group.stock)) || Number(group.stock)<0)) return "El stock debe ser un número entero igual o mayor que cero.";
+  if (!["physical","digital"].includes(group.deliveryType||$("#bulkDeliveryType")?.value)) return "Selecciona el tipo de entrega.";
   if (!group.files.length) return "Añade al menos una imagen.";
   if (group.files.length > MAX_IMAGES_PER_PRODUCT) return "Supera el máximo de 8 fotos por producto. Separa este grupo.";
   if (!$("#bulkAllowDuplicates").checked && groupHasDuplicateName(group)) return "Ya existe un producto con este nombre; cámbialo o permite duplicados.";
@@ -890,7 +929,7 @@ async function importGroup(group,index,total) {
   const color = group.color && COLORS[group.color] ? [{
     name:group.color,hex:COLORS[group.color],images:urls.slice(0,2)
   }] : [];
-  const delivery = $("#bulkDeliveryType").value;
+  const delivery = group.deliveryType || $("#bulkDeliveryType").value;
   const audience = String(group.audience || "").toLowerCase();
   const targetAudiences = audience === "unisex" ? ["hombre","mujer"] : [audience];
   const payload = {
