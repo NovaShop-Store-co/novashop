@@ -1048,7 +1048,8 @@ $("#bulkGroupList")?.addEventListener("input",event => {
   if (!field) return;
   const group = groups.find(item => item.id === Number(field.dataset.groupId));
   if (!group) return;
-  group[field.dataset.productField] = field.dataset.productField === "featuresText" ? readFeatures(field.value) : field.value;
+  if (field.dataset.productField === "featuresText") group.features = readFeatures(field.value);
+  else group[field.dataset.productField] = field.value;
 });
 $("#bulkGroupList")?.addEventListener("change",event => {
   const recordSelector = event.target.closest("[data-product-record]");
@@ -1059,7 +1060,10 @@ $("#bulkGroupList")?.addEventListener("change",event => {
   const field = event.target.closest("[data-product-field]");
   if (field) {
     const group = groups.find(item => item.id === Number(field.dataset.groupId));
-    if (group) group[field.dataset.productField] = field.value;
+    if (group) {
+      if (field.dataset.productField === "featuresText") group.features = readFeatures(field.value);
+      else group[field.dataset.productField] = field.value;
+    }
   }
   const checkbox = event.target.closest("[data-select-group]");
   if (checkbox) {
