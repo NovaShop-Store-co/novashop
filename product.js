@@ -757,7 +757,7 @@ function productSizes(){
  }
  const raw=currentProduct?.sizeVariants??currentProduct?.size_variants;
  if(!Array.isArray(raw))return [];
- return [...new Set(raw.map(value=>String(value??"").trim()).filter(Boolean))].slice(0,20);
+ return [...new Set(raw.map(value=>String(value??"").trim()).filter(Boolean))].slice(0,40);
 }
 function renderProductAudienceOptions(){
  const box=$("#productAudienceOptions");if(!box)return;
