@@ -203,6 +203,12 @@ function assignProductRecord(groupId, recordId) {
   if (!group || !recordId) return;
   const record = productRecords.find(item=>item.id===recordId);
   if (!record) return;
+  const alreadyUsed = groups.find(item=>item.id!==groupId && item.txtRecordId===record.id);
+  if (alreadyUsed) {
+    message("La ficha " + record.name + " ya está asignada a otro producto. Cada registro del TXT solo se puede usar una vez.", "error");
+    render();
+    return;
+  }
   applyProductRecord(group,record);
   render();
   message("Datos de " + record.name + " aplicados a esta ficha: ID Dropi, tallas, público, color, descripción y características.","success");
@@ -383,6 +389,10 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
   };
 }
 function rebuildAiGroups() {
+  const previousRecordByFile = new Map();
+  groups.forEach(group=>{
+    if (group.txtRecordId) group.files.forEach(entry=>previousRecordByFile.set(entry,group.txtRecordId));
+  });
   const threshold=currentAiThreshold();
   const vectors=entries.filter(entry=>entry.aiVector && entry.aiVector.length);
   const failed=entries.filter(entry=>!entry.aiVector || !entry.aiVector.length);
@@ -422,6 +432,13 @@ function rebuildAiGroups() {
   groups=clusters.map((cluster,index)=>createAiGroup(
     cluster.items,index,cluster.minimum,!!cluster.analysisFailed
   ));
+  groups.forEach(group=>{
+    const assignedIds = new Set(group.files.map(entry=>previousRecordByFile.get(entry)).filter(Boolean));
+    if (assignedIds.size === 1) {
+      const record = productRecords.find(item=>item.id === Array.from(assignedIds)[0]);
+      if (record) applyProductRecord(group,record);
+    }
+  });
   applyProductRecordsToGroups();
   page=0;
   selectedGroups.clear();
@@ -600,10 +617,12 @@ function render() {
         '<option value="mujer"' + (group.audience === "mujer" ? " selected" : "") + '>Mujer</option>',
         '<option value="unisex"' + (group.audience === "unisex" ? " selected" : "") + '>Unisex</option>'
       ].join("");
-      const txtRecordOptions = ['<option value="">Sin ficha TXT asignada</option>'].concat(productRecords.map(record=>
-        '<option value="' + esc(record.id) + '"' + (group.txtRecordId === record.id ? " selected" : "") + '>' +
-        esc(record.name + " · Dropi " + record.id) + '</option>'
-      )).join("");
+      const txtRecordOptions = ['<option value="">Sin ficha TXT asignada</option>'].concat(productRecords.map(record=>{
+        const usedElsewhere = groups.some(other=>other.id !== group.id && other.txtRecordId === record.id);
+        return '<option value="' + esc(record.id) + '"' + (group.txtRecordId === record.id ? " selected" : "") +
+          (usedElsewhere ? " disabled" : "") + '>' +
+          esc(record.name + " · Dropi " + record.id + (usedElsewhere ? " · ya asignado" : "")) + '</option>';
+      })).join("");
       const duplicateWarning = groupHasDuplicateName(group) ?
         '<div class="bulk-product-warning">Ya existe un producto con este nombre en NovaShop. Cambia el nombre o activa la opción para permitir duplicados.</div>' : "";
       const genericWarning = group.name.startsWith("Producto por identificar") ?
