@@ -793,7 +793,8 @@ function updateStats() {
   if (importButton) importButton.disabled = !canSave;
   if (importButtonBottom) importButtonBottom.disabled = !canSave;
   const categoryButton=$("#bulkImportCategoryButton");
-  const categoryPending=groups.filter(group=>!group.importedProductId&&categoryView!=="all"&&normalize(group.category)===normalize(categoryView)).length;
+  const categoryPending=groups.filter(group=>!group.importedProductId&&categoryView!=="all"&&
+    (categoryView==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryView))).length;
   if(categoryButton){
     categoryButton.disabled=!authorized||importing||aiProcessing||categoryView==="all"||categoryPending===0;
     categoryButton.textContent=categoryView==="all"?"Guardar categoría actual":("Guardar "+categoryView+" · "+categoryPending);
@@ -1106,7 +1107,7 @@ async function runImport(categoryFilter="all") {
     return;
   }
   const pending = groups.filter(group => !group.importedProductId &&
-    (categoryFilter==="all"||normalize(group.category)===normalize(categoryFilter)));
+    (categoryFilter==="all"||(categoryFilter==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryFilter))));
   if (!pending.length) {
     message("No hay productos pendientes de importar.", "info");
     return;
@@ -1123,7 +1124,8 @@ async function runImport(categoryFilter="all") {
   })).filter(item => item.error);
   invalid.forEach(item => { item.group.error = item.error; });
   if (invalid.length) {
-    const activeGroups=categoryFilter==="all"?groups:groups.filter(group=>normalize(group.category)===normalize(categoryFilter));
+    const activeGroups=categoryFilter==="all"?groups:groups.filter(group=>
+      categoryFilter==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryFilter));
     page = Math.max(0,Math.floor(activeGroups.indexOf(invalid[0].group)/PAGE_SIZE));
     render();
     message("Hay " + invalid.length + " producto(s) por corregir. Revisa las tarjetas marcadas antes de iniciar.", "error");
