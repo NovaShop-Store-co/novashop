@@ -271,6 +271,130 @@ async function loadXlsxLibrary() {
   try{return await xlsxLoaderPromise;}
   catch(error){xlsxLoaderPromise=null;throw error;}
 }
+let jsZipLoaderPromise = null;
+let excelJsLoaderPromise = null;
+async function loadJsZipLibrary() {
+  if(window.JSZip)return window.JSZip;
+  if(jsZipLoaderPromise)return jsZipLoaderPromise;
+  jsZipLoaderPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+    script.async=true;
+    script.onload=()=>window.JSZip?resolve(window.JSZip):reject(new Error("No se pudo cargar el lector de imágenes de Excel."));
+    script.onerror=()=>reject(new Error("No se pudo descargar el lector de imágenes de Excel."));
+    document.head.appendChild(script);
+  });
+  try{return await jsZipLoaderPromise;}catch(error){jsZipLoaderPromise=null;throw error;}
+}
+async function loadExcelJsLibrary() {
+  if(window.ExcelJS)return window.ExcelJS;
+  if(excelJsLoaderPromise)return excelJsLoaderPromise;
+  excelJsLoaderPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    script.async=true;
+    script.onload=()=>window.ExcelJS?resolve(window.ExcelJS):reject(new Error("No se pudo cargar el creador de plantillas Excel."));
+    script.onerror=()=>reject(new Error("No se pudo descargar el creador de plantillas Excel."));
+    document.head.appendChild(script);
+  });
+  try{return await excelJsLoaderPromise;}catch(error){excelJsLoaderPromise=null;throw error;}
+}
+function normalizeZipPath(path) {
+  const parts=[];
+  String(path||"").replace(/\\/g,"/").split("/").forEach(part=>{
+    if(!part||part===".")return;
+    if(part==="..")parts.pop();else parts.push(part);
+  });
+  return parts.join("/");
+}
+function resolveZipTarget(sourcePath,target) {
+  if(String(target||"").startsWith("/"))return normalizeZipPath(target);
+  const base=String(sourcePath||"").split("/").slice(0,-1).join("/");
+  return normalizeZipPath((base?base+"/":"")+target);
+}
+async function readZipXml(zip,path) {
+  const file=zip.file(path);
+  if(!file)return null;
+  const source=await file.async("string");
+  const doc=new DOMParser().parseFromString(source,"application/xml");
+  if(doc.getElementsByTagName("parsererror").length)throw new Error("El Excel contiene una relación XML dañada en "+path+".");
+  return doc;
+}
+function relationshipMap(xml) {
+  const map=new Map();
+  if(!xml)return map;
+  const nodes=xml.getElementsByTagNameNS("http://schemas.openxmlformats.org/package/2006/relationships","Relationship");
+  for(const node of nodes)map.set(node.getAttribute("Id"),node.getAttribute("Target"));
+  return map;
+}
+function xmlText(parent,namespace,name) {
+  const node=parent?.getElementsByTagNameNS(namespace,name)?.[0];
+  return node?String(node.textContent||"").trim():"";
+}
+function extensionMime(extension) {
+  return ({jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif"})[String(extension||"").toLowerCase()]||"";
+}
+async function extractExcelEmbeddedImages(file,sheetName) {
+  if(!/\.xlsx$/i.test(file.name||""))return new Map();
+  const JSZip=await loadJsZipLibrary();
+  const zip=await JSZip.loadAsync(await file.arrayBuffer());
+  const workbookPath="xl/workbook.xml";
+  const workbookXml=await readZipXml(zip,workbookPath);
+  const workbookRels=relationshipMap(await readZipXml(zip,"xl/_rels/workbook.xml.rels"));
+  const mainNs="http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+  const relationNs="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const drawingNs="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
+  const drawingMainNs="http://schemas.openxmlformats.org/drawingml/2006/main";
+  const sheets=Array.from(workbookXml?.getElementsByTagNameNS(mainNs,"sheet")||[]);
+  const sheetNode=sheets.find(node=>normalize(node.getAttribute("name"))===normalize(sheetName));
+  if(!sheetNode)return new Map();
+  const sheetTarget=workbookRels.get(sheetNode.getAttributeNS(relationNs,"id"));
+  if(!sheetTarget)return new Map();
+  const sheetPath=resolveZipTarget(workbookPath,sheetTarget);
+  const sheetXml=await readZipXml(zip,sheetPath);
+  const drawingNode=sheetXml?.getElementsByTagNameNS(mainNs,"drawing")?.[0];
+  if(!drawingNode)return new Map();
+  const sheetRelsPath=resolveZipTarget(sheetPath,"_rels/"+sheetPath.split("/").pop()+".rels");
+  const sheetRels=relationshipMap(await readZipXml(zip,sheetRelsPath));
+  const drawingTarget=sheetRels.get(drawingNode.getAttributeNS(relationNs,"id"));
+  if(!drawingTarget)return new Map();
+  const drawingPath=resolveZipTarget(sheetPath,drawingTarget);
+  const drawingXml=await readZipXml(zip,drawingPath);
+  const drawingRelsPath=resolveZipTarget(drawingPath,"_rels/"+drawingPath.split("/").pop()+".rels");
+  const drawingRels=relationshipMap(await readZipXml(zip,drawingRelsPath));
+  const anchors=[
+    ...Array.from(drawingXml?.getElementsByTagNameNS(drawingNs,"twoCellAnchor")||[]),
+    ...Array.from(drawingXml?.getElementsByTagNameNS(drawingNs,"oneCellAnchor")||[])
+  ];
+  const output=new Map();
+  let imageNumber=0;
+  for(const anchor of anchors) {
+    const pictures=Array.from(anchor.getElementsByTagNameNS(drawingNs,"pic")||[]);
+    if(!pictures.length)continue;
+    const row=Number(xmlText(anchor,drawingNs,"row"))+1;
+    if(!Number.isSafeInteger(row)||row<2)continue;
+    for(const picture of pictures) {
+      const blip=picture.getElementsByTagNameNS(drawingMainNs,"blip")?.[0];
+      const embedId=blip?.getAttributeNS(relationNs,"embed")||blip?.getAttribute("r:embed");
+      const mediaTarget=drawingRels.get(embedId);
+      if(!mediaTarget)continue;
+      const mediaPath=resolveZipTarget(drawingPath,mediaTarget);
+      const media=zip.file(mediaPath);
+      if(!media)continue;
+      const extension=mediaPath.split(".").pop().toLowerCase();
+      const type=extensionMime(extension);
+      if(!type)continue;
+      const blob=await media.async("blob");
+      if(!blob.size)continue;
+      imageNumber++;
+      const fileName="imagen_"+row+"_"+imageNumber+"."+extension;
+      const photoFile=new File([blob],fileName,{type,lastModified:Date.now()});
+      if(!output.has(row))output.set(row,[]);
+      output.get(row).push(photoFile);
+    }
+  }
+  return output;
+}
 function excelHeaderValue(row,aliases) {
   const keys=Object.keys(row||{});
   const target=new Set(aliases.map(normalize));
@@ -279,20 +403,27 @@ function excelHeaderValue(row,aliases) {
 }
 async function parseExcelProductFile(file) {
   if(!file || !/\.(xlsx|xls|csv)$/i.test(file.name||""))throw new Error("Selecciona una plantilla Excel .xlsx, .xls o .csv.");
-  if(!file.size || file.size>5*1024*1024)throw new Error("La plantilla Excel debe pesar máximo 5 MB.");
+  if(!file.size || file.size>50*1024*1024)throw new Error("El archivo Excel no puede superar 50 MB.");
   const XLSX=await loadXlsxLibrary();
   const workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:false});
   if(!workbook.SheetNames?.length)throw new Error("El archivo no contiene hojas de cálculo.");
   const sheetName=workbook.SheetNames.find(name=>normalize(name)==="productos")||workbook.SheetNames[0];
   const sheet=workbook.Sheets[sheetName];
-  const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false,blankrows:false});
-  if(!rows.length)throw new Error("La hoja Productos no contiene filas de productos.");
+  const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false,blankrows:true});
+  if(!matrix.length)throw new Error("La hoja Productos no contiene filas de productos.");
+  const headerIndex=matrix.findIndex(row=>row.some(value=>["nombre del producto","nombre","producto"].includes(normalize(value))));
+  if(headerIndex<0)throw new Error("No encontré la fila de encabezados. Descarga la plantilla oficial de NovaShop y conserva sus encabezados.");
+  const headers=matrix[headerIndex].map(value=>String(value??"").trim());
+  const headerRow=Object.fromEntries(headers.map((name,index)=>[name,index]));
+  const rows=matrix.slice(headerIndex+1);
   if(rows.length>250)throw new Error("Puedes importar máximo 250 productos por archivo. Divide el catálogo en varios lotes.");
+  const embeddedImages=await extractExcelEmbeddedImages(file,sheetName);
   const recordsText=[];
-  const seenIds=new Set();
+  const rowById=new Map();
   const rowErrors=[];
-  rows.forEach((row,index)=>{
-    const rowNumber=index+2;
+  rows.forEach((values,index)=>{
+    const rowNumber=headerIndex+index+2;
+    const row=Object.fromEntries(headers.map((header,column)=>[header,values[column]??""]));
     const name=excelHeaderValue(row,["Nombre del producto","Nombre","Producto"]);
     const rawId=excelHeaderValue(row,["ID del producto en Dropi","ID Dropi","Dropi ID","ID"]);
     const id=rawId.replace(/\.0+$/,"").replace(/^#/,"").trim();
@@ -309,8 +440,12 @@ async function parseExcelProductFile(file) {
     if(!name&&!id&&!category&&!price&&!sizes&&!color&&!description&&!features&&!stock) return;
     if(!name){rowErrors.push("Fila "+rowNumber+": falta el nombre del producto.");return;}
     if(!id){rowErrors.push("Fila "+rowNumber+" ("+name+"): falta el ID de Dropi.");return;}
-    if(seenIds.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
-    seenIds.add(id);
+    if(rowById.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
+    const photos=embeddedImages.get(rowNumber)||[];
+    if(photos.length>MAX_IMAGES_PER_PRODUCT){rowErrors.push("Fila "+rowNumber+" ("+name+"): tiene "+photos.length+" fotos; el máximo es "+MAX_IMAGES_PER_PRODUCT+".");return;}
+    const oversized=photos.find(photo=>photo.size>MAX_IMAGE_BYTES);
+    if(oversized){rowErrors.push("Fila "+rowNumber+" ("+name+"): la foto "+oversized.name+" supera 12 MB.");return;}
+    rowById.set(id,{rowNumber,photos,category});
     const cleanLine=value=>String(value||"").replace(/[\r\n]+/g," ").trim();
     recordsText.push([
       "Nombre del producto: "+cleanLine(name),
@@ -331,7 +466,20 @@ async function parseExcelProductFile(file) {
   if(!recordsText.length)throw new Error("No encontré productos válidos en la hoja Productos.");
   const records=parseStructuredProductNote(recordsText.join(String.fromCharCode(10)+String.fromCharCode(10)));
   if(records.length!==recordsText.length)throw new Error("Algunas filas no pudieron interpretarse. Comprueba que los IDs de Dropi sean únicos.");
-  return records;
+  let totalPhotos=0;
+  records.forEach(record=>{
+    const rowInfo=rowById.get(record.id);
+    record.photos=rowInfo?.photos||[];
+    record.excelRow=rowInfo?.rowNumber||null;
+    record.photos.forEach((photo,index)=>{
+      totalPhotos++;
+      const safeCategory=categoryFromValue(record.category)||"Sin_categoria";
+      const path="Excel/"+safeCategory+"/"+record.id+"/"+record.id+"_"+(index+1)+"."+photo.name.split(".").pop().toLowerCase();
+      record.photoPaths=record.photoPaths||new Map();
+      record.photoPaths.set(photo,path);
+    });
+  });
+  return {records,totalPhotos,embeddedImageSupport:/\.xlsx$/i.test(file.name||"")};
 }
 async function downloadExcelTemplate() {
   try {
