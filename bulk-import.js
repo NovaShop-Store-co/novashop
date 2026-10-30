@@ -225,6 +225,12 @@ function setNoteText(text, filename, truncated=false) {
     productRecords = records;
     if (loadedNoteText && field.value.trim() === loadedNoteText) field.value = "";
     loadedNoteText = "";
+    groups.forEach(group=>{
+      if (!group.importedProductId) {
+        group.txtRecordId = "";
+        group.txtMatched = false;
+      }
+    });
     applyProductRecordsToGroups();
     noteStatus("TXT interpretado: " + records.length + " productos con ID, tallas y características. No se pegó el documento completo en las descripciones.", "success");
     render();
