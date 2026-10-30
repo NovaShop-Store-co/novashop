@@ -4,7 +4,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1">
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=49">
+<link rel="stylesheet" href="styles.css?v=50">
 <link rel="stylesheet" href="bulk-import.css?v=3">
 <style>
 .admin-page-wrap{max-width:1180px;margin:32px auto 70px;padding:0 20px}
@@ -168,6 +168,7 @@ body.product-editor-open{overflow:hidden}
  <button type="button" class="admin-section-tab" data-admin-tab="overview" aria-current="false">▦ Resumen</button>
  <button type="button" class="admin-section-tab" data-admin-tab="orders" aria-current="false">▤ Ventas y pedidos</button>
  <button type="button" class="admin-section-tab" data-admin-tab="catalog" aria-current="false">▣ Catálogo e inventario</button>
+ <button type="button" class="admin-section-tab" data-admin-tab="flash-sale" aria-current="false">⚡ Ofertas relámpago</button>
  <button type="button" class="admin-section-tab" data-admin-tab="coupons" aria-current="false">％ Promociones</button>
  <button type="button" class="admin-section-tab" data-admin-tab="reviews" aria-current="false">☆ Reseñas</button>
  <button type="button" class="admin-section-tab" data-admin-tab="users" aria-current="false">♙ Usuarios y roles</button>
@@ -222,6 +223,25 @@ body.product-editor-open{overflow:hidden}
   </form>
   <div id="adminCouponsList" class="admin-coupons-list"><p class="admin-help">Los cupones aparecerán aquí.</p></div>
  </div>
+</section>
+
+<section id="adminFlashSaleWrap" class="admin-card admin-section-panel" data-admin-section="flash-sale" hidden>
+ <div class="admin-orders-heading">
+  <div><h2>Ofertas relámpago</h2><p>Selecciona 5 o 6 productos físicos y define un precio especial para cada uno. La campaña comienza al guardarla y termina automáticamente en la fecha indicada.</p></div>
+  <button type="button" class="btn btn-ghost" id="refreshAdminFlashSale">Actualizar</button>
+ </div>
+ <div id="adminFlashSaleStatus" class="admin-status" role="status">Carga el catálogo para preparar una campaña.</div>
+ <form id="adminFlashSaleForm" class="admin-form flash-sale-admin-form">
+  <label>Nombre de la campaña<input name="title" maxlength="80" value="Ofertas relámpago" placeholder="Ej. Mega ofertas de fin de semana"></label>
+  <label>Fecha y hora de finalización<input name="ends_at" type="datetime-local" required><small class="admin-help">La campaña debe durar entre 5 minutos y 7 días. La hora se interpreta según tu zona horaria local.</small></label>
+  <div class="flash-sale-admin-toolbar"><strong>Elige entre 5 y 6 productos</strong><span id="adminFlashSaleSelectionCount">0 de 6 seleccionados</span></div>
+  <div id="adminFlashSaleProducts" class="flash-sale-admin-grid"><p class="admin-help">Cargando productos disponibles…</p></div>
+  <div class="admin-buttons">
+   <button type="submit" class="btn btn-primary" id="saveAdminFlashSale" disabled>Activar ofertas relámpago</button>
+   <button type="button" class="btn btn-ghost" id="pauseAdminFlashSale" hidden>Detener campaña</button>
+  </div>
+  <p class="admin-help">El precio especial se guarda por separado del precio habitual. Al finalizar el contador, el catálogo y los pedidos vuelven al precio normal. No se cambian las fichas originales ni los precios de otros productos.</p>
+ </form>
 </section>
 
 <section id="adminReviewsWrap" class="admin-card admin-reviews-wrap admin-section-panel" data-admin-section="reviews" hidden>
@@ -358,5 +378,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=7"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=39"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=39"></script><script src="bulk-import.js?v=7"></script>
 </body></html>

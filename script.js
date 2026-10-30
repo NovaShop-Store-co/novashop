@@ -2,6 +2,10 @@ let cart = JSON.parse(localStorage.getItem('novashop-cart') || '[]');
 const $ = (s) => document.querySelector(s);
 let favoriteIds = new Set((()=>{try{return JSON.parse(localStorage.getItem("novashop-favorites-v1")||"[]").map(Number);}catch(_){return [];}})());
 let liveReviewStats = new Map();
+let activeFlashSale=null;
+let activeFlashSaleIndex=0;
+let featuredSaleCountdownInterval=null;
+let featuredSaleRotationInterval=null;
 function refreshFavoriteIds(){window.NovaShopDB?.getFavoriteIds?.().then(ids=>{favoriteIds=new Set(ids.map(Number));if($("#productGrid"))renderProducts();}).catch(err=>console.warn("Favoritos:",err));}
 async function toggleFavoriteFromButton(button){
  const id=Number(button.dataset.favorite);if(!id)return;
@@ -20,34 +24,151 @@ function cartTotal(){ return cart.reduce((sum,i)=>sum+i.price*i.qty,0); }
 function product(id){ return products.find(p=>p.id===id); }
 
 
-function renderFeaturedProduct(){
-  const link=$('#featuredProductLink');
-  if(!link || !Array.isArray(products) || !products.length)return;
-  const cta=$('#featuredProductCta');
-  if(document.body.dataset.page==='streaming'){
-    link.href='streaming.html';
-    link.setAttribute('aria-label','Explorar el catálogo completo de Streaming');
-    $('#featuredProductImage').src='https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=1100&q=85';
-    $('#featuredProductImage').alt='Catálogo de plataformas y servicios digitales';
-    $('#featuredProductBadge').textContent='CATÁLOGO';
-    $('#featuredProductName').textContent='Explora las plataformas de Streaming';
-    $('#featuredProductDiscount').textContent='20 servicios';
-    if(cta)cta.textContent='Ver catálogo completo ↗';
-    return;
-  }
-  const featured=products.find(p=>p.category!=='Streaming' && p.oldPrice) || products.find(p=>p.category!=='Streaming');
-  if(!featured)return;
-  const pct=featured.oldPrice?Math.round((1-(featured.price/featured.oldPrice))*100):0;
-  link.href='producto.html?id='+featured.id;
-  link.setAttribute('aria-label','Ver detalles y comprar '+featured.name);
-  $('#featuredProductImage').src=(featured.images&&featured.images[0])||'';
-  $('#featuredProductImage').alt=featured.name;
-  $('#featuredProductBadge').textContent=featured.oldPrice?'OFERTA':'DESTACADO';
-  $('#featuredProductName').textContent=featured.name;
-  $('#featuredProductDiscount').textContent=featured.oldPrice?(pct+'% OFF'):'Ver producto';
-  if(cta)cta.textContent='Ver detalles y comprar ↗';
+function currentFlashSaleProducts(){
+ if(!activeFlashSale||new Date(activeFlashSale.ends_at).getTime()<=Date.now())return [];
+ const ids=Array.isArray(activeFlashSale.product_ids)?activeFlashSale.product_ids.map(Number):[];
+ return ids.map(id=>products.find(p=>Number(p.id)===id)).filter(p=>p&&p.flashSale&&Number(p.price)>0&&Number(p.regularPrice)>Number(p.price));
 }
-
+function renderFeaturedSaleDots(items){
+ const box=$("#featuredSaleDots");if(!box)return;
+ box.innerHTML=items.map((item,index)=>'<button type="button" data-featured-sale-dot="'+index+'" aria-label="Ver oferta '+(index+1)+'" aria-current="'+(index===activeFlashSaleIndex?'true':'false')+'"></button>').join("");
+}
+function formatFlashSaleCountdown(ms){
+ const total=Math.max(0,Math.floor(ms/1000));
+ const days=Math.floor(total/86400),hours=Math.floor((total%86400)/3600),minutes=Math.floor((total%3600)/60),seconds=total%60;
+ const pad=value=>String(value).padStart(2,"0");
+ return days>0?days+"d "+pad(hours)+":"+pad(minutes)+":"+pad(seconds):pad(hours)+":"+pad(minutes)+":"+pad(seconds);
+}
+function updateFeaturedSaleCountdown(){
+ const timer=$("#featuredSaleTimer");
+ if(!activeFlashSale||!timer)return;
+ const remaining=new Date(activeFlashSale.ends_at).getTime()-Date.now();
+ if(remaining<=0){
+  activeFlashSale=null;
+  if(featuredSaleCountdownInterval)clearInterval(featuredSaleCountdownInterval);
+  if(featuredSaleRotationInterval)clearInterval(featuredSaleRotationInterval);
+  featuredSaleCountdownInterval=null;featuredSaleRotationInterval=null;
+  products.filter(item=>item.flashSale).forEach(item=>{
+   item.price=Number(item.regularPrice??item.price);
+   item.oldPrice=item.regularOldPrice??null;
+   item.flashSale=false;item.flashSaleEndsAt=null;item.flashSaleTitle="";
+  });
+  syncCartPricesFromProducts();
+  renderFeaturedProduct();
+  const client=window.NovaShopDB;
+  Promise.resolve(client?.syncCatalog?.(products)).then(()=>{
+   syncCartPricesFromProducts();renderProducts();renderCategories();renderFeaturedProduct();
+  }).catch(error=>console.warn("No se pudo cerrar la campaña relámpago:",error));
+  return;
+ }
+ timer.textContent=formatFlashSaleCountdown(remaining);
+}
+function startFeaturedSaleTimers(){
+ if(featuredSaleCountdownInterval)clearInterval(featuredSaleCountdownInterval);
+ if(featuredSaleRotationInterval)clearInterval(featuredSaleRotationInterval);
+ const items=currentFlashSaleProducts();
+ if(items.length<5){activeFlashSale=null;return;}
+ featuredSaleCountdownInterval=setInterval(updateFeaturedSaleCountdown,1000);
+ featuredSaleRotationInterval=setInterval(()=>{
+  const current=currentFlashSaleProducts();
+  if(current.length<5)return;
+  activeFlashSaleIndex=(activeFlashSaleIndex+1)%current.length;
+  renderFeaturedProduct();
+ },6500);
+ updateFeaturedSaleCountdown();
+}
+async function loadHomepageFlashSale(){
+ if(document.body.dataset.page==="streaming")return;
+ try{
+  activeFlashSale=await window.NovaShopDB?.getFlashSale?.()||null;
+  activeFlashSaleIndex=0;
+  startFeaturedSaleTimers();
+ }catch(error){
+  activeFlashSale=null;
+  console.warn("No se pudo cargar la campaña relámpago:",error.message);
+ }
+ renderFeaturedProduct();
+}
+function syncCartPricesFromProducts(){
+ if(!Array.isArray(cart)||!cart.length)return;
+ cart.forEach(item=>{
+  const current=product(Number(item.id));
+  if(!current)return;
+  item.price=Number(current.price)||0;
+  item.name=current.name||item.name;
+  item.image=current.images?.[0]||item.image;
+ });
+ saveCart();renderCart();
+}
+function renderFeaturedProduct(){
+ const link=$("#featuredProductLink");
+ if(!link||!Array.isArray(products)||!products.length)return;
+ const cta=$("#featuredProductCta");
+ const eyebrow=$("#heroEyebrow");
+ const countdown=$("#featuredSaleCountdown");
+ const prices=$("#featuredSalePrices");
+ const controls=$("#featuredSaleControls");
+ const card=$("#featuredProductLink");
+ const isStreaming=document.body.dataset.page==="streaming";
+ if(isStreaming){
+  if(countdown)countdown.hidden=true;if(prices)prices.hidden=true;if(controls)controls.hidden=true;
+  card?.classList.remove("is-flash-sale");
+  link.href="streaming.html";
+  link.setAttribute("aria-label","Explorar el catálogo completo de Streaming");
+  $("#featuredProductImage").src="https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=1100&q=85";
+  $("#featuredProductImage").alt="Catálogo de plataformas y servicios digitales";
+  $("#featuredProductBadge").textContent="CATÁLOGO";
+  $("#featuredProductName").textContent="Explora las plataformas de Streaming";
+  $("#featuredProductDiscount").textContent="20 servicios";
+  if(cta)cta.textContent="Ver catálogo completo ↗";
+  return;
+ }
+ const saleItems=currentFlashSaleProducts();
+ if(saleItems.length>=5){
+  activeFlashSaleIndex=Math.max(0,Math.min(activeFlashSaleIndex,saleItems.length-1));
+  const featured=saleItems[activeFlashSaleIndex];
+  const base=Number(featured.regularPrice??featured.oldPrice??featured.price);
+  const pct=Math.max(1,Math.round((1-Number(featured.price)/base)*100));
+  link.href="producto.html?id="+featured.id;
+  link.setAttribute("aria-label","Oferta relámpago: "+featured.name+". "+pct+"% de descuento. Ver detalles y comprar.");
+  $("#featuredProductImage").src=(featured.images&&featured.images[0])||"images/streaming-placeholder.svg";
+  $("#featuredProductImage").alt=featured.name;
+  $("#featuredProductBadge").textContent="OFERTA "+(activeFlashSaleIndex+1)+"/"+saleItems.length;
+  $("#featuredProductName").textContent=featured.name;
+  $("#featuredProductDiscount").textContent=pct+"% OFF";
+  if(eyebrow)eyebrow.textContent="⚡ "+(activeFlashSale.title||"OFERTAS RELÁMPAGO").toLocaleUpperCase("es")+" · POR TIEMPO LIMITADO";
+  if(prices){
+   prices.hidden=false;
+   $("#featuredProductOldPrice").textContent=money(base);
+   $("#featuredProductPrice").textContent=money(featured.price);
+  }
+  if(countdown)countdown.hidden=false;
+  if(controls)controls.hidden=false;
+  card?.classList.add("is-flash-sale");
+  if(cta)cta.textContent="Aprovechar oferta y comprar ↗";
+  const floatLabel=$("#featuredFloatLabel");
+  if(floatLabel)floatLabel.innerHTML="⚡ <span>5–6 ofertas por tiempo limitado</span>";
+  renderFeaturedSaleDots(saleItems);
+  updateFeaturedSaleCountdown();
+  return;
+ }
+ const featured=products.find(p=>p.category!=="Streaming"&&p.oldPrice)||products.find(p=>p.category!=="Streaming");
+ if(!featured)return;
+ const pct=featured.oldPrice?Math.round((1-(featured.price/featured.oldPrice))*100):0;
+ link.href="producto.html?id="+featured.id;
+ link.setAttribute("aria-label","Ver detalles y comprar "+featured.name);
+ $("#featuredProductImage").src=(featured.images&&featured.images[0])||"";
+ $("#featuredProductImage").alt=featured.name;
+ $("#featuredProductBadge").textContent=featured.oldPrice?"OFERTA":"DESTACADO";
+ $("#featuredProductName").textContent=featured.name;
+ $("#featuredProductDiscount").textContent=featured.oldPrice?(pct+"% OFF"):"Ver producto";
+ if(eyebrow)eyebrow.textContent="DESCUBRE ALGO NUEVO · OFERTAS DESTACADAS";
+ if(countdown)countdown.hidden=true;if(prices)prices.hidden=true;if(controls)controls.hidden=true;
+ card?.classList.remove("is-flash-sale");
+ const floatLabel=$("#featuredFloatLabel");
+ if(floatLabel)floatLabel.innerHTML="★ <span>Productos seleccionados</span>";
+ if(cta)cta.textContent="Ver detalles y comprar ↗";
+}
 function renderCategories(){
   const streamingPage=document.body.dataset.page==='streaming';
   const metaByName=new Map(categoryMeta.map(item=>[item.name,item]));
@@ -409,7 +530,7 @@ function configureCheckoutPaymentMethods(form,allowContraentrega,digitalOnly,all
 
 async function checkoutWhatsApp(){
   if(!cart.length){toast("Añade al menos un producto");return;}
-  try{if(window.NovaShopDB?.isConfigured?.())await window.NovaShopDB.syncCatalog?.(products);}catch(error){console.warn("No se pudo actualizar el catálogo antes del checkout:",error);}
+  try{if(window.NovaShopDB?.isConfigured?.())await window.NovaShopDB.syncCatalog?.(products);}catch(error){console.warn("No se pudo actualizar el catálogo antes del checkout:",error);}syncCartPricesFromProducts();
   const capabilities=cart.map(item=>getProductPaymentCapabilities(product(item.id)));
   const allowBold=capabilities.every(item=>item.allowBold);
   const allowContraentrega=capabilities.every(item=>item.allowContraentrega)&&cartTotal()>12000;
@@ -707,11 +828,21 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(streamingPage){ $('#categorias')?.setAttribute('hidden',''); const h=$('.product-heading h2'); if(h) h.textContent='Plataformas de Streaming'; const eye=$('.product-heading .eyebrow'); if(eye) eye.textContent='SERVICIOS DIGITALES'; }
   renderFeaturedProduct(); renderCategories(); renderProducts(); renderCart();
   loadCatalogReviewStats();
-  window.NovaShopDB?.syncCatalog?.(products).then(()=>{renderCategories();renderProducts();renderFeaturedProduct();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
+  window.NovaShopDB?.syncCatalog?.(products).then(async()=>{syncCartPricesFromProducts();renderCategories();renderProducts();await loadHomepageFlashSale();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
   $('#categoryFilter').addEventListener('change',renderProducts); $('#audienceFilter')?.addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
   $('#minPriceFilter')?.addEventListener('input',renderProducts);$('#maxPriceFilter')?.addEventListener('input',renderProducts);$('#hideSoldOut')?.addEventListener('change',renderProducts);$('#onlyOffers')?.addEventListener('change',renderProducts);
   refreshFavoriteIds();
   $('#searchToggle').addEventListener('click',()=>{ const x=$('#searchBarWrap'); x.classList.toggle('open'); if(x.classList.contains('open')) $('#searchInput').focus(); });
+  $('#featuredSaleControls')?.addEventListener('click',event=>{
+    const dot=event.target.closest('[data-featured-sale-dot]');
+    const direction=event.target.closest('[data-featured-sale-slide]');
+    const items=currentFlashSaleProducts();
+    if(items.length<5)return;
+    if(dot)activeFlashSaleIndex=Number(dot.dataset.featuredSaleDot);
+    else if(direction)activeFlashSaleIndex=(activeFlashSaleIndex+(direction.dataset.featuredSaleSlide==="next"?1:items.length-1))%items.length;
+    else return;
+    renderFeaturedProduct();
+  });
   $('#quickAddClose')?.addEventListener('click',closeQuickAdd);
   $('#quickAddModal')?.addEventListener('click',event=>{if(event.target.id==='quickAddModal')closeQuickAdd();});
   $('#quickAddAudienceOptions')?.addEventListener('click',event=>{

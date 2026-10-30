@@ -738,3 +738,25 @@ execute function private.apply_order_stock();
 -- Service role grants for Dropi variants (2026-10-29).
 grant all on table public.product_variants to service_role;
 grant usage, select, update on sequence public.product_variants_id_seq to service_role;
+
+
+-- Flash sale campaigns: one shared countdown for 5–6 selected physical products.
+create table if not exists public.flash_sale_campaigns (
+  id smallint primary key default 1 check (id = 1),
+  title text not null default 'Ofertas relámpago',
+  product_ids integer[] not null default '{}',
+  sale_prices jsonb not null default '{}'::jsonb check (jsonb_typeof(sale_prices) = 'object'),
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz not null,
+  is_active boolean not null default false,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null,
+  constraint flash_sale_campaigns_max_products check (cardinality(product_ids) <= 6)
+);
+
+alter table public.flash_sale_campaigns enable row level security;
+grant select on public.flash_sale_campaigns to anon, authenticated;
+drop policy if exists "Public can read active flash sale" on public.flash_sale_campaigns;
+create policy "Public can read active flash sale"
+on public.flash_sale_campaigns for select to anon, authenticated
+using (is_active = true and starts_at <= now() and ends_at > now());

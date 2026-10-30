@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=51">
+  <link rel="stylesheet" href="styles.css?v=52">
   <link rel="stylesheet" href="storefront-enhancements.css?v=6">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
@@ -55,7 +55,7 @@
     <section class="hero">
       <div class="container hero-grid">
         <div class="hero-copy">
-          <span class="eyebrow">DESCUBRE ALGO NUEVO · OFERTAS DESTACADAS</span>
+          <span class="eyebrow" id="heroEyebrow">DESCUBRE ALGO NUEVO · OFERTAS DESTACADAS</span>
           <h1>Eso que buscas.<br><em>Está más cerca.</em></h1>
           <p>Encuentra productos y servicios digitales para disfrutar, resolver algo pendiente o darte ese gusto que llevas días pensando. Mira con calma, elige a tu manera y escríbenos si necesitas una mano.</p>
           <div class="hero-product-search" role="search" aria-label="Buscar en el catálogo">
@@ -82,10 +82,22 @@
     <img id="featuredProductImage" src="https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=1100&q=85" alt="Smartwatch Active X" fetchpriority="high">
     <span class="hero-badge" id="featuredProductBadge">OFERTA</span>
     <span class="featured-view-cta" id="featuredProductCta">Ver detalles y comprar ↗</span>
-    <div class="hero-caption"><span id="featuredProductName">Smartwatch Active X</span><strong id="featuredProductDiscount">31% OFF</strong></div>
+    <div class="featured-sale-countdown" id="featuredSaleCountdown" hidden><small>TERMINA EN</small><strong id="featuredSaleTimer">00:00:00</strong></div>
+    <div class="hero-caption">
+      <div class="hero-caption-main">
+        <span id="featuredProductName">Smartwatch Active X</span>
+        <div class="featured-sale-prices" id="featuredSalePrices" hidden><del id="featuredProductOldPrice"></del><b id="featuredProductPrice"></b></div>
+      </div>
+      <strong id="featuredProductDiscount">31% OFF</strong>
+    </div>
   </a>
+  <div class="featured-sale-controls" id="featuredSaleControls" hidden>
+    <button type="button" data-featured-sale-slide="prev" aria-label="Oferta anterior">‹</button>
+    <div id="featuredSaleDots" aria-label="Seleccionar oferta"></div>
+    <button type="button" data-featured-sale-slide="next" aria-label="Oferta siguiente">›</button>
+  </div>
   <div class="float-card float-one" aria-hidden="true">⚡ <span>Compra rápida</span></div>
-  <div class="float-card float-two" aria-hidden="true">★ <span>Productos seleccionados</span></div>
+  <div class="float-card float-two" id="featuredFloatLabel" aria-hidden="true">★ <span>Productos seleccionados</span></div>
 </div>
       </div>
     </section>
@@ -343,10 +355,10 @@
   </a>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script src="delivery-map.js?v=17"></script>
   <script src="supabase-config.js?v=17"></script>
-  <script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=17"></script>
+  <script src="supabase-client.js?v=39"></script><script src="auth-nav.js?v=17"></script>
   <script src="products.js?v=19"></script>
   <script src="bold-checkout.js?v=3"></script>
-  <script src="script.js?v=58"></script>
+  <script src="script.js?v=59"></script>
   <script src="storefront-enhancements.js?v=3"></script>
 </body>
 </html>

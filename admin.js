@@ -3,7 +3,7 @@
 const $=s=>document.querySelector(s), db=window.NovaShopDB;
 const money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, editingColorVariants=[], metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, ordersReloadQueued=false, ordersTotalCount=0, ordersPage=1, ordersPageSize=10, ordersSearchTimer=null, productEditorReturnFocus=null;
+let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, editingColorVariants=[], metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, ordersReloadQueued=false, ordersTotalCount=0, ordersPage=1, ordersPageSize=10, ordersSearchTimer=null, productEditorReturnFocus=null, adminFlashSale=null, flashSaleAdminProducts=[], flashSaleSelectedIds=new Set();
 function status(text,kind="info"){const el=$("#adminStatus");el.textContent=text;el.className="admin-status "+kind;}
 function setAdminSection(name){
  const nav=$("#adminSectionNav");
@@ -362,10 +362,120 @@ function configureRolePanels(){
  if(catalog)catalog.hidden=!canEdit&&currentRole!=="analyst";
  if(metricsWrap)metricsWrap.hidden=!canAnalyze;
  const addProduct=$("#addAdminProduct");if(addProduct)addProduct.hidden=!canEdit;
- const permissions={overview:canAnalyze,orders:canManage,catalog:canEdit||currentRole==="analyst",coupons:canManage,reviews:canManage,users:canManage};
+ const flashSaleWrap=$("#adminFlashSaleWrap");if(flashSaleWrap)flashSaleWrap.hidden=!canEdit;
+ const permissions={overview:canAnalyze,orders:canManage,catalog:canEdit||currentRole==="analyst",flashSale:canEdit,coupons:canManage,reviews:canManage,users:canManage};
  const nav=$("#adminSectionNav");if(nav)nav.hidden=false;
  nav?.querySelectorAll("[data-admin-tab]").forEach(button=>{button.hidden=!permissions[button.dataset.adminTab];});
  setAdminSection(canAnalyze?"overview":"catalog");
+}
+function flashSaleNotice(text,kind="info"){
+ const el=$("#adminFlashSaleStatus");if(!el)return;
+ el.textContent=text;el.className="admin-status "+kind;
+}
+function localDateTimeInput(value){
+ const date=value?new Date(value):new Date(Date.now()+24*60*60*1000);
+ if(Number.isNaN(date.getTime()))return "";
+ return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
+}
+function updateFlashSaleSelectionUi(){
+ const selected=flashSaleAdminProducts.filter(p=>flashSaleSelectedIds.has(Number(p.id)));
+ const count=$("#adminFlashSaleSelectionCount");
+ if(count)count.textContent=selected.length+" de 6 seleccionados";
+ let valid=selected.length>=5&&selected.length<=6;
+ const missing=[];
+ selected.forEach(p=>{
+  const input=$('[data-flash-sale-price="'+Number(p.id)+'"]');
+  const price=Number(input?.value);
+  if(!Number.isSafeInteger(price)||price<=0||price>=Number(p.price_cop)){
+   valid=false;missing.push(p.name);
+  }
+ });
+ const submit=$("#saveAdminFlashSale");
+ if(submit)submit.disabled=!valid;
+ const box=$("#adminFlashSaleProducts");
+ box?.querySelectorAll("[data-flash-sale-discount]").forEach(el=>{
+  const id=Number(el.dataset.flashSaleDiscount);
+  const product=flashSaleAdminProducts.find(p=>Number(p.id)===id);
+  const input=box.querySelector('[data-flash-sale-price="'+id+'"]');
+  const price=Number(input?.value);
+  if(!product||!Number.isSafeInteger(price)||price<=0||price>=Number(product.price_cop)){el.textContent="Introduce un precio menor al actual";el.className="flash-sale-admin-discount is-invalid";return;}
+  const pct=Math.round((1-price/Number(product.price_cop))*100);
+  el.textContent=pct+"% de descuento";el.className="flash-sale-admin-discount";
+ });
+}
+function renderAdminFlashSaleProducts(){
+ const box=$("#adminFlashSaleProducts");if(!box)return;
+ if(!flashSaleAdminProducts.length){box.innerHTML='<p class="admin-help">No hay productos físicos activos y disponibles para la campaña.</p>';return;}
+ box.innerHTML=flashSaleAdminProducts.map(p=>{
+  const id=Number(p.id),selected=flashSaleSelectedIds.has(id);
+  const current=adminFlashSale?.sale_prices?.[String(id)];
+  return '<article class="flash-sale-admin-product'+(selected?' is-selected':'')+'">'+
+   '<label class="flash-sale-admin-select"><input type="checkbox" data-flash-sale-select="'+id+'"'+(selected?' checked':'')+'><span>Seleccionar</span></label>'+
+   '<img src="'+esc((p.images||[])[0]||"images/streaming-placeholder.svg")+'" alt="'+esc(p.name)+'" loading="lazy">'+
+   '<div class="flash-sale-admin-product-info"><strong>'+esc(p.name)+'</strong><small>'+esc(p.category||"Producto físico")+' · #'+id+'</small><span>Precio habitual: <b>'+money(p.price_cop)+'</b></span>'+
+   '<label class="flash-sale-admin-price-label">Precio relámpago COP<input type="number" min="1" max="'+Math.max(1,Number(p.price_cop)-1)+'" step="1" data-flash-sale-price="'+id+'" value="'+(current!=null?esc(current):"")+'" placeholder="Ej. '+Math.round(Number(p.price_cop)*.7)+'"'+(selected?'':' disabled')+'></label>'+
+   '<small data-flash-sale-discount="'+id+'" class="flash-sale-admin-discount">Elige un precio especial menor al habitual</small></div></article>';
+ }).join("");
+ updateFlashSaleSelectionUi();
+}
+async function loadAdminFlashSale(){
+ if(!["owner","admin","catalog_manager"].includes(currentRole))return;
+ const refresh=$("#refreshAdminFlashSale");if(refresh){refresh.disabled=true;refresh.textContent="Cargando…";}
+ flashSaleNotice("Cargando campaña y productos disponibles…");
+ try{
+  const result=await call({action:"get-flash-sale"});
+  adminFlashSale=result.campaign||null;
+  flashSaleAdminProducts=Array.isArray(result.products)?result.products:[];
+  flashSaleSelectedIds=new Set((adminFlashSale?.product_ids||[]).map(Number).filter(id=>flashSaleAdminProducts.some(p=>Number(p.id)===id)));
+  const form=$("#adminFlashSaleForm");
+  if(form){
+   form.elements.title.value=adminFlashSale?.title||"Ofertas relámpago";
+   form.elements.ends_at.value=adminFlashSale?.ends_at&&new Date(adminFlashSale.ends_at)>new Date()
+    ? localDateTimeInput(adminFlashSale.ends_at):localDateTimeInput(null);
+  }
+  renderAdminFlashSaleProducts();
+  const pause=$("#pauseAdminFlashSale");if(pause)pause.hidden=!adminFlashSale?.is_active||new Date(adminFlashSale.ends_at)<=new Date();
+  if(adminFlashSale?.is_active&&new Date(adminFlashSale.ends_at)>new Date()){
+   flashSaleNotice("Campaña activa · termina "+new Date(adminFlashSale.ends_at).toLocaleString("es-CO",{dateStyle:"medium",timeStyle:"short"})+". Puedes ajustar productos y precios guardando una nueva configuración.","success");
+  }else{
+   flashSaleNotice("No hay una campaña activa. Selecciona 5 o 6 productos y define sus precios especiales.","info");
+  }
+ }catch(error){flashSaleNotice(error.message||"No se pudo cargar la campaña.","error");}
+ finally{if(refresh){refresh.disabled=false;refresh.textContent="Actualizar";}}
+}
+async function saveAdminFlashSale(event){
+ event.preventDefault();
+ const form=$("#adminFlashSaleForm");
+ const selected=flashSaleAdminProducts.filter(p=>flashSaleSelectedIds.has(Number(p.id)));
+ if(selected.length<5||selected.length>6){flashSaleNotice("Debes seleccionar entre 5 y 6 productos.","error");return;}
+ const prices={};
+ for(const p of selected){
+  const input=$('[data-flash-sale-price="'+Number(p.id)+'"]');
+  const price=Number(input?.value);
+  if(!Number.isSafeInteger(price)||price<=0||price>=Number(p.price_cop)){flashSaleNotice("El precio especial de "+p.name+" debe ser menor a "+money(p.price_cop)+".","error");input?.focus();return;}
+  prices[String(p.id)]=price;
+ }
+ const endValue=form.elements.ends_at.value;
+ const endsAt=new Date(endValue);
+ if(!endValue||Number.isNaN(endsAt.getTime())||endsAt.getTime()<Date.now()+5*60*1000||endsAt.getTime()>Date.now()+7*24*60*60*1000){
+  flashSaleNotice("La campaña debe terminar dentro de los próximos 7 días y tener al menos 5 minutos de duración.","error");return;
+ }
+ const submit=$("#saveAdminFlashSale");if(submit){submit.disabled=true;submit.textContent="Guardando campaña…";}
+ try{
+  const result=await call({action:"save-flash-sale",title:form.elements.title.value.trim()||"Ofertas relámpago",product_ids:selected.map(p=>Number(p.id)),product_prices:prices,ends_at:endsAt.toISOString()});
+  adminFlashSale=result.campaign||null;
+  flashSaleNotice("¡Campaña activada! Los productos seleccionados ya tienen su precio especial y la cuenta regresiva empieza ahora.","success");
+  await loadAdminFlashSale();
+ }catch(error){flashSaleNotice(error.message||"No se pudo activar la campaña.","error");}
+ finally{if(submit){submit.textContent="Activar ofertas relámpago";updateFlashSaleSelectionUi();}}
+}
+async function pauseAdminFlashSale(){
+ if(!adminFlashSale?.is_active)return;
+ if(!confirm("¿Detener la campaña? Los precios relámpago dejarán de aplicarse y los productos volverán a sus precios habituales."))return;
+ const button=$("#pauseAdminFlashSale");if(button){button.disabled=true;button.textContent="Deteniendo…";}
+ try{await call({action:"deactivate-flash-sale"});await loadAdminFlashSale();flashSaleNotice("Campaña detenida. Los precios habituales vuelven a aplicarse.","success");}
+ catch(error){flashSaleNotice(error.message||"No se pudo detener la campaña.","error");}
+ finally{if(button){button.disabled=false;button.textContent="Detener campaña";}}
 }
 async function loadProducts(){
  try{
@@ -980,6 +1090,23 @@ async function init(){
  $("#adminCouponForm")?.addEventListener("submit",saveAdminCoupon);
  $("#resetAdminCoupon")?.addEventListener("click",()=>{const f=$("#adminCouponForm");f.reset();f.elements.id.value="";f.elements.minimum_subtotal_cop.value="0";f.elements.is_active.checked=true;couponNotice("Formulario listo para crear un nuevo cupón.");});
  $("#refreshAdminReviews")?.addEventListener("click",loadAdminReviews);
+ $("#refreshAdminFlashSale")?.addEventListener("click",loadAdminFlashSale);
+ $("#adminFlashSaleForm")?.addEventListener("submit",saveAdminFlashSale);
+ $("#pauseAdminFlashSale")?.addEventListener("click",pauseAdminFlashSale);
+ $("#adminFlashSaleProducts")?.addEventListener("change",event=>{
+  const checkbox=event.target.closest("[data-flash-sale-select]");if(!checkbox)return;
+  const id=Number(checkbox.dataset.flashSaleSelect);
+  if(checkbox.checked){
+   if(flashSaleSelectedIds.size>=6){checkbox.checked=false;flashSaleNotice("Solo puedes seleccionar 6 productos como máximo.","error");return;}
+   flashSaleSelectedIds.add(id);
+  }else flashSaleSelectedIds.delete(id);
+  const card=checkbox.closest(".flash-sale-admin-product");card?.classList.toggle("is-selected",checkbox.checked);
+  const priceInput=card?.querySelector("[data-flash-sale-price]");if(priceInput)priceInput.disabled=!checkbox.checked;
+  updateFlashSaleSelectionUi();
+ });
+ $("#adminFlashSaleProducts")?.addEventListener("input",event=>{
+  if(event.target.matches("[data-flash-sale-price]"))updateFlashSaleSelectionUi();
+ });
  $("#filterAdminOrders")?.addEventListener("click",()=>loadAdminOrders(true));
  $("#adminOrderStatusFilter")?.addEventListener("change",()=>loadAdminOrders(true));
  let searchField=$("#adminOrderSearch");
@@ -999,6 +1126,7 @@ async function init(){
  try{const me=await call({action:"whoami"});currentRole=me.role;configureRolePanels();}
  catch(e){status(e.message||"Tu cuenta no tiene permisos de administración.","error");return;}
  await loadProducts();
+ if(["owner","admin","catalog_manager"].includes(currentRole))await loadAdminFlashSale();
  if(["owner","admin"].includes(currentRole)){await Promise.all([loadAdminUsers(),loadAdminOrders(true)]);loadAdminCoupons();loadAdminReviews();}
  db.client.auth.onAuthStateChange((_event,s)=>{if(!s){products=[];adminUsers=[];renderProducts();status("Sesión cerrada.","error");location.href="cuenta.html?tab=login";}});
 }

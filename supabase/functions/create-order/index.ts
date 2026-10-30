@@ -226,6 +226,26 @@ Deno.serve(async (req: Request) => {
     }
 
     const catalogById = new Map(catalog.map((p: any) => [p.id, p]));
+    const flashSalePriceByProduct = new Map<number,number>();
+    const {data:flashCampaign,error:flashCampaignError} = await admin.from("flash_sale_campaigns")
+      .select("product_ids,sale_prices,starts_at,ends_at,is_active").eq("id",1).maybeSingle();
+    if (flashCampaignError) throw flashCampaignError;
+    const orderPricingNow = Date.now();
+    if (flashCampaign?.is_active === true &&
+        new Date(flashCampaign.starts_at).getTime() <= orderPricingNow &&
+        new Date(flashCampaign.ends_at).getTime() > orderPricingNow) {
+      const flashIds = new Set((Array.isArray(flashCampaign.product_ids)?flashCampaign.product_ids:[]).map((id:any)=>Number(id)));
+      const priceMap = flashCampaign.sale_prices && typeof flashCampaign.sale_prices === "object"
+        ? flashCampaign.sale_prices : {};
+      for (const productId of ids) {
+        if (!flashIds.has(Number(productId))) continue;
+        const product:any = catalogById.get(Number(productId));
+        const salePrice = Number(priceMap[String(productId)]);
+        if (product && Number.isSafeInteger(salePrice) && salePrice > 0 && salePrice < Number(product.price_cop)) {
+          flashSalePriceByProduct.set(Number(productId),salePrice);
+        }
+      }
+    }
     const unavailablePaymentItem = items.find((item: any) => {
       const p: any = catalogById.get(item.product_id);
       const methods = Array.isArray(p?.payment_methods) && p.payment_methods.length
@@ -308,7 +328,8 @@ Deno.serve(async (req: Request) => {
     let subtotal = 0;
     const lines = items.map((item: any) => {
       const p: any = catalogById.get(item.product_id);
-      subtotal += Number(p.price_cop) * item.quantity;
+      const unitPrice = flashSalePriceByProduct.get(Number(p.id)) ?? Number(p.price_cop);
+      subtotal += unitPrice * item.quantity;
       const variants = Array.isArray(p.color_variants) ? p.color_variants : [];
       const chosenColor = variants.find((v: any) => clean(v?.name,40) === item.selected_variant);
       const rawSyncId = p.printful_enabled
@@ -316,7 +337,7 @@ Deno.serve(async (req: Request) => {
         : null;
       const syncVariantId = rawSyncId == null || rawSyncId === "" ? null : Number(rawSyncId);
       return {
-        product_id: p.id, product_name: p.name, unit_price_cop: p.price_cop,
+        product_id: p.id, product_name: p.name, unit_price_cop: unitPrice,
         quantity: item.quantity, delivery_type: p.delivery_type,
         selected_variant: item.selected_variant || null,
         selected_size: item.selected_size || null,
