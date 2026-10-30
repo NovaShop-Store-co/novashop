@@ -70,3 +70,7 @@
 
 .bulk-import-help.success{color:#267447;font-weight:700}
 .bulk-import-help.error{color:#a93427;font-weight:700}
+
+
+/* Product-specific data imported from a structured TXT. */
+.bulk-product-note-match{grid-column:1/-1;padding:7px 9px;border-radius:8px;background:#eef7f1;color:#236541;font-size:10px;font-weight:750;line-height:1.5}

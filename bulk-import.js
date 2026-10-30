@@ -29,6 +29,8 @@ let existingNames = new Set();
 let authorized = false;
 let importing = false;
 let loadedNoteText = "";
+let productRecords = [];
+let productRecordsFromStandalone = false;
 
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
@@ -62,26 +64,202 @@ async function readNoteFile(file) {
   let text = await file.text();
   text = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
   if (!text) throw new Error("El archivo TXT está vacío.");
-  const truncated = text.length > 4000;
-  if (truncated) text = text.slice(0,4000).trimEnd();
-  return {text,truncated};
+  return {text,truncated:false};
 }
+
+function parseStructuredProductNote(source) {
+  const lines = String(source || "").split(/\n/);
+  const records = [];
+  let current = null;
+  const headerPattern = /^\s*(.+?)\s*:?\s*ID\s*[:#]?\s*([A-Za-z0-9_-]+)\s*(.*)$/i;
+  function cleanName(value) {
+    return String(value || "").replace(/[:\s]+$/,"").replace(/^\s+/,"").trim();
+  }
+  function parseInline(record, value) {
+    const sizes = value.match(/Tallas?\s*:\s*(.+?)(?=\s+(?:Unisex|Hombre|Mujer)\b|\s+Color\s*:|\s+Descripci[oó]n\s*:|$)/i);
+    if (sizes) record.sizes = sizes[1].split(/[,;|]/).map(item=>item.trim()).filter(Boolean);
+    const color = value.match(/Color\s*:\s*([A-Za-zÁÉÍÓÚáéíóúÑñÜü -]+?)(?=\s+Descripci[oó]n\s*:|$)/i);
+    if (color) record.color = color[1].trim();
+    const audienceText = value + " " + record.features.join(" ");
+    if (/\bUnisex\b/i.test(audienceText)) record.audience = "unisex";
+    else if (/\bMujer(?:es)?\b/i.test(audienceText)) record.audience = "mujer";
+    else if (/\bHombre(?:s)?\b/i.test(audienceText)) record.audience = "hombre";
+  }
+  function finish(record) {
+    if (!record) return;
+    record.name = cleanName(record.name);
+    record.features = Array.from(new Set(record.features));
+    const featureText = record.features.map(item=>item.replace(/^[^:]+:\s*/,"")).filter(Boolean);
+    const parts = [];
+    if (record.color) parts.push("en color " + record.color);
+    const tela = record.features.find(item=>/^tela\s*:/i.test(item));
+    const horma = record.features.find(item=>/^horma\s*:/i.test(item));
+    const corte = record.features.find(item=>/^corte\s*:/i.test(item));
+    if (tela) parts.push("confeccionado en " + tela.split(":").slice(1).join(":").trim());
+    if (horma) parts.push("con horma " + horma.split(":").slice(1).join(":").trim());
+    if (corte) parts.push("y corte " + corte.split(":").slice(1).join(":").trim());
+    const extra = record.features.filter(item=>!/^tela\s*:/i.test(item)&&!/^horma\s*:/i.test(item)&&!/^corte\s*:/i.test(item));
+    let description = record.descriptionText || "";
+    if (!description && parts.length) description = record.name + " " + parts.join(", ") + ".";
+    if (!description) description = record.name + (featureText.length ? ". " + record.features.join(". ") + "." : ".");
+    if (record.sizes.length) description += " Disponible en tallas " + record.sizes.join(", ") + ".";
+    if (extra.length) description += " " + extra.join(". ") + ".";
+    record.description = description.replace(/\s+/g," ").trim();
+  }
+
+  for (const line of lines) {
+    const header = line.match(headerPattern);
+    if (header) {
+      finish(current);
+      current = {
+        id:header[2].trim(),
+        name:cleanName(header[1]),
+        sizes:[],
+        audience:"",
+        color:"",
+        descriptionText:"",
+        description:"",
+        features:[]
+      };
+      parseInline(current,header[3] || "");
+      records.push(current);
+      continue;
+    }
+    if (!current) continue;
+    const field = line.match(/^\s*([^:\n]{2,40})\s*:\s*(.*?)\s*$/);
+    if (!field) continue;
+    const label = field[1].trim();
+    const value = field[2].trim();
+    const key = normalize(label);
+    if (!value) continue;
+    if (key === "descripcion" || key === "caracteristicas") {
+      if (normalize(value) !== "caracteristicas") current.descriptionText = value;
+      continue;
+    }
+    if (key === "talla" || key === "tallas") {
+      current.sizes = value.split(/[,;|]/).map(item=>item.trim()).filter(Boolean);
+      continue;
+    }
+    if (key === "color") {
+      current.color = value;
+      continue;
+    }
+    current.features.push(label + ": " + value);
+    if (key === "horma") parseInline(current,value);
+  }
+  finish(current);
+  return records.filter(record=>record.name && record.id);
+}
+function colorFromRecord(value) {
+  const target = normalize(value);
+  return Object.keys(COLORS).find(color=>normalize(color)===target) || "";
+}
+function applyProductRecord(group, record) {
+  if (!group || !record || group.importedProductId) return;
+  group.txtRecordId = record.id;
+  group.name = record.name;
+  group.dropiProductId = record.id;
+  if (record.sizes.length) group.sizes = record.sizes.join(", ");
+  if (record.audience) group.audience = record.audience;
+  const mappedColor = colorFromRecord(record.color);
+  if (mappedColor) group.color = mappedColor;
+  group.features = record.features.slice(0,30);
+  group.description = record.description;
+  group.txtMatched = true;
+  group.error = "";
+}
+function matchProductRecord(group, usedIds) {
+  const source = normalize([
+    group.name,
+    ...group.files.map(entry=>entry.file.name),
+    ...group.files.map(entry=>entry.path || entry.file.webkitRelativePath || "")
+  ].join(" "));
+  const matches = productRecords.filter(record=>{
+    if (usedIds.has(record.id)) return false;
+    const name = normalize(record.name);
+    return name && source.includes(name);
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
+function applyProductRecordsToGroups() {
+  if (!productRecords.length || !groups.length) return;
+  const used = new Set(groups.map(group=>group.txtRecordId).filter(Boolean));
+  let matched = 0;
+  groups.forEach(group=>{
+    if (group.importedProductId || group.txtRecordId) return;
+    const record = matchProductRecord(group,used);
+    if (record) {
+      applyProductRecord(group,record);
+      used.add(record.id);
+      matched++;
+    }
+  });
+  const unassigned = productRecords.length - new Set(groups.map(group=>group.txtRecordId).filter(Boolean)).size;
+  noteStatus("TXT interpretado: " + productRecords.length + " fichas detectadas · " + matched +
+    " asignadas automáticamente · " + Math.max(0,unassigned) +
+    " pendientes de asignar desde las tarjetas. Los datos se distribuyen en sus campos correspondientes.",unassigned ? "info" : "success");
+}
+function assignProductRecord(groupId, recordId) {
+  const group = groups.find(item=>item.id===groupId);
+  if (!group || !recordId) return;
+  const record = productRecords.find(item=>item.id===recordId);
+  if (!record) return;
+  const alreadyUsed = groups.find(item=>item.id!==groupId && item.txtRecordId===record.id);
+  if (alreadyUsed) {
+    message("La ficha " + record.name + " ya está asignada a otro producto. Cada registro del TXT solo se puede usar una vez.", "error");
+    render();
+    return;
+  }
+  applyProductRecord(group,record);
+  render();
+  message("Datos de " + record.name + " aplicados a esta ficha: ID Dropi, tallas, público, color, descripción y características.","success");
+}
+function readFeatures(value) {
+  const features = Array.isArray(value) ? value : String(value || "").split(/\n|[,;]/);
+  return features.map(item=>String(item || "").trim()).filter(Boolean).slice(0,30);
+}
+
 function resolveNoteFile(noteFiles) {
   if (noteFiles.length === 1) return noteFiles[0];
   const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
   return preferred.length === 1 ? preferred[0] : null;
 }
-function setNoteText(text, filename, truncated=false) {
+function setNoteText(text, filename, truncated=false, standalone=false) {
   const field = $("#bulkDescription");
   if (!field) return;
-  field.value = text;
-  loadedNoteText = text;
+  const records = parseStructuredProductNote(text);
+  if (records.length) {
+    productRecords = records;
+    productRecordsFromStandalone = standalone;
+    if (loadedNoteText && field.value.trim() === loadedNoteText) field.value = "";
+    loadedNoteText = "";
+    groups.forEach(group=>{
+      if (!group.importedProductId) {
+        group.txtRecordId = "";
+        group.txtMatched = false;
+      }
+    });
+    applyProductRecordsToGroups();
+    noteStatus("TXT interpretado: " + records.length + " productos con ID, tallas y características. No se pegó el documento completo en las descripciones.", "success");
+    render();
+    return;
+  }
+  productRecords = [];
+  productRecordsFromStandalone = false;
+  const generalText = text.slice(0,4000);
+  const wasTruncated = truncated || text.length > 4000;
+  field.value = generalText;
+  loadedNoteText = generalText;
   groups.forEach(group => {
-    if (!group.importedProductId) group.description = text;
+    if (!group.importedProductId) {
+      group.description = generalText;
+      group.txtRecordId = "";
+      group.txtMatched = false;
+    }
   });
-  noteStatus("Nota cargada: " + filename + ". Se aplicó como descripción a " +
+  noteStatus("Nota general cargada: se aplicó como descripción a " +
     groups.filter(group => !group.importedProductId).length + " producto(s) pendiente(s)." +
-    (truncated ? " Se limitaron los primeros 4.000 caracteres." : ""), truncated ? "error" : "success");
+    (wasTruncated ? " Se limitaron los primeros 4.000 caracteres." : ""), wasTruncated ? "error" : "success");
   render();
 }
 function message(text, type) {
@@ -163,16 +341,17 @@ function makeGroups(list) {
         stock:$("#bulkStock")?.value||"", sizes:$("#bulkSizes")?.value||"",
         description:$("#bulkDescription")?.value||"", color:"",
         audience:$("#bulkAudience")?.value||"",
-        dropiProductId:"",
+        dropiProductId:"", features:[], txtRecordId:"", txtMatched:false,
         files:[], importedProductId:null, error:""
       });
     }
     map.get(key).files.push(entry);
   });
-  return Array.from(map.values()).map(group => {
+  const result = Array.from(map.values()).map(group => {
     group.color = detectColor(group.files);
     return group;
   });
+  return result;
 }
 
 let aiExtractorPromise = null;
@@ -202,7 +381,7 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
     description:$("#bulkDescription")?.value||"",
     color:detectColor(fileEntries),
     audience:$("#bulkAudience")?.value||"",
-    dropiProductId:"",
+    dropiProductId:"", features:[], txtRecordId:"", txtMatched:false,
     files:fileEntries.slice(),
     importedProductId:null,
     error:"",
@@ -213,6 +392,10 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
   };
 }
 function rebuildAiGroups() {
+  const previousRecordByFile = new Map();
+  groups.forEach(group=>{
+    if (group.txtRecordId) group.files.forEach(entry=>previousRecordByFile.set(entry,group.txtRecordId));
+  });
   const threshold=currentAiThreshold();
   const vectors=entries.filter(entry=>entry.aiVector && entry.aiVector.length);
   const failed=entries.filter(entry=>!entry.aiVector || !entry.aiVector.length);
@@ -252,6 +435,14 @@ function rebuildAiGroups() {
   groups=clusters.map((cluster,index)=>createAiGroup(
     cluster.items,index,cluster.minimum,!!cluster.analysisFailed
   ));
+  groups.forEach(group=>{
+    const assignedIds = new Set(group.files.map(entry=>previousRecordByFile.get(entry)).filter(Boolean));
+    if (assignedIds.size === 1) {
+      const record = productRecords.find(item=>item.id === Array.from(assignedIds)[0]);
+      if (record) applyProductRecord(group,record);
+    }
+  });
+  applyProductRecordsToGroups();
   page=0;
   selectedGroups.clear();
   render();
@@ -429,6 +620,12 @@ function render() {
         '<option value="mujer"' + (group.audience === "mujer" ? " selected" : "") + '>Mujer</option>',
         '<option value="unisex"' + (group.audience === "unisex" ? " selected" : "") + '>Unisex</option>'
       ].join("");
+      const txtRecordOptions = ['<option value="">Sin ficha TXT asignada</option>'].concat(productRecords.map(record=>{
+        const usedElsewhere = groups.some(other=>other.id !== group.id && other.txtRecordId === record.id);
+        return '<option value="' + esc(record.id) + '"' + (group.txtRecordId === record.id ? " selected" : "") +
+          (usedElsewhere ? " disabled" : "") + '>' +
+          esc(record.name + " · Dropi " + record.id + (usedElsewhere ? " · ya asignado" : "")) + '</option>';
+      })).join("");
       const duplicateWarning = groupHasDuplicateName(group) ?
         '<div class="bulk-product-warning">Ya existe un producto con este nombre en NovaShop. Cambia el nombre o activa la opción para permitir duplicados.</div>' : "";
       const genericWarning = group.name.startsWith("Producto por identificar") ?
@@ -443,6 +640,8 @@ function render() {
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
         '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
+        (productRecords.length ? '<label class="wide">Datos individuales del TXT<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Selecciona la referencia que corresponde a las fotos si no se asignó automáticamente.</span></label>' : '') +
+        (group.txtMatched ? '<div class="bulk-product-note-match wide">Ficha del TXT aplicada: Dropi ' + esc(group.txtRecordId) + '</div>' : '') +
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
         '<label>Público objetivo *<select data-product-field="audience" data-group-id="' + group.id + '">' + audienceOptions + '</select></label>' +
@@ -452,7 +651,8 @@ function render() {
         '<label>Stock general<input type="number" min="0" step="1" data-product-field="stock" data-group-id="' + group.id + '" value="' + esc(group.stock) + '" placeholder="Vacío = sin control"></label>' +
         '<label>Tallas (separadas por coma)<input maxlength="600" data-product-field="sizes" data-group-id="' + group.id + '" value="' + esc(group.sizes) + '" placeholder="S, M, L, XL"></label>' +
         '<label>Color sugerido por nombre de archivo<select data-product-field="color" data-group-id="' + group.id + '">' + colorOptions + '</select></label>' +
-        '<label class="wide">Descripción general aplicada<textarea maxlength="4000" data-product-field="description" data-group-id="' + group.id + '">' + esc(group.description) + '</textarea></label>' +
+        '<label class="wide">Descripción del producto<textarea maxlength="4000" data-product-field="description" data-group-id="' + group.id + '">' + esc(group.description) + '</textarea></label>' +
+        '<label class="wide">Características (una por línea)<textarea maxlength="3000" data-product-field="featuresText" data-group-id="' + group.id + '" placeholder="Tela: Algodón peinado">' + esc((group.features || []).join("\n")) + '</textarea></label>' +
         '</div><div class="bulk-product-images">' + thumbs + '</div>' +
         '<div class="bulk-product-card-actions"><button type="button" data-split-group="' + group.id + '">Separar cada foto</button><button type="button" data-remove-group="' + group.id + '">Quitar producto</button></div>' +
         '</article>';
@@ -476,7 +676,7 @@ function applyDefaults() {
     group.oldPrice = $("#bulkOldPrice").value;
     group.stock = $("#bulkStock").value;
     group.sizes = $("#bulkSizes").value;
-    group.description = $("#bulkDescription").value;
+    if ($("#bulkDescription").value.trim()) group.description = $("#bulkDescription").value;
     group.audience = $("#bulkAudience").value;
   });
   render();
@@ -504,6 +704,7 @@ function splitGroup(id) {
       price:group.price, oldPrice:group.oldPrice, stock:group.stock, sizes:group.sizes,
       description:group.description, color:detectColor([entry]), audience:group.audience,
       dropiProductId:index===0?(group.dropiProductId||""):"",
+      features:(group.features || []).slice(), txtRecordId:index===0?(group.txtRecordId||""):"", txtMatched:index===0&&!!group.txtMatched,
       files:[entry], importedProductId:null,error:""
     });
   });
@@ -566,6 +767,7 @@ function validateGroup(group) {
   if (!$("#bulkAllowDuplicates").checked && groupHasDuplicateName(group)) return "Ya existe un producto con este nombre; cámbialo o permite duplicados.";
   if ($("#bulkPublishNow").checked && group.name.startsWith("Producto por identificar")) return "Completa el nombre real antes de publicar.";
   try { readSizes(group.sizes); } catch (error) { return error.message; }
+  if (Array.isArray(group.features) && group.features.length > 30) return "Un producto admite máximo 30 características.";
   return "";
 }
 async function uploadOne(entry) {
@@ -608,7 +810,7 @@ async function importGroup(group,index,total) {
     action:"save",id:null,name:String(group.name).trim(),category:String(group.category).trim(),
     delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
     stock_quantity:stock,size_variants:sizes,dropi_product_id:String(group.dropiProductId || "").trim(),dropi_variants:[],
-    description:String(group.description).trim(),features:[],images:urls.slice(0,MAX_IMAGES_PER_PRODUCT),
+    description:String(group.description).trim(),features:readFeatures(group.features),images:urls.slice(0,MAX_IMAGES_PER_PRODUCT),
     color_variants:color,video_url:null,tag:oldPrice !== null ? "OFERTA" : "NUEVO",
     shipping:"",payment_methods:delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"],
     is_active:!!$("#bulkPublishNow").checked,sort_order:1000+index,
@@ -714,6 +916,7 @@ async function addFiles(fileList, options={}) {
     return;
   }
   const replaceSelection = options.replace === true;
+  if (replaceSelection && !productRecordsFromStandalone) productRecords = [];
   const noteFiles = incoming.filter(isTextNote);
   const imageFiles = incoming.filter(isAllowedImage);
   const unsupported = incoming.filter(file => !isTextNote(file) && !isAllowedImage(file));
@@ -776,6 +979,7 @@ async function addFiles(fileList, options={}) {
     (noteInfo ? "Nota TXT leída. " : "") + "Se añadieron " + valid.length + " imagen(es). Comprobando duplicados…");
   await hashEntries(valid);
   groups = makeGroups(entries);
+  applyProductRecordsToGroups();
   page = 0;
   selectedGroups.clear();
   render();
@@ -831,7 +1035,7 @@ $("#bulkNoteFile")?.addEventListener("change",async event => {
   if (!file) return;
   try {
     const note = await readNoteFile(file);
-    setNoteText(note.text,file.name,note.truncated);
+    setNoteText(note.text,file.name,note.truncated,true);
     message("Nota TXT cargada y aplicada a los productos pendientes.",note.truncated ? "error" : "success");
   } catch (error) {
     noteStatus(error?.message || "No se pudo leer la nota TXT.","error");
@@ -856,10 +1060,14 @@ $("#bulkResetButton")?.addEventListener("click",() => {
   if (entries.length && !window.confirm("¿Quitar las imágenes y los productos preparados de esta importación?")) return;
   cleanupPreviews();
   entries=[];groups=[];selectedGroups.clear();page=0;
+  productRecords=[];
+  productRecordsFromStandalone=false;
   $("#bulkFolder").value="";$("#bulkImages").value="";
+  if ($("#bulkNoteFile")) $("#bulkNoteFile").value="";
   $("#bulkImportResults").innerHTML="";
   progress(0,0,"");
   render();
+  noteStatus("Importación limpia. Puedes seleccionar una nueva carpeta y su TXT.");
   message("Importación limpia. Puedes seleccionar otra carpeta.");
 });
 $("#bulkImportButton")?.addEventListener("click",() => { void runImport(); });
@@ -869,13 +1077,22 @@ $("#bulkGroupList")?.addEventListener("input",event => {
   if (!field) return;
   const group = groups.find(item => item.id === Number(field.dataset.groupId));
   if (!group) return;
-  group[field.dataset.productField] = field.value;
+  if (field.dataset.productField === "featuresText") group.features = readFeatures(field.value);
+  else group[field.dataset.productField] = field.value;
 });
 $("#bulkGroupList")?.addEventListener("change",event => {
+  const recordSelector = event.target.closest("[data-product-record]");
+  if (recordSelector) {
+    assignProductRecord(Number(recordSelector.dataset.productRecord),recordSelector.value);
+    return;
+  }
   const field = event.target.closest("[data-product-field]");
   if (field) {
     const group = groups.find(item => item.id === Number(field.dataset.groupId));
-    if (group) group[field.dataset.productField] = field.value;
+    if (group) {
+      if (field.dataset.productField === "featuresText") group.features = readFeatures(field.value);
+      else group[field.dataset.productField] = field.value;
+    }
   }
   const checkbox = event.target.closest("[data-select-group]");
   if (checkbox) {

@@ -5,7 +5,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=49">
-<link rel="stylesheet" href="bulk-import.css?v=2">
+<link rel="stylesheet" href="bulk-import.css?v=3">
 <style>
 .admin-page-wrap{max-width:1180px;margin:32px auto 70px;padding:0 20px}
 .admin-title{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-bottom:22px}.admin-title h1{margin:6px 0;font-size:34px;letter-spacing:-.05em}.admin-title p{margin:0;color:#697783;font-size:13px}
@@ -287,7 +287,7 @@ body.product-editor-open{overflow:hidden}
   <label>Cargar nota TXT<input id="bulkNoteFile" type="file" accept=".txt,text/plain"><span class="bulk-import-help">Selecciona una nota por separado. Su contenido se copiará como descripción general a las fichas pendientes.</span></label>
  </div>
  <div class="bulk-import-config">
-  <label class="wide">Nota / descripción general *<textarea id="bulkDescription" maxlength="4000" placeholder="Ej. Camisa casual de uso diario. Consulta las características y medidas disponibles antes de comprar. No incluyas atributos que no estén confirmados."></textarea><span id="bulkNoteStatus" class="bulk-import-help">Puedes escribir aquí la descripción o cargar un TXT. El contenido se utilizará como descripción de los productos, no como archivo adjunto.</span></label>
+  <label class="wide">Descripción general manual (opcional)<textarea id="bulkDescription" maxlength="4000" placeholder="Se usará únicamente cuando el TXT no tenga fichas individuales o cuando desees aplicar un texto general."></textarea><span id="bulkNoteStatus" class="bulk-import-help">Los TXT con registros de productos se interpretan por ficha: nombre, ID Dropi, tallas, público, color, descripción y características. Las notas sin estructura se tratan como descripción general.</span></label>
   <label>Categoría general *<select id="bulkCategory"><option value="">Selecciona categoría</option><option>Tecnología</option><option>Hogar</option><option>Moda</option><option>Accesorios</option><option>Oficina</option><option>Streaming</option><option>Belleza</option><option>Deportes</option><option>Otra</option></select></label>
   <label>Precio de venta general COP *<input id="bulkPrice" type="number" min="1" step="1" placeholder="Ej. 59900"></label>
   <label>Precio anterior COP (opcional)<input id="bulkOldPrice" type="number" min="1" step="1" placeholder="Opcional"></label>
@@ -358,5 +358,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=5"></script>
 </body></html>
