@@ -71,25 +71,41 @@ function parseStructuredProductNote(source) {
   const lines = String(source || "").split(/\n/);
   const records = [];
   let current = null;
-  const headerPattern = /^\s*(.+?)\s*:?\s*ID\s*[:#]?\s*([A-Za-z0-9_-]+)\s*(.*)$/i;
+  const legacyHeader = /^\s*(.+?)\s*:?\s*ID\s*[:#]?\s*([A-Za-z0-9_-]+)\s*(.*)$/i;
+
   function cleanName(value) {
     return String(value || "").replace(/[:\s]+$/,"").replace(/^\s+/,"").trim();
   }
+  function isPlaceholder(value) {
+    const text = normalize(String(value || "").replace(/[()]/g," "));
+    return !text || /^(?:que lo ponga la ia|que lo haga la ia|lo pone la ia|lo genera la ia|pendiente|por definir|n a|no aplica)$/.test(text);
+  }
+  function parseAmount(value) {
+    const digits = String(value || "").replace(/[^\d]/g,"");
+    if (!digits) return "";
+    const amount = Number(digits);
+    return Number.isSafeInteger(amount) && amount > 0 ? String(amount) : "";
+  }
+  function setAudience(record, value) {
+    const text = normalize(value);
+    if (/unisex/.test(text)) record.audience = "unisex";
+    else if (/\bmujer(?:es)?\b/.test(text)) record.audience = "mujer";
+    else if (/\bhombre(?:s)?\b/.test(text)) record.audience = "hombre";
+  }
+  function parseSizes(value) {
+    return String(value || "").split(/[,;|]/).map(item=>item.trim()).filter(Boolean);
+  }
   function parseInline(record, value) {
     const sizes = value.match(/Tallas?\s*:\s*(.+?)(?=\s+(?:Unisex|Hombre|Mujer)\b|\s+Color\s*:|\s+Descripci[oó]n\s*:|$)/i);
-    if (sizes) record.sizes = sizes[1].split(/[,;|]/).map(item=>item.trim()).filter(Boolean);
+    if (sizes) record.sizes = parseSizes(sizes[1]);
     const color = value.match(/Color\s*:\s*([A-Za-zÁÉÍÓÚáéíóúÑñÜü -]+?)(?=\s+Descripci[oó]n\s*:|$)/i);
     if (color) record.color = color[1].trim();
-    const audienceText = value + " " + record.features.join(" ");
-    if (/\bUnisex\b/i.test(audienceText)) record.audience = "unisex";
-    else if (/\bMujer(?:es)?\b/i.test(audienceText)) record.audience = "mujer";
-    else if (/\bHombre(?:s)?\b/i.test(audienceText)) record.audience = "hombre";
+    setAudience(record,value);
   }
   function finish(record) {
     if (!record) return;
     record.name = cleanName(record.name);
     record.features = Array.from(new Set(record.features));
-    const featureText = record.features.map(item=>item.replace(/^[^:]+:\s*/,"")).filter(Boolean);
     const parts = [];
     if (record.color) parts.push("en color " + record.color);
     const tela = record.features.find(item=>/^tela\s*:/i.test(item));
@@ -100,55 +116,88 @@ function parseStructuredProductNote(source) {
     if (corte) parts.push("y corte " + corte.split(":").slice(1).join(":").trim());
     const extra = record.features.filter(item=>!/^tela\s*:/i.test(item)&&!/^horma\s*:/i.test(item)&&!/^corte\s*:/i.test(item));
     let description = record.descriptionText || "";
-    if (!description && parts.length) description = record.name + " " + parts.join(", ") + ".";
-    if (!description) description = record.name + (featureText.length ? ". " + record.features.join(". ") + "." : ".");
-    if (record.sizes.length) description += " Disponible en tallas " + record.sizes.join(", ") + ".";
-    if (extra.length) description += " " + extra.join(". ") + ".";
+    if (!description) {
+      description = record.name + (parts.length ? " " + parts.join(", ") : "") + ".";
+      if (record.sizes.length) description += " Disponible en tallas " + record.sizes.join(", ") + ".";
+      if (extra.length) description += " " + extra.join(". ") + ".";
+    }
     record.description = description.replace(/\s+/g," ").trim();
+  }
+  function createRecord(name,id) {
+    return {
+      id:String(id || "").trim(),name:cleanName(name),category:"",price:"",oldPrice:"",
+      sizes:[],audience:"",color:"",descriptionText:"",description:"",features:[]
+    };
   }
 
   for (const line of lines) {
-    const header = line.match(headerPattern);
-    if (header) {
+    const legacy = line.match(legacyHeader);
+    if (legacy) {
       finish(current);
-      current = {
-        id:header[2].trim(),
-        name:cleanName(header[1]),
-        sizes:[],
-        audience:"",
-        color:"",
-        descriptionText:"",
-        description:"",
-        features:[]
-      };
-      parseInline(current,header[3] || "");
+      current = createRecord(legacy[1],legacy[2]);
+      parseInline(current,legacy[3] || "");
       records.push(current);
       continue;
     }
-    if (!current) continue;
-    const field = line.match(/^\s*([^:\n]{2,40})\s*:\s*(.*?)\s*$/);
+    const field = line.match(/^\s*([^:\n]{2,60})\s*:\s*(.*?)\s*$/);
     if (!field) continue;
     const label = field[1].trim();
     const value = field[2].trim();
     const key = normalize(label);
-    if (!value) continue;
-    if (key === "descripcion" || key === "caracteristicas") {
-      if (normalize(value) !== "caracteristicas") current.descriptionText = value;
+
+    if (key === "nombre del producto" || key === "nombre del producto dropi" || key === "nombre") {
+      finish(current);
+      current = createRecord(value,"");
+      records.push(current);
+      continue;
+    }
+    if (!current) continue;
+
+    if (key === "id del producto en dropi" || key === "id dropi" || key === "dropi id" || key === "id") {
+      current.id = value.replace(/^#\s*/,"").trim();
+      continue;
+    }
+    if (key === "categoria" || key === "categoría") {
+      current.category = value;
+      continue;
+    }
+    if (key === "publico objetivo" || key === "publico" || key === "audiencia") {
+      setAudience(current,value);
+      continue;
+    }
+    if (key === "precio venta" || key === "precio de venta" || key === "precio") {
+      current.price = parseAmount(value);
+      continue;
+    }
+    if (key === "precio anterior" || key === "precio antes") {
+      current.oldPrice = parseAmount(value);
       continue;
     }
     if (key === "talla" || key === "tallas") {
-      current.sizes = value.split(/[,;|]/).map(item=>item.trim()).filter(Boolean);
+      current.sizes = parseSizes(value);
       continue;
     }
     if (key === "color") {
       current.color = value;
       continue;
     }
-    current.features.push(label + ": " + value);
-    if (key === "horma") parseInline(current,value);
+    if (key === "descripcion" || key === "descripción") {
+      if (!isPlaceholder(value)) current.descriptionText = value;
+      continue;
+    }
+    if (key === "caracteristicas" || key === "características") {
+      if (!isPlaceholder(value)) {
+        value.split(/[;|]/).map(item=>item.trim()).filter(Boolean).forEach(item=>current.features.push(item));
+      }
+      continue;
+    }
+    if (!isPlaceholder(value)) current.features.push(label + ": " + value);
   }
   finish(current);
-  return records.filter(record=>record.name && record.id);
+  const valid = records.filter(record=>record.name && record.id);
+  const idCounts = new Map();
+  valid.forEach(record=>idCounts.set(record.id,(idCounts.get(record.id)||0)+1));
+  return valid.filter(record=>idCounts.get(record.id) === 1);
 }
 function colorFromRecord(value) {
   const target = normalize(value);
@@ -159,25 +208,27 @@ function applyProductRecord(group, record) {
   group.txtRecordId = record.id;
   group.name = record.name;
   group.dropiProductId = record.id;
+  if (record.category && CATEGORIES.includes(record.category)) group.category = record.category;
+  if (record.price) group.price = record.price;
+  if (record.oldPrice) group.oldPrice = record.oldPrice;
   if (record.sizes.length) group.sizes = record.sizes.join(", ");
   if (record.audience) group.audience = record.audience;
   const mappedColor = colorFromRecord(record.color);
   if (mappedColor) group.color = mappedColor;
-  group.features = record.features.slice(0,30);
-  group.description = record.description;
+  if (record.features.length) group.features = record.features.slice(0,30);
+  if (record.description) group.description = record.description;
   group.txtMatched = true;
   group.error = "";
 }
 function matchProductRecord(group, usedIds) {
-  const source = normalize([
-    group.name,
-    ...group.files.map(entry=>entry.file.name),
-    ...group.files.map(entry=>entry.path || entry.file.webkitRelativePath || "")
-  ].join(" "));
+  const source = group.files.map(entry=>[
+    entry.file.name,
+    entry.path || entry.file.webkitRelativePath || ""
+  ].join(" ")).join(" ");
   const matches = productRecords.filter(record=>{
-    if (usedIds.has(record.id)) return false;
-    const name = normalize(record.name);
-    return name && source.includes(name);
+    if (usedIds.has(record.id) || !record.id || !/^[A-Za-z0-9_-]+$/.test(record.id)) return false;
+    const exactIdPattern = new RegExp("(^|[^A-Za-z0-9])" + record.id + "(?=$|[^A-Za-z0-9])","i");
+    return exactIdPattern.test(source);
   });
   return matches.length === 1 ? matches[0] : null;
 }
@@ -195,24 +246,30 @@ function applyProductRecordsToGroups() {
     }
   });
   const unassigned = productRecords.length - new Set(groups.map(group=>group.txtRecordId).filter(Boolean)).size;
-  noteStatus("TXT interpretado: " + productRecords.length + " fichas detectadas · " + matched +
-    " asignadas automáticamente · " + Math.max(0,unassigned) +
-    " pendientes de asignar desde las tarjetas. Los datos se distribuyen en sus campos correspondientes.",unassigned ? "info" : "success");
+  noteStatus("TXT interpretado: " + productRecords.length + " fichas con ID único · " + matched +
+    " vinculadas por ID exacto presente en los nombres/rutas de las fotos · " + Math.max(0,unassigned) +
+    " pendientes de vincular. Asígnalas en cada tarjeta usando el ID de Dropi.",unassigned ? "info" : "success");
 }
 function assignProductRecord(groupId, recordId) {
   const group = groups.find(item=>item.id===groupId);
-  if (!group || !recordId) return;
+  if (!group || group.importedProductId) return;
+  if (!recordId) {
+    group.txtRecordId = "";
+    group.txtMatched = false;
+    render();
+    return;
+  }
   const record = productRecords.find(item=>item.id===recordId);
   if (!record) return;
   const alreadyUsed = groups.find(item=>item.id!==groupId && item.txtRecordId===record.id);
   if (alreadyUsed) {
-    message("La ficha " + record.name + " ya está asignada a otro producto. Cada registro del TXT solo se puede usar una vez.", "error");
+    message("El ID Dropi " + record.id + " ya está vinculado a otra tarjeta. Cada ID solo puede asignarse una vez.", "error");
     render();
     return;
   }
   applyProductRecord(group,record);
   render();
-  message("Datos de " + record.name + " aplicados a esta ficha: ID Dropi, tallas, público, color, descripción y características.","success");
+  message("Ficha vinculada correctamente por ID Dropi " + record.id + ". Se aplicaron sus datos a este producto.","success");
 }
 function readFeatures(value) {
   const features = Array.isArray(value) ? value : String(value || "").split(/\n|[,;]/);
@@ -640,7 +697,7 @@ function render() {
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
         '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
-        (productRecords.length ? '<label class="wide">Datos individuales del TXT<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Selecciona la referencia que corresponde a las fotos si no se asignó automáticamente.</span></label>' : '') +
+        (productRecords.length ? '<label class="wide">Vincular ficha por ID Dropi<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Elige el ID exacto que corresponde a este grupo de fotos. Si el ID aparece en el nombre de archivo o carpeta, se vincula automáticamente.</span></label>' : '') +
         (group.txtMatched ? '<div class="bulk-product-note-match wide">Ficha del TXT aplicada: Dropi ' + esc(group.txtRecordId) + '</div>' : '') +
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
