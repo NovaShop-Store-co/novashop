@@ -133,6 +133,166 @@ function makeGroups(list) {
     return group;
   });
 }
+
+let aiExtractorPromise = null;
+let aiProcessing = false;
+
+function cosineSimilarity(a,b) {
+  if (!a || !b || a.length !== b.length || !a.length) return -1;
+  let dot = 0;
+  for (let i=0;i<a.length;i++) dot += a[i] * b[i];
+  return dot;
+}
+function currentAiThreshold() {
+  const value = Number($("#bulkAiThreshold")?.value || 78);
+  return Math.max(0.65,Math.min(0.95,value/100));
+}
+function createAiGroup(fileEntries,index,minimumSimilarity) {
+  const firstNamed = fileEntries.find(entry => !isGenericName(filenameStem(entry.file)));
+  const sourceName = firstNamed ? filenameStem(firstNamed.file) : "";
+  return {
+    id:nextGroupId++,
+    name:prettyName(sourceName,index+1),
+    category:$("#bulkCategory")?.value||"",
+    price:$("#bulkPrice")?.value||"",
+    oldPrice:$("#bulkOldPrice")?.value||"",
+    stock:$("#bulkStock")?.value||"",
+    sizes:$("#bulkSizes")?.value||"",
+    description:$("#bulkDescription")?.value||"",
+    color:detectColor(fileEntries),
+    files:fileEntries.slice(),
+    importedProductId:null,
+    error:"",
+    aiSimilarity:minimumSimilarity,
+    aiSuggested:true
+  };
+}
+function rebuildAiGroups() {
+  const threshold=currentAiThreshold();
+  const vectors=entries.filter(entry=>entry.aiVector && entry.aiVector.length);
+  const failed=entries.filter(entry=>!entry.aiVector || !entry.aiVector.length);
+  if (!vectors.length) {
+    message("No hay representaciones visuales disponibles. Vuelve a intentar el análisis de IA.", "error");
+    return;
+  }
+
+  // Complete-link style grouping: every photo in a candidate group must be
+  // sufficiently similar to every other photo in that group.
+  const clusters=[];
+  for (const entry of vectors) {
+    let bestCluster=null;
+    let bestMinimum=threshold;
+    for (const cluster of clusters) {
+      let minimum=1;
+      for (const member of cluster.items) {
+        minimum=Math.min(minimum,cosineSimilarity(entry.aiVector,member.aiVector));
+        if (minimum < bestMinimum) break;
+      }
+      if (minimum >= bestMinimum) {
+        bestMinimum=minimum;
+        bestCluster=cluster;
+      }
+    }
+    if (bestCluster) {
+      bestCluster.items.push(entry);
+      bestCluster.minimum=Math.min(bestCluster.minimum,bestMinimum);
+    } else {
+      clusters.push({items:[entry],minimum:null});
+    }
+  }
+
+  // Failed images remain separate; do not silently assign unknown photos.
+  failed.forEach(entry=>clusters.push({items:[entry],minimum:null,analysisFailed:true}));
+
+  groups=clusters.map((cluster,index)=>createAiGroup(
+    cluster.items,index,cluster.minimum
+  ));
+  page=0;
+  selectedGroups.clear();
+  render();
+
+  const grouped=groups.filter(group=>group.files.length>1).length;
+  message(
+    "IA visual lista: "+vectors.length+" fotos analizadas · "+groups.length+
+    " grupos sugeridos · "+grouped+" grupos con varias fotos"+
+    (failed.length?" · "+failed.length+" foto(s) sin analizar, separadas para revisión":"")+
+    ". Revisa las tarjetas y ajusta la similitud si hace falta.",
+    failed.length?"error":"success"
+  );
+}
+async function getAiExtractor() {
+  if (aiExtractorPromise) return aiExtractorPromise;
+  aiExtractorPromise=(async()=>{
+    message("Cargando el motor de IA visual desde Hugging Face. La primera carga puede tardar un poco…");
+    const library=await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1");
+    if (library.env) {
+      library.env.allowLocalModels=false;
+      library.env.useBrowserCache=true;
+    }
+    const extractor=await library.pipeline(
+      "image-feature-extraction",
+      "Xenova/clip-vit-base-patch32",
+      {revision:"d15189d7028b43f1d3e65039190477f6af591c2a"}
+    );
+    return {extractor,RawImage:library.RawImage};
+  })().catch(error=>{
+    aiExtractorPromise=null;
+    throw error;
+  });
+  return aiExtractorPromise;
+}
+async function runVisualAi() {
+  if (aiProcessing || importing || !entries.length) return;
+  aiProcessing=true;
+  const button=$("#bulkVisualAiButton");
+  const addFolder=$("#bulkFolder"),addFilesInput=$("#bulkImages");
+  if (button) {button.disabled=true;button.textContent="Analizando…";}
+  if (addFolder) addFolder.disabled=true;
+  if (addFilesInput) addFilesInput.disabled=true;
+  const missing=entries.filter(entry=>!entry.aiVector);
+  let analyzed=0,failed=0;
+  try {
+    const model=await getAiExtractor();
+    const total=missing.length;
+    progress(0,total,"Preparando el análisis visual");
+    for (const entry of missing) {
+      try {
+        message("IA visual: analizando "+(analyzed+failed+1)+" de "+total+" · "+entry.file.name);
+        const image=await model.RawImage.fromBlob(entry.file);
+        const output=await model.extractor(image);
+        const raw=output?.data;
+        if (!raw || !raw.length) throw new Error("El modelo no devolvió características visuales.");
+        const vector=Float32Array.from(raw);
+        let norm=0;
+        for (let i=0;i<vector.length;i++) norm+=vector[i]*vector[i];
+        norm=Math.sqrt(norm);
+        if (!Number.isFinite(norm) || norm===0) throw new Error("La representación visual está vacía.");
+        for (let i=0;i<vector.length;i++) vector[i]/=norm;
+        entry.aiVector=vector;
+        analyzed++;
+      } catch(error) {
+        entry.aiVector=null;
+        entry.aiError=String(error?.message||"No se pudo analizar esta imagen.").slice(0,200);
+        failed++;
+      }
+      progress(analyzed+failed,total,"Analizadas "+(analyzed+failed)+" de "+total);
+      updateStats();
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    rebuildAiGroups();
+  } catch(error) {
+    message("No se pudo iniciar la IA visual: "+String(error?.message||error)+". Comprueba tu conexión y vuelve a intentarlo.", "error");
+  } finally {
+    aiProcessing=false;
+    if (button) {button.textContent="✦ Agrupar con IA visual";button.disabled=!authorized||!entries.length||importing;}
+    if (addFolder) addFolder.disabled=false;
+    if (addFilesInput) addFilesInput.disabled=false;
+    const recluster=$("#bulkReclusterAiButton");
+    if (recluster) recluster.disabled=!entries.some(entry=>entry.aiVector?.length);
+    updateStats();
+  }
+}
+
 function fileKey(file,path) {
   return [path || file.name,file.size,file.lastModified].join("|");
 }
@@ -143,7 +303,11 @@ function updateStats() {
     groups.length.toLocaleString("es-CO") + " productos agrupados · " +
     (bytes/1024/1024).toFixed(1) + " MB seleccionados";
   const importButton = $("#bulkImportButton");
-  if (importButton) importButton.disabled = !authorized || importing || !groups.some(group => !group.importedProductId);
+  if (importButton) importButton.disabled = !authorized || importing || aiProcessing || !groups.some(group => !group.importedProductId);
+  const aiButton=$("#bulkVisualAiButton");
+  if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length;
+  const recluster=$("#bulkReclusterAiButton");
+  if (recluster) recluster.disabled=aiProcessing||importing||!entries.some(entry=>entry.aiVector?.length);
 }
 async function hashEntries(list) {
   if (!window.crypto || !window.crypto.subtle) {
@@ -217,7 +381,7 @@ function render() {
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       return '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
-        '<strong>' + group.files.length + ' foto(s)</strong></div>' + imported + error + duplicateWarning + genericWarning + imageWarning +
+        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + duplicateWarning + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
@@ -534,6 +698,15 @@ $("#bulkFolder")?.addEventListener("change",event => {
 $("#bulkImages")?.addEventListener("change",event => {
   void addFiles(event.target.files);
   event.target.value = "";
+});
+$("#bulkVisualAiButton")?.addEventListener("click",()=>{void runVisualAi();});
+$("#bulkAiThreshold")?.addEventListener("input",event=>{
+  const output=$("#bulkAiThresholdValue");
+  if(output)output.textContent=String(event.target.value)+"%";
+});
+$("#bulkReclusterAiButton")?.addEventListener("click",()=>{
+  if(!entries.some(entry=>entry.aiVector?.length))return;
+  rebuildAiGroups();
 });
 $("#bulkApplyDefaults")?.addEventListener("click",applyDefaults);
 $("#bulkMergeGroups")?.addEventListener("click",mergeSelectedGroups);
