@@ -1006,59 +1006,6 @@ function fileToCompactDataUrl(file,maxSide=768,quality=0.72) {
     } catch(error) { reject(error); }
   });
 }
-function applyAdvancedAnalysis(group,result) {
-  const a=result?.analysis||{};
-  if(a.name_suggestion&&(!group.name||/^producto por identificar/i.test(group.name)))group.name=a.name_suggestion;
-  if(a.category&&(!group.category||normalize(group.category)==="otra"))group.category=a.category;
-  if(a.audience&&!group.audience)group.audience=a.audience;
-  if(a.color&&!group.color){const color=colorFromRecord(a.color);if(color)group.color=color;}
-  if(a.description&&(!group.description||group.descriptionGeneratedLocally||group.descriptionGenerated||/que lo ponga la ia/i.test(group.description))){
-    group.description=a.description;group.descriptionGeneratedLocally=false;group.descriptionGenerated=false;
-  }
-  if(Array.isArray(a.features)&&a.features.length&&!readFeatures(group.features).length)group.features=a.features.slice(0,6);
-  group.aiAdvancedAnalysis={model:result.model||advancedAiModel,confidence:a.confidence||"low",
-    visualSummary:a.visual_summary||"",needsReview:Array.isArray(a.needs_review)?a.needs_review:[]};
-  group.aiAssistantError="";
-}
-async function runAdvancedCatalogAnalysis() {
-  if(importing||aiProcessing)return;
-  if(!advancedAiAvailable){setCatalogAiStatus("La IA avanzada no está configurada. La preparación local sigue disponible.","warning");return;}
-  const pending=groups.filter(group=>!group.importedProductId&&
-    (categoryView==="all"||(categoryView==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryView))));
-  if(!pending.length){message("No hay productos pendientes para analizar.","info");return;}
-  const batch=pending.slice(0,30);
-  const imageCount=batch.reduce((sum,group)=>sum+Math.min(4,filesForUpload(group).length),0);
-  const extra=batch.length<pending.length?" Se procesarán los primeros 30; después podrás continuar.":"";
-  if(!window.confirm("Se enviarán "+batch.length+" producto(s) y hasta "+imageCount+" fotos comprimidas al proveedor de IA. El uso de la API puede generar cargos. No se guardará ni publicará ningún producto todavía. ¿Continuar?"+extra))return;
-  aiProcessing=true;updateCatalogAiButtons();
-  const button=$("#bulkAiAdvancedAnalyzeButton");
-  if(button){button.disabled=true;button.textContent="Analizando…";}
-  let succeeded=0,failed=0;
-  try {
-    for(let index=0;index<batch.length;index++) {
-      const group=batch[index];
-      try {
-        const images=[];
-        for(const entry of filesForUpload(group).slice(0,4))images.push(await fileToCompactDataUrl(entry.file));
-        const result=await callCatalogAi({action:"analyze",product:{
-          name:group.name,category:group.category,audience:group.audience,dropi_id:group.dropiProductId,
-          color:group.color,sizes:group.sizes,description:group.description,features:readFeatures(group.features)
-        },images});
-        if(!result?.analysis)throw new Error("El servicio no devolvió sugerencias válidas.");
-        applyAdvancedAnalysis(group,result);succeeded++;
-      } catch(error) { group.aiAssistantError=error?.message||"No se pudo analizar este producto.";failed++; }
-      progress(index+1,batch.length,"IA avanzada · "+(index+1)+" de "+batch.length);
-      const status=$("#catalogAiProgress");
-      if(status){status.hidden=false;status.textContent="Analizados: "+succeeded+" · Pendientes: "+(batch.length-index-1)+" · Errores: "+failed;}
-      render();updateCatalogAiButtons();
-    }
-    setCatalogAiStatus("IA avanzada finalizada: "+succeeded+" analizado(s), "+failed+" con error. Revisa las sugerencias antes de guardar.",failed?"warning":"success");
-    message("Análisis avanzado terminado. No se publicó ningún producto; revisa las sugerencias antes de guardar.","success");
-  } finally {
-    aiProcessing=false;if(button)button.textContent="Analizar con IA avanzada";progress(0,0,"");updateCatalogAiButtons();
-  }
-}
-
 function message(text, type) {
   const el = $("#bulkStatus");
   if (!el) return;
@@ -1478,12 +1425,6 @@ function render() {
       const localAiNotice = group.localAiVisualCaption ?
         '<div class="bulk-product-note-match wide"><strong>IA local · observación visual orientativa</strong><p>'+esc(group.localAiVisualCaption)+'</p></div>' : "";
       const localAiError = group.aiAssistantError ?
-        '<div class="bulk-product-error">'+esc(group.aiAssistantError)+'</div>' : "";
-      const advancedAiNotice = group.aiAdvancedAnalysis ?
-        '<div class="bulk-product-note-match wide"><strong>IA avanzada · confianza '+esc(group.aiAdvancedAnalysis.confidence)+'</strong>' +
-        (group.aiAdvancedAnalysis.visualSummary?'<p>'+esc(group.aiAdvancedAnalysis.visualSummary)+'</p>':'') +
-        (group.aiAdvancedAnalysis.needsReview.length?'<small>Revisar: '+esc(group.aiAdvancedAnalysis.needsReview.join(' · '))+'</small>':'')+'</div>' : "";
-      const advancedAiError = group.aiAssistantError ?
         '<div class="bulk-product-error">'+esc(group.aiAssistantError)+'</div>' : "";
       return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
