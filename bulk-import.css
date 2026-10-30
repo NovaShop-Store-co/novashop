@@ -74,3 +74,21 @@
 
 /* Product-specific data imported from a structured TXT. */
 .bulk-product-note-match{grid-column:1/-1;padding:7px 9px;border-radius:8px;background:#eef7f1;color:#236541;font-size:10px;font-weight:750;line-height:1.5}
+
+
+/* Excel bulk import and category-by-category review */
+.bulk-import-files>label button#bulkDownloadTemplate{width:100%;margin-top:6px;justify-content:center}
+.bulk-review-toolbar{display:flex;align-items:end;justify-content:space-between;gap:14px;padding:13px 14px;margin:14px 0;border:1px solid #dfe7ed;border-radius:14px;background:#f8fafc}
+.bulk-review-toolbar label{display:grid;gap:6px;min-width:min(320px,100%);font-size:12px;font-weight:800;color:#334155}
+.bulk-review-toolbar select{height:40px;padding:8px 11px;border:1px solid #d3dde5;border-radius:10px;background:#fff;color:#1f2937;font:inherit;font-size:13px}
+.bulk-review-toolbar button{min-height:40px;white-space:nowrap}
+.bulk-import-category-heading{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 15px;margin:10px 0 2px;border-left:4px solid #185FA5;border-radius:9px;background:#edf4fb;color:#173653}
+.bulk-import-category-heading strong{font-size:14px;font-weight:850}
+.bulk-import-category-heading span{font-size:11px;color:#5b7185;font-weight:700}
+.bulk-import-files>label{min-width:0}
+.bulk-import-files input[type=file]{max-width:100%}
+@media(max-width:700px){
+ .bulk-review-toolbar{align-items:stretch;flex-direction:column}
+ .bulk-review-toolbar label{min-width:0;width:100%}
+ .bulk-review-toolbar button{width:100%}
+}
