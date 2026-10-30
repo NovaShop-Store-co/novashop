@@ -201,7 +201,7 @@ function catalogSizeVariants(p){
   }
   const raw=p?.sizeVariants??p?.size_variants;
   if(!Array.isArray(raw))return [];
-  return [...new Set(raw.map(v=>String(v??"").trim()).filter(Boolean))].slice(0,20);
+  return [...new Set(raw.map(v=>String(v??"").trim()).filter(Boolean))].slice(0,40);
 }
 function openQuickAdd(id){
   const p=product(id);if(!p)return;
