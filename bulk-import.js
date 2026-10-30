@@ -472,7 +472,9 @@ function setProductRecords(records, filename, standalone=true, label="Excel") {
   applyProductRecordsToGroups();
   noteStatus(label+" leído: "+records.length+" productos. Las fichas se relacionan por ID exacto de Dropi; completa o revisa las fotografías que queden pendientes.","success");
   render();
-  if(groups.length && records.some(record=>groups.every(group=>group.txtRecordId!==record.id))) {
+  if(!groups.length) {
+    message(label+" leído. Ahora selecciona la carpeta de fotografías; NovaShop vinculará cada producto mediante su ID Dropi.","success");
+  } else if(records.some(record=>groups.every(group=>group.txtRecordId!==record.id))) {
     message(label+" leído. Algunas fichas están pendientes de vincular a sus fotos mediante el ID Dropi.","info");
   } else {
     message(label+" leído y aplicado a las fichas que coinciden por ID Dropi.","success");
