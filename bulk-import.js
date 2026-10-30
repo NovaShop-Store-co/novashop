@@ -48,7 +48,7 @@ function isAllowedImage(file) {
   return Object.values(MIME_BY_EXT).includes(fileMime(file));
 }
 function isTextNote(file) {
-  return /\\.txt$/i.test(String(file?.name || ""));
+  return /\.txt$/i.test(String(file?.name || ""));
 }
 function noteStatus(text, type) {
   const el = $("#bulkNoteStatus");
@@ -60,7 +60,7 @@ async function readNoteFile(file) {
   if (!isTextNote(file)) throw new Error("Selecciona un archivo con extensión .txt.");
   if (!file.size || file.size > MAX_NOTE_BYTES) throw new Error("La nota TXT debe tener contenido y pesar máximo 64 KB.");
   let text = await file.text();
-  text = String(text || "").replace(/^\\uFEFF/, "").replace(/\\r\\n?/g, "\\n").trim();
+  text = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
   if (!text) throw new Error("El archivo TXT está vacío.");
   const truncated = text.length > 4000;
   if (truncated) text = text.slice(0,4000).trimEnd();
