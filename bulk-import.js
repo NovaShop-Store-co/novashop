@@ -1298,6 +1298,22 @@ async function init() {
   }
 }
 
+$("#bulkDownloadTemplate")?.addEventListener("click",()=>{void downloadExcelTemplate();});
+$("#bulkExcelFile")?.addEventListener("change",async event=>{
+  const file=event.target.files?.[0];
+  event.target.value="";
+  if(!file)return;
+  try{
+    noteStatus("Leyendo plantilla Excel y validando los ID de Dropi…");
+    const records=await parseExcelProductFile(file);
+    setProductRecords(records,file.name,true,"Excel");
+    const unmatched=records.filter(record=>!groups.some(group=>group.txtRecordId===record.id)).length;
+    noteStatus("Excel importado: "+records.length+" productos · "+(records.length-unmatched)+" vinculados por ID · "+unmatched+" pendientes de asociar a fotos. Conservamos los datos para cuando cargues la carpeta.",unmatched?"info":"success");
+  }catch(error){
+    noteStatus(error?.message||"No se pudo leer la plantilla Excel.","error");
+    message(error?.message||"No se pudo leer la plantilla Excel.","error");
+  }
+});
 $("#bulkFolder")?.addEventListener("change",event => {
   void addFiles(event.target.files,{replace:true});
   event.target.value = "";
