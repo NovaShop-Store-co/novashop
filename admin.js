@@ -914,7 +914,7 @@ async function save(e){
    colorVariantsToSave.push({name:String(variant.name).trim(),hex:variant.hex,images:variantImages,printful_sync_variant_id:variant.printful_sync_variant_id?Number(variant.printful_sync_variant_id):null});
   }
   const payload=formData();payload.images=editingImages.map(item=>item.url).filter(Boolean);payload.video_url=editingVideo;payload.color_variants=colorVariantsToSave;
-  if(payload.size_variants.length>20)throw new Error("Un producto admite hasta 20 tallas.");
+  if(payload.size_variants.length>40)throw new Error("Un producto admite hasta 40 tallas.");
   const normalizedSizes=payload.size_variants.map(size=>size.toLocaleLowerCase("es"));
   if(new Set(normalizedSizes).size!==normalizedSizes.length)throw new Error("No repitas tallas. Usa una sola entrada por talla.");
   status("Guardando la información del producto…","info");
@@ -940,6 +940,20 @@ async function deactivate(id){if(!confirm("¿Ocultar este producto de la tienda?
 async function init(){
  const productForm=$("#adminProductForm");
  productForm.addEventListener("submit",save);
+ $("#adminSizePresets")?.addEventListener("click",event=>{
+  const button=event.target.closest("[data-size-preset]");if(!button)return;
+  const input=productForm.elements.size_variants;
+  const size=String(button.dataset.sizePreset||"").trim();
+  if(!input||!size)return;
+  const sizes=String(input.value||"").split(",").map(value=>value.trim()).filter(Boolean);
+  if(sizes.some(value=>value.toLocaleLowerCase("es")===size.toLocaleLowerCase("es"))){
+   status("La talla "+size+" ya está en la lista.","info");input.focus();return;
+  }
+  if(sizes.length>=40){status("Puedes añadir máximo 40 tallas por producto.","error");return;}
+  sizes.push(size);input.value=sizes.join(", ");
+  input.dispatchEvent(new Event("input",{bubbles:true}));input.focus();
+  status("Talla "+size+" añadida a la lista. Recuerda guardar el producto.","success");
+ });
  $("#addAdminColorVariant")?.addEventListener("click",()=>{
   if(editingColorVariants.length>=12){status("Puedes añadir máximo 12 colores por producto.","error");return;}
   editingColorVariants.push(normalizeColorVariant({name:"",hex:"#1f2937",images:[]}));
