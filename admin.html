@@ -304,15 +304,14 @@ body.product-editor-open{overflow:hidden}
  <section class="catalog-ai-assistant" aria-labelledby="catalogAiTitle">
   <div class="catalog-ai-heading">
    <span class="catalog-ai-icon" aria-hidden="true">✦</span>
-   <div><h3 id="catalogAiTitle">Asistente IA híbrido de catálogo</h3><p>Primero prepara localmente tus fichas; usa análisis visual avanzado solo cuando necesites una descripción más precisa. Nada se publica sin tu confirmación.</p></div>
+   <div><h3 id="catalogAiTitle">Asistente IA local gratuito de catálogo</h3><p>Analiza las fotografías y redacta descripciones en tu propio computador. No necesitas una clave API ni pagar por cada producto. Nada se publica sin tu confirmación.</p></div>
   </div>
   <div id="catalogAiStatus" class="catalog-ai-status" role="status">Comprobando los motores de IA…</div>
   <div class="catalog-ai-actions">
-   <button type="button" class="btn btn-ghost" id="bulkAiLocalPrepareButton" disabled>Preparar localmente · Sin API</button>
-   <button type="button" class="btn btn-primary" id="bulkAiAdvancedAnalyzeButton" disabled>Analizar con IA avanzada</button>
+   <button type="button" class="btn btn-ghost" id="bulkAiLocalPrepareButton" disabled>Preparar fichas con datos · Sin IA</button>
+   <button type="button" class="btn btn-primary" id="bulkAiAdvancedAnalyzeButton" disabled>Generar descripciones con IA local · Gratis</button>
   </div>
-  <div class="catalog-ai-footnote">El modo local aprovecha el agrupador visual CLIP y los datos del Excel/TXT. El análisis avanzado puede enviar hasta 4 fotos comprimidas por producto al proveedor de IA y genera consumo facturable según uso. Revisa siempre las sugerencias antes de guardar.</div>
-  <div class="catalog-ai-setup">Para activar la IA avanzada: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">crear clave API de OpenAI</a> y guardarla como <code>OPENAI_API_KEY</code> en <a href="https://supabase.com/dashboard/project/fbcffmhcypsprvgdbtas/functions/secrets" target="_blank" rel="noopener noreferrer">Secretos de Edge Functions en Supabase</a>. No pegues la clave en el Excel, GitHub ni en esta página.</div>
+  <div class="catalog-ai-footnote">El análisis se ejecuta dentro del navegador con modelos abiertos descargados de Hugging Face. La primera descarga puede ocupar varios cientos de MB y usar memoria del computador. Después el navegador puede reutilizar la caché. Durante el análisis las fotos no se envían a una API; al guardar el producto sí se suben a Supabase como parte del catálogo.</div>
   <div id="catalogAiProgress" class="catalog-ai-progress" hidden></div>
  </section>
 
@@ -399,5 +398,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=39"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=39"></script><script src="bulk-import.js?v=11"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=39"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=39"></script><script src="bulk-import.js?v=12"></script>
 </body></html>
