@@ -123,6 +123,8 @@ function makeGroups(list) {
         price:$("#bulkPrice")?.value||"", oldPrice:$("#bulkOldPrice")?.value||"",
         stock:$("#bulkStock")?.value||"", sizes:$("#bulkSizes")?.value||"",
         description:$("#bulkDescription")?.value||"", color:"",
+        audience:$("#bulkAudience")?.value||"",
+        dropiProductId:"",
         files:[], importedProductId:null, error:""
       });
     }
@@ -160,6 +162,8 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
     sizes:$("#bulkSizes")?.value||"",
     description:$("#bulkDescription")?.value||"",
     color:detectColor(fileEntries),
+    audience:$("#bulkAudience")?.value||"",
+    dropiProductId:"",
     files:fileEntries.slice(),
     importedProductId:null,
     error:"",
@@ -377,6 +381,12 @@ function render() {
       const colorOptions = ['<option value="">Sin color definido</option>'].concat(Object.keys(COLORS).map(color =>
         '<option value="' + esc(color) + '"' + (group.color === color ? " selected" : "") + '>' + esc(color) + '</option>'
       )).join("");
+      const audienceOptions = [
+        '<option value="">Selecciona público</option>',
+        '<option value="hombre"' + (group.audience === "hombre" ? " selected" : "") + '>Hombre</option>',
+        '<option value="mujer"' + (group.audience === "mujer" ? " selected" : "") + '>Mujer</option>',
+        '<option value="unisex"' + (group.audience === "unisex" ? " selected" : "") + '>Unisex</option>'
+      ].join("");
       const duplicateWarning = groupHasDuplicateName(group) ?
         '<div class="bulk-product-warning">Ya existe un producto con este nombre en NovaShop. Cambia el nombre o activa la opción para permitir duplicados.</div>' : "";
       const genericWarning = group.name.startsWith("Producto por identificar") ?
@@ -393,6 +403,8 @@ function render() {
         '<div class="bulk-product-fields">' +
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
+        '<label>Público objetivo *<select data-product-field="audience" data-group-id="' + group.id + '">' + audienceOptions + '</select></label>' +
+        '<label>ID del producto en Dropi (opcional)<input type="text" maxlength="100" data-product-field="dropiProductId" data-group-id="' + group.id + '" value="' + esc(group.dropiProductId || "") + '" placeholder="ID exacto del producto"></label>' +
         '<label>Precio de venta COP *<input type="number" min="1" step="1" data-product-field="price" data-group-id="' + group.id + '" value="' + esc(group.price) + '"></label>' +
         '<label>Precio anterior COP<input type="number" min="1" step="1" data-product-field="oldPrice" data-group-id="' + group.id + '" value="' + esc(group.oldPrice) + '"></label>' +
         '<label>Stock general<input type="number" min="0" step="1" data-product-field="stock" data-group-id="' + group.id + '" value="' + esc(group.stock) + '" placeholder="Vacío = sin control"></label>' +
@@ -423,11 +435,17 @@ function applyDefaults() {
     group.stock = $("#bulkStock").value;
     group.sizes = $("#bulkSizes").value;
     group.description = $("#bulkDescription").value;
+    group.audience = $("#bulkAudience").value;
   });
   render();
   message("Los valores generales se aplicaron a todos los productos preparados.", "success");
 }
 function removeGroup(id) {
+  const removed = groups.find(group => group.id === id);
+  if (removed) {
+    const removedFiles = new Set(removed.files);
+    entries = entries.filter(entry => !removedFiles.has(entry));
+  }
   groups = groups.filter(group => group.id !== id);
   selectedGroups.delete(id);
   render();
@@ -437,13 +455,14 @@ function splitGroup(id) {
   if (!group || group.files.length < 2 || group.importedProductId) return;
   const source = group.files.slice();
   groups = groups.filter(item => item.id !== id);
-  source.forEach(entry => {
+  source.forEach((entry,index) => {
     const stem = filenameStem(entry.file);
     groups.push({
       id:nextGroupId++, name:prettyName(stem,groups.length+1), category:group.category,
       price:group.price, oldPrice:group.oldPrice, stock:group.stock, sizes:group.sizes,
-      description:group.description, color:detectColor([entry]), files:[entry],
-      importedProductId:null,error:""
+      description:group.description, color:detectColor([entry]), audience:group.audience,
+      dropiProductId:index===0?(group.dropiProductId||""):"",
+      files:[entry], importedProductId:null,error:""
     });
   });
   selectedGroups.delete(id);
@@ -464,7 +483,8 @@ function mergeSelectedGroups() {
 function removeFile(groupId,index) {
   const group = groups.find(item => item.id === groupId);
   if (!group || group.importedProductId) return;
-  group.files.splice(index,1);
+  const removed = group.files.splice(index,1)[0];
+  if (removed) entries = entries.filter(entry => entry !== removed);
   if (!group.files.length) removeGroup(groupId);
   else render();
 }
@@ -492,6 +512,8 @@ function filesForUpload(group) {
 function validateGroup(group) {
   if (!String(group.name || "").trim()) return "Escribe el nombre del producto.";
   if (!String(group.category || "").trim()) return "Selecciona la categoría.";
+  if (!["hombre","mujer","unisex"].includes(String(group.audience || "").toLowerCase())) return "Selecciona si el producto es para Hombre, Mujer o Unisex.";
+  if (String(group.dropiProductId || "").trim().length > 100) return "El ID del producto en Dropi admite máximo 100 caracteres.";
   const price = Number(group.price);
   if (!Number.isSafeInteger(price) || price <= 0 || price > 100000000) return "El precio de venta debe ser un entero mayor que cero.";
   const oldPrice = group.oldPrice === "" || group.oldPrice == null ? null : Number(group.oldPrice);
@@ -538,10 +560,12 @@ async function importGroup(group,index,total) {
     name:group.color,hex:COLORS[group.color],images:urls.slice(0,2)
   }] : [];
   const delivery = $("#bulkDeliveryType").value;
+  const audience = String(group.audience || "").toLowerCase();
+  const targetAudiences = audience === "unisex" ? ["hombre","mujer"] : [audience];
   const payload = {
     action:"save",id:null,name:String(group.name).trim(),category:String(group.category).trim(),
-    delivery_type:delivery,target_audiences:[],price_cop:price,old_price_cop:oldPrice,
-    stock_quantity:stock,size_variants:sizes,dropi_product_id:"",dropi_variants:[],
+    delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
+    stock_quantity:stock,size_variants:sizes,dropi_product_id:String(group.dropiProductId || "").trim(),dropi_variants:[],
     description:String(group.description).trim(),features:[],images:urls.slice(0,MAX_IMAGES_PER_PRODUCT),
     color_variants:color,video_url:null,tag:oldPrice !== null ? "OFERTA" : "NUEVO",
     shipping:"",payment_methods:delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"],
@@ -637,16 +661,18 @@ async function runImport() {
   message("Importación terminada. Se crearon " + succeeded + " producto(s); " + failed + " quedaron pendientes de corrección.",failed ? "error" : "success");
   render();
 }
-async function addFiles(fileList) {
+async function addFiles(fileList, options={}) {
+  const incoming = Array.from(fileList || []);
+  if (!incoming.length) return;
   if (groups.some(group=>group.importedProductId)) {
     message("Ya se importaron productos en esta sesión. Limpia la importación antes de añadir nuevas imágenes.", "error");
     return;
   }
-  const incoming = Array.from(fileList || []);
-  if (!incoming.length) return;
+  const replaceSelection = options.replace === true;
   const valid = [];
   const rejected = [];
-  const seen = new Set(entries.map(entry => entry.key));
+  const baseEntries = replaceSelection ? [] : entries;
+  const seen = new Set(baseEntries.map(entry => entry.key));
   incoming.forEach(file => {
     if (!isAllowedImage(file)) { rejected.push(file.name + " (formato no admitido)"); return; }
     if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) { rejected.push(file.name + " (supera 12 MB o está vacío)"); return; }
@@ -660,8 +686,16 @@ async function addFiles(fileList) {
     message(rejected.length ? "No se añadieron archivos válidos. " + rejected.slice(0,3).join("; ") : "No hay imágenes nuevas para añadir.", "error");
     return;
   }
+  if (replaceSelection) {
+    cleanupPreviews();
+    entries = [];
+    groups = [];
+    selectedGroups.clear();
+    page = 0;
+    $("#bulkImportResults").innerHTML = "";
+  }
   entries = entries.concat(valid);
-  message("Se añadieron " + valid.length + " imagen(es). Comprobando duplicados…");
+  message((replaceSelection ? "Se reemplazó la selección anterior. " : "") + "Se añadieron " + valid.length + " imagen(es). Comprobando duplicados…");
   await hashEntries(valid);
   groups = makeGroups(entries);
   page = 0;
@@ -704,7 +738,7 @@ async function init() {
 }
 
 $("#bulkFolder")?.addEventListener("change",event => {
-  void addFiles(event.target.files);
+  void addFiles(event.target.files,{replace:true});
   event.target.value = "";
 });
 $("#bulkImages")?.addEventListener("change",event => {
@@ -744,6 +778,11 @@ $("#bulkGroupList")?.addEventListener("input",event => {
   group[field.dataset.productField] = field.value;
 });
 $("#bulkGroupList")?.addEventListener("change",event => {
+  const field = event.target.closest("[data-product-field]");
+  if (field) {
+    const group = groups.find(item => item.id === Number(field.dataset.groupId));
+    if (group) group[field.dataset.productField] = field.value;
+  }
   const checkbox = event.target.closest("[data-select-group]");
   if (checkbox) {
     const id = Number(checkbox.dataset.selectGroup);

@@ -282,7 +282,7 @@ body.product-editor-open{overflow:hidden}
  <div class="bulk-import-head"><div><h2>Importación masiva de productos</h2><p>Selecciona una carpeta completa o imágenes sueltas. El importador agrupa por subcarpetas o nombres de archivo, te permite corregir los grupos y crea las fichas con los datos generales que indiques.</p></div></div>
  <div class="bulk-import-note"><strong>IA visual:</strong> puedes analizar las fotos para sugerir cuáles pertenecen al mismo producto. El análisis se ejecuta en tu navegador y las imágenes no se envían a un servicio de IA. La primera vez puede descargar cerca de 90 MB de modelo; el navegador intentará reutilizarlo después. La similitud es una sugerencia, no una garantía: revisa y corrige los grupos. El stock de esta importación es general por producto, no por combinación de talla/color.</div>
  <div class="bulk-import-files">
-  <label>Seleccionar carpeta completa<input id="bulkFolder" type="file" webkitdirectory directory multiple accept="image/jpeg,image/png,image/webp,image/avif,image/gif"><span class="bulk-import-help">En Chrome de escritorio: elige la carpeta que contiene las fotos. Se recorrerán también sus subcarpetas.</span></label>
+  <label>Seleccionar carpeta completa<input id="bulkFolder" type="file" webkitdirectory directory multiple accept="image/jpeg,image/png,image/webp,image/avif,image/gif"><span class="bulk-import-help">En Chrome de escritorio: elige la carpeta que contiene las fotos. Se recorrerán también sus subcarpetas. Al elegir otra carpeta, reemplaza la selección pendiente anterior.</span></label>
   <label>Agregar imágenes sueltas<input id="bulkImages" type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif,image/gif"><span class="bulk-import-help">También puedes añadir fotos individuales a la selección actual.</span></label>
  </div>
  <div class="bulk-import-config">
@@ -292,6 +292,7 @@ body.product-editor-open{overflow:hidden}
   <label>Precio anterior COP (opcional)<input id="bulkOldPrice" type="number" min="1" step="1" placeholder="Opcional"></label>
   <label>Stock general por producto<input id="bulkStock" type="number" min="0" step="1" placeholder="Vacío = sin control de stock"></label>
   <label class="wide">Tallas generales (opcional)<input id="bulkSizes" type="text" maxlength="600" placeholder="S, M, L, XL, XXL"><span class="bulk-import-help">Se aplicarán a cada producto. Puedes corregir las tallas individualmente en cada tarjeta.</span></label>
+  <label>Público objetivo general *<select id="bulkAudience"><option value="">Selecciona público</option><option value="hombre">Hombre</option><option value="mujer">Mujer</option><option value="unisex">Unisex</option></select><span class="bulk-import-help">Hombre y Mujer se guardan por separado; Unisex aparecerá en ambos públicos.</span></label>
   <label>Tipo de entrega<select id="bulkDeliveryType"><option value="physical">Producto físico</option><option value="digital">Servicio digital</option></select></label>
   <label>Tamaño de lote<select id="bulkBatchSize"><option value="5">5 productos</option><option value="10" selected>10 productos</option><option value="20">20 productos</option></select></label>
   <label class="bulk-import-check wide"><input id="bulkAllowDuplicates" type="checkbox"> Permitir nombres de producto que ya existen en el catálogo</label>
@@ -351,5 +352,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=2"></script>
 </body></html>
