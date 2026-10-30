@@ -124,7 +124,7 @@ function makeGroups(list) {
         stock:$("#bulkStock")?.value||"", sizes:$("#bulkSizes")?.value||"",
         description:$("#bulkDescription")?.value||"", color:"",
         audience:$("#bulkAudience")?.value||"",
-        dropiProductId:$("#bulkDropiProductId")?.value.trim()||"",
+        dropiProductId:"",
         files:[], importedProductId:null, error:""
       });
     }
@@ -163,7 +163,7 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
     description:$("#bulkDescription")?.value||"",
     color:detectColor(fileEntries),
     audience:$("#bulkAudience")?.value||"",
-    dropiProductId:$("#bulkDropiProductId")?.value.trim()||"",
+    dropiProductId:"",
     files:fileEntries.slice(),
     importedProductId:null,
     error:"",
@@ -436,7 +436,6 @@ function applyDefaults() {
     group.sizes = $("#bulkSizes").value;
     group.description = $("#bulkDescription").value;
     group.audience = $("#bulkAudience").value;
-    group.dropiProductId = $("#bulkDropiProductId").value.trim();
   });
   render();
   message("Los valores generales se aplicaron a todos los productos preparados.", "success");
@@ -779,6 +778,11 @@ $("#bulkGroupList")?.addEventListener("input",event => {
   group[field.dataset.productField] = field.value;
 });
 $("#bulkGroupList")?.addEventListener("change",event => {
+  const field = event.target.closest("[data-product-field]");
+  if (field) {
+    const group = groups.find(item => item.id === Number(field.dataset.groupId));
+    if (group) group[field.dataset.productField] = field.value;
+  }
   const checkbox = event.target.closest("[data-select-group]");
   if (checkbox) {
     const id = Number(checkbox.dataset.selectGroup);
