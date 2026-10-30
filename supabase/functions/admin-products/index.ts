@@ -725,14 +725,18 @@ Deno.serve(async (req: Request) => {
       if (!canEditCatalog) return json({error:"No tienes permiso para editar productos."},403,origin);
       let id = body.id == null || body.id === "" ? null : Number(body.id);
       let dropiProductId = clean(body.dropi_product_id,100).replace(/\s+/g," ").trim();
+      let matchedExistingByDropiId = false;
       if (id === null && dropiProductId) {
         const {data:existingRef,error:existingRefError} = await admin.from("product_supplier_refs")
           .select("product_id,dropi_product_id").eq("dropi_product_id",dropiProductId).maybeSingle();
         if (existingRefError) throw existingRefError;
-        if (existingRef) id = Number(existingRef.product_id);
+        if (existingRef) {
+          id = Number(existingRef.product_id);
+          matchedExistingByDropiId = true;
+        }
       }
-      const preserveExistingFields = body.preserve_existing_fields === true && id !== null;
-      const preserveExistingVariants = body.preserve_existing_variants === true && id !== null;
+      const preserveExistingFields = (body.preserve_existing_fields === true || matchedExistingByDropiId) && id !== null;
+      const preserveExistingVariants = (body.preserve_existing_variants === true || matchedExistingByDropiId) && id !== null;
       let existingProduct: any = null;
       if (preserveExistingFields) {
         const {data:existing,error:existingError} = await admin.from("products").select("*").eq("id",id).maybeSingle();
