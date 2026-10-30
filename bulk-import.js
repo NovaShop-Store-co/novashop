@@ -68,7 +68,7 @@ async function readNoteFile(file) {
 }
 function resolveNoteFile(noteFiles) {
   if (noteFiles.length === 1) return noteFiles[0];
-  const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripcion|description|readme)\\.txt$/i.test(file.name));
+  const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
   return preferred.length === 1 ? preferred[0] : null;
 }
 function setNoteText(text, filename, truncated=false) {
