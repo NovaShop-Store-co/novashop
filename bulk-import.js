@@ -888,6 +888,7 @@ async function addFiles(fileList, options={}) {
     return;
   }
   const replaceSelection = options.replace === true;
+  if (replaceSelection) productRecords = [];
   const noteFiles = incoming.filter(isTextNote);
   const imageFiles = incoming.filter(isAllowedImage);
   const unsupported = incoming.filter(file => !isTextNote(file) && !isAllowedImage(file));
@@ -1031,10 +1032,13 @@ $("#bulkResetButton")?.addEventListener("click",() => {
   if (entries.length && !window.confirm("¿Quitar las imágenes y los productos preparados de esta importación?")) return;
   cleanupPreviews();
   entries=[];groups=[];selectedGroups.clear();page=0;
+  productRecords=[];
   $("#bulkFolder").value="";$("#bulkImages").value="";
+  if ($("#bulkNoteFile")) $("#bulkNoteFile").value="";
   $("#bulkImportResults").innerHTML="";
   progress(0,0,"");
   render();
+  noteStatus("Importación limpia. Puedes seleccionar una nueva carpeta y su TXT.");
   message("Importación limpia. Puedes seleccionar otra carpeta.");
 });
 $("#bulkImportButton")?.addEventListener("click",() => { void runImport(); });
