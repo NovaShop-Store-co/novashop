@@ -34,6 +34,8 @@ let productRecords = [];
 let productRecordsFromStandalone = false;
 let categoryView = "all";
 let xlsxLoaderPromise = null;
+let advancedAiAvailable = false;
+let advancedAiModel = "";
 
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
@@ -790,6 +792,163 @@ function setNoteText(text, filename, truncated=false, standalone=false) {
     (wasTruncated ? " Se limitaron los primeros 4.000 caracteres." : ""), wasTruncated ? "error" : "success");
   render();
 }
+function setCatalogAiStatus(text,kind="info") {
+  const el=$("#catalogAiStatus");if(!el)return;
+  el.textContent=text;el.className="catalog-ai-status "+kind;
+}
+function updateCatalogAiButtons() {
+  const pending=groups.some(group=>!group.importedProductId);
+  const local=$("#bulkAiLocalPrepareButton"),advanced=$("#bulkAiAdvancedAnalyzeButton");
+  if(local)local.disabled=!authorized||importing||aiProcessing||!pending;
+  if(advanced)advanced.disabled=!authorized||importing||aiProcessing||!advancedAiAvailable||!pending;
+}
+async function callCatalogAi(body) {
+  if(!db?.client)throw new Error("Supabase no está conectado.");
+  const session=await db.getSession();
+  if(!session?.access_token)throw new Error("Tu sesión administrativa expiró. Inicia sesión de nuevo.");
+  const {data,error}=await db.client.functions.invoke("catalog-ai-assistant",{
+    body,headers:{Authorization:"Bearer "+session.access_token}
+  });
+  if(error) {
+    let detail="";
+    try { const response=error.context;const payload=response?.clone?await response.clone().json():null;detail=payload?.error||""; } catch(_){}
+    throw new Error(detail||error.message||"No se pudo conectar con el asistente IA.");
+  }
+  if(data?.error)throw new Error(String(data.error));
+  return data;
+}
+async function checkCatalogAiStatus() {
+  try {
+    const state=await callCatalogAi({action:"status"});
+    advancedAiAvailable=state.advancedAvailable===true;
+    advancedAiModel=String(state.model||"");
+    setCatalogAiStatus(advancedAiAvailable
+      ? "Preparación local disponible · IA avanzada conectada ("+advancedAiModel+"). Solo consume API cuando la ejecutas."
+      : "Preparación local disponible · IA avanzada pendiente de configurar. Añade OPENAI_API_KEY en los secretos de Supabase para activar el análisis visual.",
+      advancedAiAvailable?"success":"info");
+  } catch(error) {
+    advancedAiAvailable=false;
+    setCatalogAiStatus("Modo local disponible · No se pudo comprobar el proveedor avanzado: "+(error.message||"error de conexión"),"warning");
+  }
+  updateCatalogAiButtons();
+}
+function createLocalProductDescription(group) {
+  const name=String(group.name||"este producto").trim();
+  const category=normalize(group.category);
+  const intros={
+    moda:"Dale personalidad a tus combinaciones con "+name+". Una propuesta para expresar tus gustos y complementar tu estilo.",
+    tecnologia:"Conoce "+name+", una alternativa tecnológica para explorar según la información y características disponibles.",
+    hogar:"Incorpora "+name+" a tus espacios y encuentra una opción para complementar tu ambiente.",
+    accesorios:"Los detalles también hablan de tu estilo. "+name+" es una opción para completar tus combinaciones.",
+    oficina:"Complementa tu espacio de trabajo o estudio con "+name+".",
+    belleza:"Descubre "+name+", una opción para sumar a tu selección de belleza y cuidado personal.",
+    deportes:"Conoce "+name+", una opción para acompañar tus actividades. Revisa sus detalles antes de elegir.",
+    streaming:"Explora "+name+" y conoce esta alternativa de entretenimiento digital."
+  };
+  const intro=intros[category]||"Descubre "+name+", una opción para sumar a tu selección de productos.";
+  const facts=[];
+  if(group.color)facts.push("Color disponible: "+group.color+".");
+  if(group.sizes)facts.push("Tallas disponibles: "+String(group.sizes)+".");
+  const features=readFeatures(group.features);
+  if(features.length)facts.push("Características: "+features.join("; ")+".");
+  return [intro].concat(facts).concat(["Revisa los detalles disponibles y agrégalo a tu carrito si es lo que estás buscando."]).join(" ");
+}
+function prepareCatalogLocally() {
+  if(importing||aiProcessing)return;
+  let count=0;
+  groups.forEach(group=>{
+    if(group.importedProductId)return;
+    if(!categoryFromValue(group.category)) {
+      const inferred=categoryFromFiles(group.files||[]);
+      if(inferred)group.category=inferred;
+    }
+    if(!String(group.description||"").trim()||/que lo ponga la ia/i.test(group.description)) {
+      group.description=createLocalProductDescription(group);
+      group.descriptionGeneratedLocally=true;
+    }
+    group.localPrepared=true;count++;
+  });
+  applyProductRecordsToGroups();render();
+  setCatalogAiStatus(count
+    ? count+" ficha(s) preparadas localmente. Se usaron datos del Excel/TXT, carpetas, nombres y características conocidas. No se llamó a una API."
+    : "No hay fichas pendientes para preparar.","success");
+  message("Preparación local completada. Revisa las fichas y decide cuáles necesitan análisis visual avanzado.","success");
+  updateCatalogAiButtons();
+}
+function fileToCompactDataUrl(file,maxSide=768,quality=0.72) {
+  return new Promise(async(resolve,reject)=>{
+    try {
+      const bitmap=await createImageBitmap(file);
+      const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement("canvas");
+      canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+      canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      const context=canvas.getContext("2d",{alpha:false});
+      if(!context)throw new Error("No se pudo preparar la fotografía.");
+      context.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+      canvas.toBlob(blob=>{
+        if(!blob){reject(new Error("No se pudo comprimir una fotografía."));return;}
+        const reader=new FileReader();
+        reader.onload=()=>resolve(String(reader.result||""));
+        reader.onerror=()=>reject(new Error("No se pudo leer la fotografía comprimida."));
+        reader.readAsDataURL(blob);
+      },"image/jpeg",quality);
+    } catch(error) { reject(error); }
+  });
+}
+function applyAdvancedAnalysis(group,result) {
+  const a=result?.analysis||{};
+  if(a.name_suggestion&&(!group.name||/^producto por identificar/i.test(group.name)))group.name=a.name_suggestion;
+  if(a.category&&(!group.category||normalize(group.category)==="otra"))group.category=a.category;
+  if(a.audience&&!group.audience)group.audience=a.audience;
+  if(a.color&&!group.color){const color=colorFromRecord(a.color);if(color)group.color=color;}
+  if(a.description&&(!group.description||group.descriptionGeneratedLocally||group.descriptionGenerated||/que lo ponga la ia/i.test(group.description))){
+    group.description=a.description;group.descriptionGeneratedLocally=false;group.descriptionGenerated=false;
+  }
+  if(Array.isArray(a.features)&&a.features.length&&!readFeatures(group.features).length)group.features=a.features.slice(0,6);
+  group.aiAdvancedAnalysis={model:result.model||advancedAiModel,confidence:a.confidence||"low",
+    visualSummary:a.visual_summary||"",needsReview:Array.isArray(a.needs_review)?a.needs_review:[]};
+  group.aiAssistantError="";
+}
+async function runAdvancedCatalogAnalysis() {
+  if(importing||aiProcessing)return;
+  if(!advancedAiAvailable){setCatalogAiStatus("La IA avanzada no está configurada. La preparación local sigue disponible.","warning");return;}
+  const pending=groups.filter(group=>!group.importedProductId&&
+    (categoryView==="all"||(categoryView==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryView))));
+  if(!pending.length){message("No hay productos pendientes para analizar.","info");return;}
+  const batch=pending.slice(0,30);
+  const imageCount=batch.reduce((sum,group)=>sum+Math.min(4,filesForUpload(group).length),0);
+  const extra=batch.length<pending.length?" Se procesarán los primeros 30; después podrás continuar.":"";
+  if(!window.confirm("Se enviarán "+batch.length+" producto(s) y hasta "+imageCount+" fotos comprimidas al proveedor de IA. El uso de la API puede generar cargos. No se guardará ni publicará ningún producto todavía. ¿Continuar?"+extra))return;
+  aiProcessing=true;updateCatalogAiButtons();
+  const button=$("#bulkAiAdvancedAnalyzeButton");
+  if(button){button.disabled=true;button.textContent="Analizando…";}
+  let succeeded=0,failed=0;
+  try {
+    for(let index=0;index<batch.length;index++) {
+      const group=batch[index];
+      try {
+        const images=[];
+        for(const entry of filesForUpload(group).slice(0,4))images.push(await fileToCompactDataUrl(entry.file));
+        const result=await callCatalogAi({action:"analyze",product:{
+          name:group.name,category:group.category,audience:group.audience,dropi_id:group.dropiProductId,
+          color:group.color,sizes:group.sizes,description:group.description,features:readFeatures(group.features)
+        },images});
+        if(!result?.analysis)throw new Error("El servicio no devolvió sugerencias válidas.");
+        applyAdvancedAnalysis(group,result);succeeded++;
+      } catch(error) { group.aiAssistantError=error?.message||"No se pudo analizar este producto.";failed++; }
+      progress(index+1,batch.length,"IA avanzada · "+(index+1)+" de "+batch.length);
+      const status=$("#catalogAiProgress");
+      if(status){status.hidden=false;status.textContent="Analizados: "+succeeded+" · Pendientes: "+(batch.length-index-1)+" · Errores: "+failed;}
+      render();updateCatalogAiButtons();
+    }
+    setCatalogAiStatus("IA avanzada finalizada: "+succeeded+" analizado(s), "+failed+" con error. Revisa las sugerencias antes de guardar.",failed?"warning":"success");
+    message("Análisis avanzado terminado. No se publicó ningún producto; revisa las sugerencias antes de guardar.","success");
+  } finally {
+    aiProcessing=false;if(button)button.textContent="Analizar con IA avanzada";progress(0,0,"");updateCatalogAiButtons();
+  }
+}
+
 function message(text, type) {
   const el = $("#bulkStatus");
   if (!el) return;
@@ -1086,6 +1245,7 @@ function updateStats() {
     categoryButton.textContent=categoryView==="all"?"Guardar categoría actual":("Guardar "+categoryView+" · "+categoryPending);
   }
   const hasImported=groups.some(group=>group.importedProductId);
+  updateCatalogAiButtons();
   const aiButton=$("#bulkVisualAiButton");
   if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length||hasImported;
   const recluster=$("#bulkReclusterAiButton");
@@ -1205,9 +1365,15 @@ function render() {
         '<div class="bulk-product-success">'+(group.wasUpdated?'Actualizado':'Creado')+' como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
+      const advancedAiNotice = group.aiAdvancedAnalysis ?
+        '<div class="bulk-product-note-match wide"><strong>IA avanzada · confianza '+esc(group.aiAdvancedAnalysis.confidence)+'</strong>' +
+        (group.aiAdvancedAnalysis.visualSummary?'<p>'+esc(group.aiAdvancedAnalysis.visualSummary)+'</p>':'') +
+        (group.aiAdvancedAnalysis.needsReview.length?'<small>Revisar: '+esc(group.aiAdvancedAnalysis.needsReview.join(' · '))+'</small>':'')+'</div>' : "";
+      const advancedAiError = group.aiAssistantError ?
+        '<div class="bulk-product-error">'+esc(group.aiAssistantError)+'</div>' : "";
       return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
-        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + upsertNotice + genericWarning + imageWarning +
+        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + advancedAiNotice + advancedAiError + duplicateWarning + upsertNotice + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
         (productRecords.length ? '<label class="wide">Vincular ficha por ID Dropi<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Elige el ID exacto que corresponde a este grupo de fotos. Si el ID aparece en el nombre de archivo o carpeta, se vincula automáticamente.</span></label>' : '') +
         (group.txtMatched ? '<div class="bulk-product-note-match wide">Ficha del TXT aplicada: Dropi ' + esc(group.txtRecordId) + '</div>' : '') +
@@ -1607,12 +1773,15 @@ async function init() {
     panel.hidden = false;
     await loadExistingProducts();
     render();
+    await checkCatalogAiStatus();
     message("Importador habilitado para la cuenta administrativa. Selecciona una carpeta para comenzar.", "success");
   } catch (_) {
     panel.hidden = true;
   }
 }
 
+$("#bulkAiLocalPrepareButton")?.addEventListener("click",prepareCatalogLocally);
+$("#bulkAiAdvancedAnalyzeButton")?.addEventListener("click",()=>{void runAdvancedCatalogAnalysis();});
 $("#bulkDownloadTemplate")?.addEventListener("click",()=>{void downloadExcelTemplate();});
 $("#bulkExcelFile")?.addEventListener("change",async event=>{
   const file=event.target.files?.[0];
