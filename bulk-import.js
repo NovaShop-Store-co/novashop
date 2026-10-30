@@ -31,6 +31,8 @@ let importing = false;
 let loadedNoteText = "";
 let productRecords = [];
 let productRecordsFromStandalone = false;
+let categoryView = "all";
+let xlsxLoaderPromise = null;
 
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
@@ -40,6 +42,23 @@ function esc(value) {
 function normalize(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .toLowerCase().replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ");
+}
+function categoryFromValue(value) {
+  const key=normalize(value);
+  return CATEGORIES.find(category=>normalize(category)===key) || "";
+}
+function deliveryTypeFromValue(value, category="") {
+  const key=normalize(value);
+  if(["digital","servicio digital","producto digital","descargable"].includes(key))return "digital";
+  if(["fisico","producto fisico","fisica","mercancia"].includes(key))return "physical";
+  return normalize(category)==="streaming" ? "digital" : "";
+}
+function categoryFromFiles(fileEntries) {
+  const matches=(fileEntries||[]).flatMap(entry=>
+    String(entry.path||entry.file?.webkitRelativePath||entry.file?.name||"").split("/")
+  ).map(categoryFromValue).filter(Boolean);
+  const unique=[...new Set(matches)];
+  return unique.length===1?unique[0]:"";
 }
 function fileMime(file) {
   if (file.type && file.type.startsWith("image/")) return file.type.toLowerCase();
@@ -156,7 +175,8 @@ function parseStructuredProductNote(source) {
   function createRecord(name,id) {
     return {
       id:String(id || "").trim(),name:cleanName(name),category:"",price:"",oldPrice:"",
-      sizes:[],audience:"",color:"",descriptionText:"",description:"",features:[]
+      stock:"",deliveryType:"",sizes:[],audience:"",color:"",
+      descriptionText:"",description:"",features:[]
     };
   }
 
@@ -188,7 +208,15 @@ function parseStructuredProductNote(source) {
       continue;
     }
     if (key === "categoria" || key === "categoría") {
-      current.category = value;
+      current.category = categoryFromValue(value) || value;
+      continue;
+    }
+    if (key === "stock" || key === "stock general" || key === "existencias" || key === "inventario") {
+      current.stock = value.trim();
+      continue;
+    }
+    if (key === "tipo de entrega" || key === "entrega" || key === "delivery type") {
+      current.deliveryType = deliveryTypeFromValue(value,current.category);
       continue;
     }
     if (key === "publico objetivo" || key === "publico" || key === "audiencia") {
@@ -229,6 +257,124 @@ function parseStructuredProductNote(source) {
   valid.forEach(record=>idCounts.set(record.id,(idCounts.get(record.id)||0)+1));
   return valid.filter(record=>idCounts.get(record.id) === 1);
 }
+async function loadXlsxLibrary() {
+  if (window.XLSX) return window.XLSX;
+  if (xlsxLoaderPromise) return xlsxLoaderPromise;
+  xlsxLoaderPromise = new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+    script.async=true;
+    script.onload=()=>window.XLSX?resolve(window.XLSX):reject(new Error("No se pudo cargar el lector de Excel."));
+    script.onerror=()=>reject(new Error("No se pudo descargar el lector de Excel. Comprueba tu conexión."));
+    document.head.appendChild(script);
+  });
+  try{return await xlsxLoaderPromise;}
+  catch(error){xlsxLoaderPromise=null;throw error;}
+}
+function excelHeaderValue(row,aliases) {
+  const keys=Object.keys(row||{});
+  const target=new Set(aliases.map(normalize));
+  const key=keys.find(name=>target.has(normalize(name)));
+  return key==null?"":String(row[key]??"").trim();
+}
+async function parseExcelProductFile(file) {
+  if(!file || !/\.(xlsx|xls|csv)$/i.test(file.name||""))throw new Error("Selecciona una plantilla Excel .xlsx, .xls o .csv.");
+  if(!file.size || file.size>5*1024*1024)throw new Error("La plantilla Excel debe pesar máximo 5 MB.");
+  const XLSX=await loadXlsxLibrary();
+  const workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:false});
+  if(!workbook.SheetNames?.length)throw new Error("El archivo no contiene hojas de cálculo.");
+  const sheetName=workbook.SheetNames.find(name=>normalize(name)==="productos")||workbook.SheetNames[0];
+  const sheet=workbook.Sheets[sheetName];
+  const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false,blankrows:false});
+  if(!rows.length)throw new Error("La hoja Productos no contiene filas de productos.");
+  if(rows.length>250)throw new Error("Puedes importar máximo 250 productos por archivo. Divide el catálogo en varios lotes.");
+  const recordsText=[];
+  const seenIds=new Set();
+  const rowErrors=[];
+  rows.forEach((row,index)=>{
+    const rowNumber=index+2;
+    const name=excelHeaderValue(row,["Nombre del producto","Nombre","Producto"]);
+    const rawId=excelHeaderValue(row,["ID del producto en Dropi","ID Dropi","Dropi ID","ID"]);
+    const id=rawId.replace(/\.0+$/,"").replace(/^#/,"").trim();
+    const category=categoryFromValue(excelHeaderValue(row,["Categoría","Categoria"]));
+    const audience=excelHeaderValue(row,["Público objetivo","Publico objetivo","Público","Audiencia"]);
+    const price=excelHeaderValue(row,["Precio venta","Precio de venta","Precio"]);
+    const oldPrice=excelHeaderValue(row,["Precio anterior","Precio antes"]);
+    const sizes=excelHeaderValue(row,["Tallas","Talla"]);
+    const color=excelHeaderValue(row,["Color"]);
+    const description=excelHeaderValue(row,["Descripción","Descripcion"]);
+    const features=excelHeaderValue(row,["Características","Caracteristicas"]);
+    const stock=excelHeaderValue(row,["Stock","Existencias","Inventario"]);
+    const delivery=excelHeaderValue(row,["Tipo de entrega","Entrega"]);
+    if(!name&&!id&&!category&&!price&&!sizes&&!color&&!description&&!features&&!stock) return;
+    if(!name){rowErrors.push("Fila "+rowNumber+": falta el nombre del producto.");return;}
+    if(!id){rowErrors.push("Fila "+rowNumber+" ("+name+"): falta el ID de Dropi.");return;}
+    if(seenIds.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
+    seenIds.add(id);
+    const cleanLine=value=>String(value||"").replace(/[\r\n]+/g," ").trim();
+    recordsText.push([
+      "Nombre del producto: "+cleanLine(name),
+      "ID del producto en Dropi: "+cleanLine(id),
+      category?"Categoría: "+category:"",
+      audience?"Público objetivo: "+cleanLine(audience):"",
+      price?"Precio venta: "+cleanLine(price):"",
+      oldPrice?"Precio anterior: "+cleanLine(oldPrice):"",
+      sizes?"Tallas: "+cleanLine(sizes):"",
+      color?"Color: "+cleanLine(color):"",
+      description?"Descripción: "+cleanLine(description):"Descripción: (Que lo ponga la IA)",
+      features?"Características: "+cleanLine(features):"Características: (Que lo ponga la IA)",
+      stock!==""?"Stock: "+cleanLine(stock):"",
+      delivery?"Tipo de entrega: "+cleanLine(delivery):""
+    ].filter(Boolean).join(String.fromCharCode(10)));
+  });
+  if(rowErrors.length)throw new Error("Corrige la plantilla antes de importar:\n"+rowErrors.slice(0,8).join("\n")+(rowErrors.length>8?"\nY "+(rowErrors.length-8)+" error(es) más.":""));
+  if(!recordsText.length)throw new Error("No encontré productos válidos en la hoja Productos.");
+  const records=parseStructuredProductNote(recordsText.join(String.fromCharCode(10)+String.fromCharCode(10)));
+  if(records.length!==recordsText.length)throw new Error("Algunas filas no pudieron interpretarse. Comprueba que los IDs de Dropi sean únicos.");
+  return records;
+}
+async function downloadExcelTemplate() {
+  try {
+    const XLSX=await loadXlsxLibrary();
+    const headers=[
+      "Nombre del producto","Categoría","Público objetivo","ID del producto en Dropi",
+      "Precio venta","Precio anterior","Tallas","Color","Descripción","Características","Stock","Tipo de entrega"
+    ];
+    const rows=[
+      headers,
+      ["Camiseta Kakashi","Moda","Unisex","1739450",59900,79900,"S, M, L, XL","Blanco","(Que lo ponga la IA)","(Que lo ponga la IA)",20,"Físico"],
+      ["Smartwatch Active X","Tecnología","Hombre","1738794",89900,129900,"","Negro","(Que lo ponga la IA)","(Que lo ponga la IA)",15,"Físico"]
+    ];
+    const productsSheet=XLSX.utils.aoa_to_sheet(rows);
+    productsSheet["!cols"]=[
+      {wch:25},{wch:18},{wch:18},{wch:24},{wch:16},{wch:17},
+      {wch:19},{wch:15},{wch:38},{wch:38},{wch:12},{wch:18}
+    ];
+    const guideRows=[
+      ["PASO","QUÉ HACER"],
+      ["1. Completa Productos","Una fila por producto. Conserva los encabezados de la primera fila."],
+      ["2. ID de Dropi","Es el vínculo principal. Escribe el ID exacto y no lo repitas."],
+      ["3. Fotografías","Organiza: Fotos/Moda/1739450/foto1.jpg, foto2.jpg. Una carpeta por ID y hasta 8 fotos dentro."],
+      ["4. Descripción","Deja (Que lo ponga la IA) o vacío para generar un texto comercial con los datos disponibles."],
+      ["5. Características","Escribe datos confirmados separados por punto y coma, o deja (Que lo ponga la IA)."],
+      ["6. Precios","Ingresa pesos colombianos como números: 59900."],
+      ["7. Tallas","Separa varias tallas con comas: S, M, L, XL."],
+      ["8. Stock","Vacío = sin control de inventario. 0 = agotado."],
+      ["9. Tipo de entrega","Físico para mercancía; Digital para servicios. Streaming se toma como digital si lo dejas vacío."],
+      ["IMPORTANTE","No inventes materiales, medidas, compatibilidades o beneficios. Borra o reemplaza las dos filas de ejemplo."]
+    ];
+    const guideSheet=XLSX.utils.aoa_to_sheet(guideRows);
+    guideSheet["!cols"]=[{wch:25},{wch:92}];
+    const book=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book,productsSheet,"Productos");
+    XLSX.utils.book_append_sheet(book,guideSheet,"Instrucciones");
+    XLSX.writeFile(book,"Plantilla_Importacion_Masiva_NovaShop.xlsx");
+    message("Plantilla Excel descargada. Reemplaza o elimina las dos filas de ejemplo antes de importarla.","success");
+  } catch(error) {
+    message(error?.message||"No se pudo generar la plantilla Excel.","error");
+  }
+}
+
 function colorFromRecord(value) {
   const target = normalize(value);
   return Object.keys(COLORS).find(color=>normalize(color)===target) || "";
@@ -238,9 +384,13 @@ function applyProductRecord(group, record) {
   group.txtRecordId = record.id;
   group.name = record.name;
   group.dropiProductId = record.id;
-  if (record.category && CATEGORIES.includes(record.category)) group.category = record.category;
+  const mappedCategory=categoryFromValue(record.category);
+  if (mappedCategory) group.category = mappedCategory;
   if (record.price) group.price = record.price;
   if (record.oldPrice) group.oldPrice = record.oldPrice;
+  if (record.stock !== "" && record.stock != null) group.stock = record.stock;
+  const delivery=record.deliveryType || deliveryTypeFromValue("",record.category);
+  if (delivery) group.deliveryType = delivery;
   if (record.sizes.length) group.sizes = record.sizes.join(", ");
   if (record.audience) group.audience = record.audience;
   const mappedColor = colorFromRecord(record.color);
@@ -311,24 +461,31 @@ function resolveNoteFile(noteFiles) {
   const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
   return preferred.length === 1 ? preferred[0] : null;
 }
+function setProductRecords(records, filename, standalone=true, label="Excel") {
+  productRecords=records;
+  productRecordsFromStandalone=standalone;
+  if (loadedNoteText && $("#bulkDescription")?.value.trim()===loadedNoteText) $("#bulkDescription").value="";
+  loadedNoteText="";
+  groups.forEach(group=>{
+    if(!group.importedProductId){group.txtRecordId="";group.txtMatched=false;}
+  });
+  applyProductRecordsToGroups();
+  noteStatus(label+" leído: "+records.length+" productos. Las fichas se relacionan por ID exacto de Dropi; completa o revisa las fotografías que queden pendientes.","success");
+  render();
+  if(!groups.length) {
+    message(label+" leído. Ahora selecciona la carpeta de fotografías; NovaShop vinculará cada producto mediante su ID Dropi.","success");
+  } else if(records.some(record=>groups.every(group=>group.txtRecordId!==record.id))) {
+    message(label+" leído. Algunas fichas están pendientes de vincular a sus fotos mediante el ID Dropi.","info");
+  } else {
+    message(label+" leído y aplicado a las fichas que coinciden por ID Dropi.","success");
+  }
+}
 function setNoteText(text, filename, truncated=false, standalone=false) {
   const field = $("#bulkDescription");
   if (!field) return;
   const records = parseStructuredProductNote(text);
   if (records.length) {
-    productRecords = records;
-    productRecordsFromStandalone = standalone;
-    if (loadedNoteText && field.value.trim() === loadedNoteText) field.value = "";
-    loadedNoteText = "";
-    groups.forEach(group=>{
-      if (!group.importedProductId) {
-        group.txtRecordId = "";
-        group.txtMatched = false;
-      }
-    });
-    applyProductRecordsToGroups();
-    noteStatus("TXT interpretado: " + records.length + " productos con ID, tallas y características. No se pegó el documento completo en las descripciones.", "success");
-    render();
+    setProductRecords(records,filename,standalone,"TXT");
     return;
   }
   productRecords = [];
@@ -423,7 +580,9 @@ function makeGroups(list) {
     }
     if (!map.has(key)) {
       map.set(key,{
-        id:nextGroupId++, name:prettyName(label,map.size+1), category:$("#bulkCategory")?.value||"",
+        id:nextGroupId++, name:prettyName(label,map.size+1),
+        category:categoryFromFiles([entry])||$("#bulkCategory")?.value||"",
+        deliveryType:deliveryTypeFromValue($("#bulkDeliveryType")?.value||""),
         price:$("#bulkPrice")?.value||"", oldPrice:$("#bulkOldPrice")?.value||"",
         stock:$("#bulkStock")?.value||"", sizes:$("#bulkSizes")?.value||"",
         description:$("#bulkDescription")?.value||"", color:"",
@@ -460,7 +619,8 @@ function createAiGroup(fileEntries,index,minimumSimilarity,analysisFailed=false)
   return {
     id:nextGroupId++,
     name:prettyName(sourceName,index+1),
-    category:$("#bulkCategory")?.value||"",
+    category:categoryFromFiles(fileEntries)||$("#bulkCategory")?.value||"",
+    deliveryType:deliveryTypeFromValue($("#bulkDeliveryType")?.value||""),
     price:$("#bulkPrice")?.value||"",
     oldPrice:$("#bulkOldPrice")?.value||"",
     stock:$("#bulkStock")?.value||"",
@@ -634,6 +794,13 @@ function updateStats() {
   const importButtonBottom = $("#bulkImportButtonBottom");
   if (importButton) importButton.disabled = !canSave;
   if (importButtonBottom) importButtonBottom.disabled = !canSave;
+  const categoryButton=$("#bulkImportCategoryButton");
+  const categoryPending=groups.filter(group=>!group.importedProductId&&categoryView!=="all"&&
+    (categoryView==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryView))).length;
+  if(categoryButton){
+    categoryButton.disabled=!authorized||importing||aiProcessing||categoryView==="all"||categoryPending===0;
+    categoryButton.textContent=categoryView==="all"?"Guardar categoría actual":("Guardar "+categoryView+" · "+categoryPending);
+  }
   const hasImported=groups.some(group=>group.importedProductId);
   const aiButton=$("#bulkVisualAiButton");
   if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length||hasImported;
@@ -670,14 +837,34 @@ async function hashEntries(list) {
 function groupHasDuplicateName(group) {
   return existingNames.has(normalize(group.name));
 }
+function sortGroupsByCategory(items) {
+  return items.slice().sort((a,b)=>{
+    const categoryA=categoryFromValue(a.category)||"Sin categoría";
+    const categoryB=categoryFromValue(b.category)||"Sin categoría";
+    const indexA=categoryA==="Sin categoría"?CATEGORIES.length:CATEGORIES.indexOf(categoryA);
+    const indexB=categoryB==="Sin categoría"?CATEGORIES.length:CATEGORIES.indexOf(categoryB);
+    return indexA-indexB || String(a.name||"").localeCompare(String(b.name||""),"es");
+  });
+}
 function render() {
   cleanupPreviews();
   const list = $("#bulkGroupList");
   if (!list) return;
-  const pages = Math.max(1,Math.ceil(groups.length/PAGE_SIZE));
+  const categorySelect=$("#bulkReviewCategory");
+  const categories=[...new Set(groups.map(group=>categoryFromValue(group.category)||"Sin categoría"))]
+    .sort((a,b)=>CATEGORIES.indexOf(a)-CATEGORIES.indexOf(b));
+  if(categoryView!=="all"&&!categories.includes(categoryView))categoryView="all";
+  if(categorySelect){
+    categorySelect.innerHTML='<option value="all">Todas las categorías ('+groups.length+')</option>'+
+      categories.map(category=>'<option value="'+esc(category)+'">'+esc(category)+' ('+groups.filter(group=>(categoryFromValue(group.category)||"Sin categoría")===category).length+')</option>').join("");
+    categorySelect.value=categoryView;
+    categorySelect.disabled=!groups.length||importing;
+  }
+  const viewGroups=sortGroupsByCategory(categoryView==="all"?groups:groups.filter(group=>(categoryFromValue(group.category)||"Sin categoría")===categoryView));
+  const pages = Math.max(1,Math.ceil(viewGroups.length/PAGE_SIZE));
   page = Math.min(page,pages-1);
   const start = page * PAGE_SIZE;
-  const visible = groups.slice(start,start+PAGE_SIZE);
+  const visible = viewGroups.slice(start,start+PAGE_SIZE);
   const globalHashCounts = new Map();
   entries.forEach(entry => {
     if (entry.hash) globalHashCounts.set(entry.hash,(globalHashCounts.get(entry.hash)||0)+1);
@@ -685,7 +872,13 @@ function render() {
   if (!groups.length) {
     list.innerHTML = '<div class="admin-orders-empty">Selecciona una carpeta o varias imágenes para preparar los productos.</div>';
   } else {
+    let previousCategory="";
     list.innerHTML = visible.map(group => {
+      const categoryLabel=categoryFromValue(group.category)||"Sin categoría";
+      const categoryHeading=categoryLabel!==previousCategory
+        ? '<div class="bulk-import-category-heading"><strong>'+esc(categoryLabel)+'</strong><span>'+viewGroups.filter(item=>(categoryFromValue(item.category)||"Sin categoría")===categoryLabel).length+' producto(s)</span></div>'
+        : "";
+      previousCategory=categoryLabel;
       const thumbs = group.files.map((entry,index) => {
         const url = URL.createObjectURL(entry.file);
         previewUrls.push(url);
@@ -723,7 +916,7 @@ function render() {
         '<div class="bulk-product-success">Guardado como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
-      return '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
+      return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
         '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
@@ -732,6 +925,7 @@ function render() {
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
         '<label>Público objetivo *<select data-product-field="audience" data-group-id="' + group.id + '">' + audienceOptions + '</select></label>' +
+        '<label>Tipo de entrega<select data-product-field="deliveryType" data-group-id="' + group.id + '"><option value="physical"' + ((group.deliveryType||"physical")==="physical"?" selected":"") + '>Físico</option><option value="digital"' + (group.deliveryType==="digital"?" selected":"") + '>Digital</option></select></label>' +
         '<label>ID del producto en Dropi (opcional)<input type="text" maxlength="100" data-product-field="dropiProductId" data-group-id="' + group.id + '" value="' + esc(group.dropiProductId || "") + '" placeholder="ID exacto del producto"></label>' +
         '<label>Precio de venta COP *<input type="number" min="1" step="1" data-product-field="price" data-group-id="' + group.id + '" value="' + esc(group.price) + '"></label>' +
         '<label>Precio anterior COP<input type="number" min="1" step="1" data-product-field="oldPrice" data-group-id="' + group.id + '" value="' + esc(group.oldPrice) + '"></label>' +
@@ -746,9 +940,9 @@ function render() {
     }).join("");
   }
   const pageInfo = $("#bulkPaginationLabel");
-  if (pageInfo) pageInfo.textContent = groups.length ? "Productos " + (start+1) + "–" + Math.min(start+PAGE_SIZE,groups.length) + " de " + groups.length : "Sin productos";
+  if (pageInfo) pageInfo.textContent = viewGroups.length ? (categoryView==="all"?"Todos":"Categoría: "+categoryView)+" · productos " + (start+1) + "–" + Math.min(start+PAGE_SIZE,viewGroups.length) + " de " + viewGroups.length : "Sin productos";
   const pageInfoBottom = $("#bulkPageStatus");
-  if (pageInfoBottom) pageInfoBottom.textContent = groups.length ? "Página " + (page+1) + " de " + pages : "Sin productos";
+  if (pageInfoBottom) pageInfoBottom.textContent = viewGroups.length ? "Página " + (page+1) + " de " + pages : "Sin productos";
   const previous = $("#bulkPrevPage"), next = $("#bulkNextPage");
   if (previous) previous.disabled = page <= 0;
   if (next) next.disabled = page >= pages-1;
@@ -759,6 +953,7 @@ function render() {
 function applyDefaults() {
   groups.forEach(group => {
     group.category = $("#bulkCategory").value;
+    group.deliveryType = $("#bulkDeliveryType").value;
     group.price = $("#bulkPrice").value;
     group.oldPrice = $("#bulkOldPrice").value;
     group.stock = $("#bulkStock").value;
@@ -790,6 +985,7 @@ function splitGroup(id) {
       id:nextGroupId++, name:prettyName(stem,groups.length+1), category:group.category,
       price:group.price, oldPrice:group.oldPrice, stock:group.stock, sizes:group.sizes,
       description:group.description, color:detectColor([entry]), audience:group.audience,
+      deliveryType:group.deliveryType||"physical",
       dropiProductId:index===0?(group.dropiProductId||""):"",
       features:(group.features || []).slice(), txtRecordId:index===0?(group.txtRecordId||""):"", txtMatched:index===0&&!!group.txtMatched,
       files:[entry], importedProductId:null,error:""
@@ -849,6 +1045,8 @@ function validateGroup(group) {
   const oldPrice = group.oldPrice === "" || group.oldPrice == null ? null : Number(group.oldPrice);
   if (oldPrice !== null && (!Number.isSafeInteger(oldPrice) || oldPrice < price || oldPrice > 100000000)) return "El precio anterior debe ser mayor o igual al precio actual.";
   if (!String(group.description || "").trim()) return "Añade una descripción general o específica.";
+  if (group.stock !== "" && group.stock != null && (!Number.isSafeInteger(Number(group.stock)) || Number(group.stock)<0)) return "El stock debe ser un número entero igual o mayor que cero.";
+  if (!["physical","digital"].includes(group.deliveryType||$("#bulkDeliveryType")?.value)) return "Selecciona el tipo de entrega.";
   if (!group.files.length) return "Añade al menos una imagen.";
   if (group.files.length > MAX_IMAGES_PER_PRODUCT) return "Supera el máximo de 8 fotos por producto. Separa este grupo.";
   if (!$("#bulkAllowDuplicates").checked && groupHasDuplicateName(group)) return "Ya existe un producto con este nombre; cámbialo o permite duplicados.";
@@ -890,7 +1088,7 @@ async function importGroup(group,index,total) {
   const color = group.color && COLORS[group.color] ? [{
     name:group.color,hex:COLORS[group.color],images:urls.slice(0,2)
   }] : [];
-  const delivery = $("#bulkDeliveryType").value;
+  const delivery = group.deliveryType || $("#bulkDeliveryType").value;
   const audience = String(group.audience || "").toLowerCase();
   const targetAudiences = audience === "unisex" ? ["hombre","mujer"] : [audience];
   const payload = {
@@ -912,13 +1110,15 @@ async function importGroup(group,index,total) {
   existingNames.add(normalize(group.name));
   return group.importedProductId;
 }
-async function runImport() {
+async function runImport(categoryFilter="all") {
   if (importing) return;
+  if(categoryFilter!=="all"){categoryView=categoryFilter;page=0;}
   if (!authorized || !db?.isConfigured?.()) {
     message("La sesión administrativa no está disponible. Inicia sesión de nuevo.", "error");
     return;
   }
-  const pending = groups.filter(group => !group.importedProductId);
+  const pending = groups.filter(group => !group.importedProductId &&
+    (categoryFilter==="all"||(categoryFilter==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryFilter))));
   if (!pending.length) {
     message("No hay productos pendientes de importar.", "info");
     return;
@@ -935,13 +1135,16 @@ async function runImport() {
   })).filter(item => item.error);
   invalid.forEach(item => { item.group.error = item.error; });
   if (invalid.length) {
-    page = Math.max(0,Math.floor(groups.indexOf(invalid[0].group)/PAGE_SIZE));
+    const activeGroups=sortGroupsByCategory(categoryFilter==="all"?groups:groups.filter(group=>
+      categoryFilter==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryFilter)));
+    page = Math.max(0,Math.floor(activeGroups.indexOf(invalid[0].group)/PAGE_SIZE));
     render();
     message("Hay " + invalid.length + " producto(s) por corregir. Revisa las tarjetas marcadas antes de iniciar.", "error");
     return;
   }
   const publishText = $("#bulkPublishNow").checked ? "publicar" : "guardar como borradores";
-  if (!window.confirm("Se crearán " + pending.length + " productos y se subirán sus imágenes a Supabase Storage. Se van a " + publishText + ". ¿Continuar?")) return;
+  const categoryLabel=categoryFilter==="all"?"de todas las categorías":"de "+categoryFilter;
+  if (!window.confirm("Se crearán " + pending.length + " productos "+categoryLabel+" y se subirán sus imágenes a Supabase Storage. Se van a " + publishText + ". ¿Continuar?")) return;
   importing = true;
   $("#bulkImportButton").disabled = true;
   if ($("#bulkImportButtonBottom")) $("#bulkImportButtonBottom").disabled = true;
@@ -1108,6 +1311,22 @@ async function init() {
   }
 }
 
+$("#bulkDownloadTemplate")?.addEventListener("click",()=>{void downloadExcelTemplate();});
+$("#bulkExcelFile")?.addEventListener("change",async event=>{
+  const file=event.target.files?.[0];
+  event.target.value="";
+  if(!file)return;
+  try{
+    noteStatus("Leyendo plantilla Excel y validando los ID de Dropi…");
+    const records=await parseExcelProductFile(file);
+    setProductRecords(records,file.name,true,"Excel");
+    const unmatched=records.filter(record=>!groups.some(group=>group.txtRecordId===record.id)).length;
+    noteStatus("Excel importado: "+records.length+" productos · "+(records.length-unmatched)+" vinculados por ID · "+unmatched+" pendientes de asociar a fotos. Conservamos los datos para cuando cargues la carpeta.",unmatched?"info":"success");
+  }catch(error){
+    noteStatus(error?.message||"No se pudo leer la plantilla Excel.","error");
+    message(error?.message||"No se pudo leer la plantilla Excel.","error");
+  }
+});
 $("#bulkFolder")?.addEventListener("change",event => {
   void addFiles(event.target.files,{replace:true});
   event.target.value = "";
@@ -1157,8 +1376,10 @@ $("#bulkResetButton")?.addEventListener("click",() => {
   noteStatus("Importación limpia. Puedes seleccionar una nueva carpeta y su TXT.");
   message("Importación limpia. Puedes seleccionar otra carpeta.");
 });
-$("#bulkImportButton")?.addEventListener("click",() => { void runImport(); });
-$("#bulkImportButtonBottom")?.addEventListener("click",() => { void runImport(); });
+$("#bulkImportButton")?.addEventListener("click",() => { void runImport("all"); });
+$("#bulkImportButtonBottom")?.addEventListener("click",() => { void runImport("all"); });
+$("#bulkImportCategoryButton")?.addEventListener("click",() => { if(categoryView!=="all")void runImport(categoryView); });
+$("#bulkReviewCategory")?.addEventListener("change",event=>{categoryView=event.target.value||"all";page=0;render();});
 $("#bulkGroupList")?.addEventListener("input",event => {
   const field = event.target.closest("[data-product-field]");
   if (!field) return;
