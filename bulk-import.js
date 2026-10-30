@@ -30,6 +30,7 @@ let authorized = false;
 let importing = false;
 let loadedNoteText = "";
 let productRecords = [];
+let productRecordsFromStandalone = false;
 
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
@@ -223,12 +224,13 @@ function resolveNoteFile(noteFiles) {
   const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
   return preferred.length === 1 ? preferred[0] : null;
 }
-function setNoteText(text, filename, truncated=false) {
+function setNoteText(text, filename, truncated=false, standalone=false) {
   const field = $("#bulkDescription");
   if (!field) return;
   const records = parseStructuredProductNote(text);
   if (records.length) {
     productRecords = records;
+    productRecordsFromStandalone = standalone;
     if (loadedNoteText && field.value.trim() === loadedNoteText) field.value = "";
     loadedNoteText = "";
     groups.forEach(group=>{
@@ -243,6 +245,7 @@ function setNoteText(text, filename, truncated=false) {
     return;
   }
   productRecords = [];
+  productRecordsFromStandalone = false;
   const generalText = text.slice(0,4000);
   const wasTruncated = truncated || text.length > 4000;
   field.value = generalText;
@@ -913,7 +916,7 @@ async function addFiles(fileList, options={}) {
     return;
   }
   const replaceSelection = options.replace === true;
-  if (replaceSelection) productRecords = [];
+  if (replaceSelection && !productRecordsFromStandalone) productRecords = [];
   const noteFiles = incoming.filter(isTextNote);
   const imageFiles = incoming.filter(isAllowedImage);
   const unsupported = incoming.filter(file => !isTextNote(file) && !isAllowedImage(file));
@@ -1032,7 +1035,7 @@ $("#bulkNoteFile")?.addEventListener("change",async event => {
   if (!file) return;
   try {
     const note = await readNoteFile(file);
-    setNoteText(note.text,file.name,note.truncated);
+    setNoteText(note.text,file.name,note.truncated,true);
     message("Nota TXT cargada y aplicada a los productos pendientes.",note.truncated ? "error" : "success");
   } catch (error) {
     noteStatus(error?.message || "No se pudo leer la nota TXT.","error");
@@ -1058,6 +1061,7 @@ $("#bulkResetButton")?.addEventListener("click",() => {
   cleanupPreviews();
   entries=[];groups=[];selectedGroups.clear();page=0;
   productRecords=[];
+  productRecordsFromStandalone=false;
   $("#bulkFolder").value="";$("#bulkImages").value="";
   if ($("#bulkNoteFile")) $("#bulkNoteFile").value="";
   $("#bulkImportResults").innerHTML="";
