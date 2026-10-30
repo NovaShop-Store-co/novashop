@@ -67,3 +67,6 @@
 .bulk-save-step button{min-height:44px;padding:11px 20px;font-size:13px;font-weight:850;white-space:normal}
 .bulk-save-step button:disabled{opacity:.48;cursor:not-allowed}
 @media(max-width:520px){.bulk-save-step{align-items:stretch}.bulk-save-step button{width:100%}}
+
+.bulk-import-help.success{color:#267447;font-weight:700}
+.bulk-import-help.error{color:#a93427;font-weight:700}

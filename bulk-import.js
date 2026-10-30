@@ -8,6 +8,7 @@ if (!panel) return;
 
 const db = window.NovaShopDB;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_NOTE_BYTES = 64 * 1024;
 const MAX_IMAGES_PER_PRODUCT = 8;
 const PAGE_SIZE = 12;
 const COLORS = {
@@ -27,6 +28,7 @@ let selectedGroups = new Set();
 let existingNames = new Set();
 let authorized = false;
 let importing = false;
+let loadedNoteText = "";
 
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
@@ -44,6 +46,43 @@ function fileMime(file) {
 }
 function isAllowedImage(file) {
   return Object.values(MIME_BY_EXT).includes(fileMime(file));
+}
+function isTextNote(file) {
+  return /\.txt$/i.test(String(file?.name || ""));
+}
+function noteStatus(text, type) {
+  const el = $("#bulkNoteStatus");
+  if (!el) return;
+  el.textContent = text || "";
+  el.className = "bulk-import-help" + (type ? " " + type : "");
+}
+async function readNoteFile(file) {
+  if (!isTextNote(file)) throw new Error("Selecciona un archivo con extensión .txt.");
+  if (!file.size || file.size > MAX_NOTE_BYTES) throw new Error("La nota TXT debe tener contenido y pesar máximo 64 KB.");
+  let text = await file.text();
+  text = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  if (!text) throw new Error("El archivo TXT está vacío.");
+  const truncated = text.length > 4000;
+  if (truncated) text = text.slice(0,4000).trimEnd();
+  return {text,truncated};
+}
+function resolveNoteFile(noteFiles) {
+  if (noteFiles.length === 1) return noteFiles[0];
+  const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
+  return preferred.length === 1 ? preferred[0] : null;
+}
+function setNoteText(text, filename, truncated=false) {
+  const field = $("#bulkDescription");
+  if (!field) return;
+  field.value = text;
+  loadedNoteText = text;
+  groups.forEach(group => {
+    if (!group.importedProductId) group.description = text;
+  });
+  noteStatus("Nota cargada: " + filename + ". Se aplicó como descripción a " +
+    groups.filter(group => !group.importedProductId).length + " producto(s) pendiente(s)." +
+    (truncated ? " Se limitaron los primeros 4.000 caracteres." : ""), truncated ? "error" : "success");
+  render();
 }
 function message(text, type) {
   const el = $("#bulkStatus");
@@ -675,12 +714,30 @@ async function addFiles(fileList, options={}) {
     return;
   }
   const replaceSelection = options.replace === true;
+  const noteFiles = incoming.filter(isTextNote);
+  const imageFiles = incoming.filter(isAllowedImage);
+  const unsupported = incoming.filter(file => !isTextNote(file) && !isAllowedImage(file));
+  let noteInfo = null;
+  let noteFile = null;
+  let noteError = "";
+  if (noteFiles.length) {
+    noteFile = resolveNoteFile(noteFiles);
+    if (!noteFile) {
+      noteError = "Se encontraron varios TXT y no pude identificar una nota única. Usa «Cargar nota TXT» para elegir el archivo correcto.";
+    } else {
+      try {
+        noteInfo = await readNoteFile(noteFile);
+      } catch (error) {
+        noteError = error?.message || "No se pudo leer el archivo TXT.";
+      }
+    }
+  }
+
   const valid = [];
-  const rejected = [];
+  const rejected = unsupported.map(file => file.name + " (formato no admitido)");
   const baseEntries = replaceSelection ? [] : entries;
   const seen = new Set(baseEntries.map(entry => entry.key));
-  incoming.forEach(file => {
-    if (!isAllowedImage(file)) { rejected.push(file.name + " (formato no admitido)"); return; }
+  imageFiles.forEach(file => {
     if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) { rejected.push(file.name + " (supera 12 MB o está vacío)"); return; }
     const path = file.webkitRelativePath || file.name;
     const key = fileKey(file,path);
@@ -688,20 +745,35 @@ async function addFiles(fileList, options={}) {
     seen.add(key);
     valid.push({file,path,hash:"",key,type:fileMime(file)});
   });
-  if (!valid.length) {
-    message(rejected.length ? "No se añadieron archivos válidos. " + rejected.slice(0,3).join("; ") : "No hay imágenes nuevas para añadir.", "error");
-    return;
-  }
-  if (replaceSelection) {
+
+  if (replaceSelection && valid.length) {
     cleanupPreviews();
     entries = [];
     groups = [];
     selectedGroups.clear();
     page = 0;
     $("#bulkImportResults").innerHTML = "";
+    if (!noteInfo && loadedNoteText && $("#bulkDescription").value.trim() === loadedNoteText) {
+      $("#bulkDescription").value = "";
+      loadedNoteText = "";
+      noteStatus("No se encontró un TXT en la nueva carpeta. Puedes escribir una descripción o cargar otra nota.");
+    }
+  }
+  if (noteInfo) setNoteText(noteInfo.text,noteFile.name,noteInfo.truncated);
+  else if (noteError) noteStatus(noteError,"error");
+
+  if (!valid.length) {
+    render();
+    if (noteInfo) {
+      message("Nota TXT cargada correctamente. Ahora selecciona una carpeta con imágenes para preparar los productos.", "success");
+    } else {
+      message(noteError || (rejected.length ? "No se añadieron imágenes válidas. " + rejected.slice(0,3).join("; ") : "No hay imágenes nuevas para añadir."), "error");
+    }
+    return;
   }
   entries = entries.concat(valid);
-  message((replaceSelection ? "Se reemplazó la selección anterior. " : "") + "Se añadieron " + valid.length + " imagen(es). Comprobando duplicados…");
+  message((replaceSelection ? "Se reemplazó la selección anterior. " : "") +
+    (noteInfo ? "Nota TXT leída. " : "") + "Se añadieron " + valid.length + " imagen(es). Comprobando duplicados…");
   await hashEntries(valid);
   groups = makeGroups(entries);
   page = 0;
@@ -713,9 +785,11 @@ async function addFiles(fileList, options={}) {
   });
   const duplicateCount = Array.from(globalDuplicates.values()).filter(count => count > 1).length;
   message(valid.length + " imagen(es) añadidas; " + groups.length + " producto(s) agrupados." +
+    (noteInfo ? " Nota TXT aplicada como descripción general." : "") +
+    (noteError ? " " + noteError : "") +
     (duplicateCount ? " Se encontraron " + duplicateCount + " contenido(s) repetido(s)." : "") +
     (rejected.length ? " Se omitieron " + rejected.length + " archivo(s) no válidos." : ""),
-    rejected.length ? "error" : "success");
+    (rejected.length || noteError) ? "error" : "success");
 }
 async function loadExistingProducts() {
   try {
@@ -750,6 +824,19 @@ $("#bulkFolder")?.addEventListener("change",event => {
 $("#bulkImages")?.addEventListener("change",event => {
   void addFiles(event.target.files);
   event.target.value = "";
+});
+$("#bulkNoteFile")?.addEventListener("change",async event => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const note = await readNoteFile(file);
+    setNoteText(note.text,file.name,note.truncated);
+    message("Nota TXT cargada y aplicada a los productos pendientes.",note.truncated ? "error" : "success");
+  } catch (error) {
+    noteStatus(error?.message || "No se pudo leer la nota TXT.","error");
+    message(error?.message || "No se pudo leer la nota TXT.","error");
+  }
 });
 $("#bulkVisualAiButton")?.addEventListener("click",()=>{void runVisualAi();});
 $("#bulkAiThreshold")?.addEventListener("input",event=>{
