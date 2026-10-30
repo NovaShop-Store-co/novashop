@@ -102,26 +102,56 @@ function parseStructuredProductNote(source) {
     if (color) record.color = color[1].trim();
     setAudience(record,value);
   }
+  function buildCreativeDescription(record) {
+    const category = normalize(record.category);
+    const name = record.name;
+    const templates = category === "moda" ? [
+      "Expresa tu personalidad con {name}. Una propuesta para darle un toque propio a tus outfits y llevar tus gustos a cada look.",
+      "Cada look cuenta algo de ti. {name} te permite sumar un detalle con identidad a tu estilo.",
+      "Ponle tu sello a tus combinaciones con {name}, una opción para quienes disfrutan vestir con personalidad."
+    ] : category === "accesorios" ? [
+      "Los detalles hacen la diferencia. {name} llega para complementar tus combinaciones y darle un toque personal a tu estilo.",
+      "Completa tu estilo con {name}, una opción para sumar personalidad a tus accesorios y a tus combinaciones."
+    ] : category === "hogar" ? [
+      "Los pequeños detalles también transforman un espacio. {name} es una opción para complementar tu ambiente y darle un toque personal.",
+      "Dale un aire propio a tus espacios con {name}, una alternativa para complementar tu hogar."
+    ] : category === "tecnologia" ? [
+      "Descubre {name}, una alternativa para incorporar tecnología a tu día a día. Revisa sus características y conoce lo que ofrece.",
+      "Conoce {name}, una opción tecnológica que puedes explorar según las características y detalles de esta ficha."
+    ] : category === "oficina" ? [
+      "Dale personalidad a tu espacio de trabajo con {name}, una propuesta para complementar tu entorno de estudio u oficina.",
+      "Haz que tu espacio refleje tu estilo con {name}, una opción para tener en cuenta en tu ambiente de trabajo."
+    ] : category === "belleza" ? [
+      "Conoce {name}, una opción para sumar a tu selección de belleza y estilo. Revisa sus detalles y descubre si es lo que buscas.",
+      "Los detalles también forman parte de tu estilo. Explora {name} y conoce sus características."
+    ] : category === "deportes" ? [
+      "Descubre {name}, una opción para quienes disfrutan de las actividades y el movimiento. Conoce sus detalles antes de elegir.",
+      "Haz espacio para {name} en tus elecciones deportivas y conoce las características disponibles."
+    ] : category === "streaming" ? [
+      "Explora {name} y encuentra una alternativa para tu entretenimiento. Consulta los detalles disponibles antes de elegir.",
+      "Tu entretenimiento también merece opciones. Conoce {name} y revisa la información de este producto."
+    ] : [
+      "Descubre {name}, una opción para sumar a tu selección y encontrar un detalle que encaje con tus gustos.",
+      "Conoce {name}, una propuesta que puedes explorar y elegir de acuerdo con sus características."
+    ];
+    const seed = (name + "|" + category).split("").reduce((total,char)=>total+char.charCodeAt(0),0);
+    const intro = templates[seed % templates.length].replace(/\{name\}/g,name);
+    const facts = [];
+    if (record.color) facts.push("Color disponible: " + record.color + ".");
+    if (record.sizes.length) facts.push("Tallas disponibles: " + record.sizes.join(", ") + ".");
+    if (record.features.length) {
+      facts.push("Detalles del producto: " + record.features.join("; ") + ".");
+    }
+    const closing = category === "moda" || category === "accesorios"
+      ? "Elige las opciones disponibles y añade este diseño a tu colección."
+      : "Revisa sus detalles y agrégalo a tu carrito si es lo que estás buscando.";
+    return [intro].concat(facts).concat([closing]).join(" ").replace(/\s+/g," ").trim();
+  }
   function finish(record) {
     if (!record) return;
     record.name = cleanName(record.name);
     record.features = Array.from(new Set(record.features));
-    const parts = [];
-    if (record.color) parts.push("en color " + record.color);
-    const tela = record.features.find(item=>/^tela\s*:/i.test(item));
-    const horma = record.features.find(item=>/^horma\s*:/i.test(item));
-    const corte = record.features.find(item=>/^corte\s*:/i.test(item));
-    if (tela) parts.push("confeccionado en " + tela.split(":").slice(1).join(":").trim());
-    if (horma) parts.push("con horma " + horma.split(":").slice(1).join(":").trim());
-    if (corte) parts.push("y corte " + corte.split(":").slice(1).join(":").trim());
-    const extra = record.features.filter(item=>!/^tela\s*:/i.test(item)&&!/^horma\s*:/i.test(item)&&!/^corte\s*:/i.test(item));
-    let description = record.descriptionText || "";
-    if (!description) {
-      description = record.name + (parts.length ? " " + parts.join(", ") : "") + ".";
-      if (record.sizes.length) description += " Disponible en tallas " + record.sizes.join(", ") + ".";
-      if (extra.length) description += " " + extra.join(". ") + ".";
-    }
-    record.description = description.replace(/\s+/g," ").trim();
+    record.description = record.descriptionText || buildCreativeDescription(record);
   }
   function createRecord(name,id) {
     return {
