@@ -56,3 +56,14 @@
 .bulk-import-results:empty{display:none}
 @media(max-width:800px){.bulk-import-config{grid-template-columns:repeat(2,minmax(0,1fr))}.bulk-group-grid{grid-template-columns:1fr}}
 @media(max-width:520px){.bulk-import-files{grid-template-columns:1fr}.bulk-import-config{grid-template-columns:1fr;padding:11px}.bulk-product-fields{grid-template-columns:1fr}.bulk-product-fields .wide{grid-column:auto}.bulk-product-images{grid-template-columns:repeat(3,minmax(0,1fr))}.bulk-product-image img{height:74px}}
+
+
+/* Clear, unmistakable save step for the bulk importer. */
+.bulk-save-instructions{padding:10px 12px;border-left:4px solid #176a9e;border-radius:8px;background:#f2f7fb;color:#405464;font-size:11px;line-height:1.6}
+.bulk-save-instructions strong{color:#203d52}
+.bulk-save-step{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:16px;border:1px solid #bfd3e2;border-radius:13px;background:#f4f8fb}
+.bulk-save-step strong{display:block;font-size:14px;color:#1e3d53}
+.bulk-save-step p{margin:5px 0 0;max-width:660px;color:#60717d;font-size:11px;line-height:1.55}
+.bulk-save-step button{min-height:44px;padding:11px 20px;font-size:13px;font-weight:850;white-space:normal}
+.bulk-save-step button:disabled{opacity:.48;cursor:not-allowed}
+@media(max-width:520px){.bulk-save-step{align-items:stretch}.bulk-save-step button{width:100%}}
