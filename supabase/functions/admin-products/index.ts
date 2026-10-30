@@ -814,10 +814,13 @@ Deno.serve(async (req: Request) => {
         const conflict = (existingRefs||[]).find((ref: any)=>id===null||ownerByVariantId.get(Number(ref.product_variant_id))!==id);
         if (conflict) return json({error:"El ID de variante "+clean(conflict.dropi_variant_id,100)+" ya está vinculado a otro producto de NovaShop."},409,origin);
       }
-      const rawPaymentMethods = Array.isArray(body.payment_methods) && body.payment_methods.length
-        ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
-        : (preserveExistingFields && Array.isArray(existingProduct?.payment_methods) && existingProduct.payment_methods.length
-          ? existingProduct.payment_methods
+      const canPreservePaymentMethods = preserveExistingFields &&
+        clean(existingProduct?.delivery_type,20) === delivery &&
+        Array.isArray(existingProduct?.payment_methods) && existingProduct.payment_methods.length;
+      const rawPaymentMethods = canPreservePaymentMethods
+        ? existingProduct.payment_methods
+        : (Array.isArray(body.payment_methods) && body.payment_methods.length
+          ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
           : (delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"]));
       const paymentMethods = [...new Set(rawPaymentMethods)];
       if (!paymentMethods.length || paymentMethods.some((method: string)=>!["bold","cash_on_delivery"].includes(method))) {
