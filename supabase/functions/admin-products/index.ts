@@ -723,11 +723,36 @@ Deno.serve(async (req: Request) => {
 
     if (action === "save") {
       if (!canEditCatalog) return json({error:"No tienes permiso para editar productos."},403,origin);
-      const id = body.id == null || body.id === "" ? null : Number(body.id);
-      const name = clean(body.name,140);
-      const category = clean(body.category,80);
-      const delivery = clean(body.delivery_type,20);
-      const dropiProductId = clean(body.dropi_product_id,100).replace(/\s+/g," ").trim();
+      let id = body.id == null || body.id === "" ? null : Number(body.id);
+      let dropiProductId = clean(body.dropi_product_id,100).replace(/\s+/g," ").trim();
+      let matchedExistingByDropiId = false;
+      if (id === null && dropiProductId) {
+        const {data:existingRef,error:existingRefError} = await admin.from("product_supplier_refs")
+          .select("product_id,dropi_product_id").eq("dropi_product_id",dropiProductId).maybeSingle();
+        if (existingRefError) throw existingRefError;
+        if (existingRef) {
+          id = Number(existingRef.product_id);
+          matchedExistingByDropiId = true;
+        }
+      }
+      const preserveExistingFields = (body.preserve_existing_fields === true || matchedExistingByDropiId) && id !== null;
+      const preserveExistingVariants = (body.preserve_existing_variants === true || matchedExistingByDropiId) && id !== null;
+      let existingProduct: any = null;
+      if (preserveExistingFields) {
+        const {data:existing,error:existingError} = await admin.from("products").select("*").eq("id",id).maybeSingle();
+        if (existingError) throw existingError;
+        if (!existing) return json({error:"El producto vinculado a ese ID de Dropi ya no existe."},404,origin);
+        existingProduct = existing;
+        if (!dropiProductId) {
+          const {data:existingDropiRef,error:existingDropiError} = await admin.from("product_supplier_refs")
+            .select("dropi_product_id").eq("product_id",id).maybeSingle();
+          if (existingDropiError) throw existingDropiError;
+          dropiProductId = String(existingDropiRef?.dropi_product_id || "");
+        }
+      }
+      const name = clean(body.name,140) || (preserveExistingFields ? clean(existingProduct?.name,140) : "");
+      const category = clean(body.category,80) || (preserveExistingFields ? clean(existingProduct?.category,80) : "");
+      const delivery = clean(body.delivery_type,20) || (preserveExistingFields ? clean(existingProduct?.delivery_type,20) : "");
       const rawDropiVariants = Array.isArray(body.dropi_variants) ? body.dropi_variants : [];
       if (rawDropiVariants.length > 250) return json({error:"Un producto admite hasta 250 combinaciones de Dropi."},400,origin);
       const dropiVariants = rawDropiVariants.map((item: any)=>({
@@ -754,7 +779,9 @@ Deno.serve(async (req: Request) => {
         seenDropiVariantIds.add(variant.dropi_variant_id);
       }
       if (dropiVariants.length && delivery === "digital") return json({error:"Las variantes de Dropi solo se pueden asociar a productos físicos."},400,origin);
-      const rawSizeVariants = Array.isArray(body.size_variants) ? body.size_variants : [];
+      const rawSizeVariants = Array.isArray(body.size_variants) && body.size_variants.length
+        ? body.size_variants
+        : (preserveExistingFields && Array.isArray(existingProduct?.size_variants) ? existingProduct.size_variants : []);
       if (rawSizeVariants.length > 40) return json({error:"Un producto admite hasta 40 tallas."},400,origin);
       if (rawSizeVariants.some((value: unknown)=>!String(value ?? "").trim() || String(value ?? "").trim().length > 24)) {
         return json({error:"Cada talla debe tener entre 1 y 24 caracteres."},400,origin);
@@ -766,7 +793,9 @@ Deno.serve(async (req: Request) => {
         if (seenSizes.has(key)) return json({error:"No repitas tallas. Usa una sola entrada por talla."},400,origin);
         seenSizes.add(key);
       }
-      const rawTargetAudiences = Array.isArray(body.target_audiences) ? body.target_audiences : [];
+      const rawTargetAudiences = Array.isArray(body.target_audiences) && body.target_audiences.length
+        ? body.target_audiences
+        : (preserveExistingFields && Array.isArray(existingProduct?.target_audiences) ? existingProduct.target_audiences : []);
       const requestedAudiences = [...new Set(rawTargetAudiences.map((value: unknown)=>clean(value,20).toLowerCase()).filter(Boolean))];
       const targetAudiences = dropiVariants.length
         ? [...new Set(dropiVariants.map((variant: any)=>variant.audience))]
@@ -789,9 +818,14 @@ Deno.serve(async (req: Request) => {
         const conflict = (existingRefs||[]).find((ref: any)=>id===null||ownerByVariantId.get(Number(ref.product_variant_id))!==id);
         if (conflict) return json({error:"El ID de variante "+clean(conflict.dropi_variant_id,100)+" ya está vinculado a otro producto de NovaShop."},409,origin);
       }
-      const rawPaymentMethods = Array.isArray(body.payment_methods)
-        ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
-        : (delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"]);
+      const canPreservePaymentMethods = preserveExistingFields &&
+        clean(existingProduct?.delivery_type,20) === delivery &&
+        Array.isArray(existingProduct?.payment_methods) && existingProduct.payment_methods.length;
+      const rawPaymentMethods = canPreservePaymentMethods
+        ? existingProduct.payment_methods
+        : (Array.isArray(body.payment_methods) && body.payment_methods.length
+          ? body.payment_methods.map((value: unknown)=>clean(value,40)).filter(Boolean)
+          : (delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"]));
       const paymentMethods = [...new Set(rawPaymentMethods)];
       if (!paymentMethods.length || paymentMethods.some((method: string)=>!["bold","cash_on_delivery"].includes(method))) {
         return json({error:"Selecciona al menos una forma de pago válida."},400,origin);
@@ -799,12 +833,22 @@ Deno.serve(async (req: Request) => {
       if (delivery === "digital" && (paymentMethods.length !== 1 || paymentMethods[0] !== "bold")) {
         return json({error:"Los servicios digitales solo admiten pago anticipado con Bold."},400,origin);
       }
-      const price = Number(body.price_cop);
-      const oldPrice = body.old_price_cop == null || body.old_price_cop === "" ? null : Number(body.old_price_cop);
-      const description = clean(body.description,4000);
-      const features = Array.isArray(body.features) ? body.features.map((v: unknown)=>clean(v,180)).filter(Boolean).slice(0,30) : [];
-      const images = Array.isArray(body.images) ? body.images.map((v: unknown)=>clean(v,1000)).filter(Boolean).slice(0,8) : [];
-      const rawColorVariants = Array.isArray(body.color_variants) ? body.color_variants : [];
+      const price = body.price_cop == null || body.price_cop === ""
+        ? Number(preserveExistingFields ? existingProduct?.price_cop : 0)
+        : Number(body.price_cop);
+      const oldPrice = body.old_price_cop == null || body.old_price_cop === ""
+        ? (preserveExistingFields ? (existingProduct?.old_price_cop==null ? null : Number(existingProduct.old_price_cop)) : null)
+        : Number(body.old_price_cop);
+      const description = clean(body.description,4000) || (preserveExistingFields ? clean(existingProduct?.description,4000) : "");
+      const features = Array.isArray(body.features) && body.features.length
+        ? body.features.map((v: unknown)=>clean(v,180)).filter(Boolean).slice(0,30)
+        : (preserveExistingFields && Array.isArray(existingProduct?.features) ? existingProduct.features.map((v: unknown)=>clean(v,180)).filter(Boolean).slice(0,30) : []);
+      const images = Array.isArray(body.images) && body.images.length
+        ? body.images.map((v: unknown)=>clean(v,1000)).filter(Boolean).slice(0,8)
+        : (preserveExistingFields && Array.isArray(existingProduct?.images) ? existingProduct.images.map((v: unknown)=>clean(v,1000)).filter(Boolean).slice(0,8) : []);
+      const rawColorVariants = Array.isArray(body.color_variants) && body.color_variants.length
+        ? body.color_variants
+        : (preserveExistingFields && Array.isArray(existingProduct?.color_variants) ? existingProduct.color_variants : []);
       if (rawColorVariants.length > 12) return json({error:"Un producto admite hasta 12 variantes de color."},400,origin);
       const colorVariants = rawColorVariants.map((item: any)=>({
         name:clean(item?.name,40),
@@ -821,20 +865,28 @@ Deno.serve(async (req: Request) => {
         if (variant.printful_sync_variant_id!==null && (!Number.isSafeInteger(variant.printful_sync_variant_id)||variant.printful_sync_variant_id<=0)) return json({error:"El Printful Sync Variant ID por color debe ser un entero positivo."},400,origin);
         if (variant.images.length < 1 || variant.images.some((url: string)=>!safeMediaUrl(url,supabaseUrl,false))) return json({error:"Cada color necesita al menos una foto válida almacenada en NovaShop. La foto trasera es opcional."},400,origin);
       }
-      const printfulEnabled = body.printful_enabled === true;
-      const printfulRaw = body.printful_sync_variant_id == null || body.printful_sync_variant_id === "" ? null : Number(body.printful_sync_variant_id);
+      const printfulEnabled = body.printful_enabled === true || (preserveExistingFields && existingProduct?.printful_enabled === true);
+      const printfulRaw = body.printful_sync_variant_id == null || body.printful_sync_variant_id === ""
+        ? (preserveExistingFields && existingProduct?.printful_sync_variant_id!=null ? Number(existingProduct.printful_sync_variant_id) : null)
+        : Number(body.printful_sync_variant_id);
       if (printfulRaw !== null && (!Number.isSafeInteger(printfulRaw) || printfulRaw <= 0)) return json({error:"El Printful Sync Variant ID debe ser un entero positivo."},400,origin);
       if (printfulEnabled && !colorVariants.length && printfulRaw === null) return json({error:"Para activar el envío automático a Printful, configura primero el Sync Variant ID del producto."},400,origin);
       if (printfulEnabled && !paymentMethods.includes("bold")) return json({error:"Los productos enviados mediante Printful requieren pago anticipado con Bold."},400,origin);
       if (printfulEnabled && paymentMethods.includes("cash_on_delivery")) return json({error:"Los productos enviados mediante Printful deben usar solo pago anticipado con Bold; desactiva la contraentrega."},400,origin);
       if (printfulEnabled && colorVariants.length && colorVariants.some((variant: any)=>variant.printful_sync_variant_id===null)) return json({error:"Para activar el envío automático a Printful, configura el Sync Variant ID de cada color."},400,origin);
-      const video = body.video_url == null || body.video_url === "" ? null : clean(body.video_url,1000);
-      const tag = clean(body.tag,30);
-      const shipping = clean(body.shipping,500);
-      const active = body.is_active !== false;
-      const sortOrder = Number.isFinite(Number(body.sort_order)) ? Math.trunc(Number(body.sort_order)) : 100;
+      const video = body.video_url == null || body.video_url === ""
+        ? (preserveExistingFields ? existingProduct?.video_url || null : null)
+        : clean(body.video_url,1000);
+      const tag = clean(body.tag,30) || (preserveExistingFields ? clean(existingProduct?.tag,30) : "");
+      const shipping = clean(body.shipping,500) || (preserveExistingFields ? clean(existingProduct?.shipping,500) : "");
+      const active = body.is_active == null && preserveExistingFields ? existingProduct?.is_active !== false : body.is_active !== false;
+      const sortOrder = body.sort_order == null && preserveExistingFields
+        ? Math.trunc(Number(existingProduct?.sort_order)||100)
+        : (Number.isFinite(Number(body.sort_order)) ? Math.trunc(Number(body.sort_order)) : 100);
       const stockRaw = body.stock_quantity;
-      const stock = stockRaw === null || stockRaw === undefined || stockRaw === "" ? null : Number(stockRaw);
+      const stock = stockRaw === null || stockRaw === undefined || stockRaw === ""
+        ? (preserveExistingFields ? existingProduct?.stock_quantity ?? null : null)
+        : Number(stockRaw);
       if (!name || !category || !description) return json({error:"Completa nombre, categoría y descripción."},400,origin);
       if (!Number.isSafeInteger(price) || price <= 0 || price > 100_000_000) return json({error:"El precio no es válido."},400,origin);
       if (oldPrice !== null && (!Number.isSafeInteger(oldPrice) || oldPrice < price || oldPrice > 100_000_000)) return json({error:"El precio anterior debe ser mayor o igual al precio actual."},400,origin);
@@ -856,8 +908,10 @@ Deno.serve(async (req: Request) => {
       if (error) throw error;
       if (!data) return json({error:"No encontramos el producto que intentabas editar."},404,origin);
 
-      const {error:deleteVariantsError} = await admin.from("product_variants").delete().eq("product_id",data.id);
-      if (deleteVariantsError) throw deleteVariantsError;
+      if (!preserveExistingVariants || dropiVariants.length) {
+        const {error:deleteVariantsError} = await admin.from("product_variants").delete().eq("product_id",data.id);
+        if (deleteVariantsError) throw deleteVariantsError;
+      }
       let savedDropiVariants:any[] = [];
       if (dropiVariants.length) {
         const publicRows = dropiVariants.map((variant: any,index: number)=>({

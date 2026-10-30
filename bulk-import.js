@@ -26,6 +26,7 @@ let nextGroupId = 1;
 let previewUrls = [];
 let selectedGroups = new Set();
 let existingNames = new Set();
+let existingProductsByDropi = new Map();
 let authorized = false;
 let importing = false;
 let loadedNoteText = "";
@@ -170,6 +171,7 @@ function parseStructuredProductNote(source) {
     if (!record) return;
     record.name = cleanName(record.name);
     record.features = Array.from(new Set(record.features));
+    record.descriptionGenerated = !record.descriptionText;
     record.description = record.descriptionText || buildCreativeDescription(record);
   }
   function createRecord(name,id) {
@@ -271,6 +273,130 @@ async function loadXlsxLibrary() {
   try{return await xlsxLoaderPromise;}
   catch(error){xlsxLoaderPromise=null;throw error;}
 }
+let jsZipLoaderPromise = null;
+let excelJsLoaderPromise = null;
+async function loadJsZipLibrary() {
+  if(window.JSZip)return window.JSZip;
+  if(jsZipLoaderPromise)return jsZipLoaderPromise;
+  jsZipLoaderPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+    script.async=true;
+    script.onload=()=>window.JSZip?resolve(window.JSZip):reject(new Error("No se pudo cargar el lector de imágenes de Excel."));
+    script.onerror=()=>reject(new Error("No se pudo descargar el lector de imágenes de Excel."));
+    document.head.appendChild(script);
+  });
+  try{return await jsZipLoaderPromise;}catch(error){jsZipLoaderPromise=null;throw error;}
+}
+async function loadExcelJsLibrary() {
+  if(window.ExcelJS)return window.ExcelJS;
+  if(excelJsLoaderPromise)return excelJsLoaderPromise;
+  excelJsLoaderPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    script.async=true;
+    script.onload=()=>window.ExcelJS?resolve(window.ExcelJS):reject(new Error("No se pudo cargar el creador de plantillas Excel."));
+    script.onerror=()=>reject(new Error("No se pudo descargar el creador de plantillas Excel."));
+    document.head.appendChild(script);
+  });
+  try{return await excelJsLoaderPromise;}catch(error){excelJsLoaderPromise=null;throw error;}
+}
+function normalizeZipPath(path) {
+  const parts=[];
+  String(path||"").replace(/\\/g,"/").split("/").forEach(part=>{
+    if(!part||part===".")return;
+    if(part==="..")parts.pop();else parts.push(part);
+  });
+  return parts.join("/");
+}
+function resolveZipTarget(sourcePath,target) {
+  if(String(target||"").startsWith("/"))return normalizeZipPath(target);
+  const base=String(sourcePath||"").split("/").slice(0,-1).join("/");
+  return normalizeZipPath((base?base+"/":"")+target);
+}
+async function readZipXml(zip,path) {
+  const file=zip.file(path);
+  if(!file)return null;
+  const source=await file.async("string");
+  const doc=new DOMParser().parseFromString(source,"application/xml");
+  if(doc.getElementsByTagName("parsererror").length)throw new Error("El Excel contiene una relación XML dañada en "+path+".");
+  return doc;
+}
+function relationshipMap(xml) {
+  const map=new Map();
+  if(!xml)return map;
+  const nodes=xml.getElementsByTagNameNS("http://schemas.openxmlformats.org/package/2006/relationships","Relationship");
+  for(const node of nodes)map.set(node.getAttribute("Id"),node.getAttribute("Target"));
+  return map;
+}
+function xmlText(parent,namespace,name) {
+  const node=parent?.getElementsByTagNameNS(namespace,name)?.[0];
+  return node?String(node.textContent||"").trim():"";
+}
+function extensionMime(extension) {
+  return ({jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif"})[String(extension||"").toLowerCase()]||"";
+}
+async function extractExcelEmbeddedImages(file,sheetName) {
+  if(!/\.xlsx$/i.test(file.name||""))return new Map();
+  const JSZip=await loadJsZipLibrary();
+  const zip=await JSZip.loadAsync(await file.arrayBuffer());
+  const workbookPath="xl/workbook.xml";
+  const workbookXml=await readZipXml(zip,workbookPath);
+  const workbookRels=relationshipMap(await readZipXml(zip,"xl/_rels/workbook.xml.rels"));
+  const mainNs="http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+  const relationNs="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const drawingNs="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
+  const drawingMainNs="http://schemas.openxmlformats.org/drawingml/2006/main";
+  const sheets=Array.from(workbookXml?.getElementsByTagNameNS(mainNs,"sheet")||[]);
+  const sheetNode=sheets.find(node=>normalize(node.getAttribute("name"))===normalize(sheetName));
+  if(!sheetNode)return new Map();
+  const sheetTarget=workbookRels.get(sheetNode.getAttributeNS(relationNs,"id"));
+  if(!sheetTarget)return new Map();
+  const sheetPath=resolveZipTarget(workbookPath,sheetTarget);
+  const sheetXml=await readZipXml(zip,sheetPath);
+  const drawingNode=sheetXml?.getElementsByTagNameNS(mainNs,"drawing")?.[0];
+  if(!drawingNode)return new Map();
+  const sheetRelsPath=resolveZipTarget(sheetPath,"_rels/"+sheetPath.split("/").pop()+".rels");
+  const sheetRels=relationshipMap(await readZipXml(zip,sheetRelsPath));
+  const drawingTarget=sheetRels.get(drawingNode.getAttributeNS(relationNs,"id"));
+  if(!drawingTarget)return new Map();
+  const drawingPath=resolveZipTarget(sheetPath,drawingTarget);
+  const drawingXml=await readZipXml(zip,drawingPath);
+  const drawingRelsPath=resolveZipTarget(drawingPath,"_rels/"+drawingPath.split("/").pop()+".rels");
+  const drawingRels=relationshipMap(await readZipXml(zip,drawingRelsPath));
+  const anchors=[
+    ...Array.from(drawingXml?.getElementsByTagNameNS(drawingNs,"twoCellAnchor")||[]),
+    ...Array.from(drawingXml?.getElementsByTagNameNS(drawingNs,"oneCellAnchor")||[])
+  ];
+  const output=new Map();
+  let imageNumber=0;
+  for(const anchor of anchors) {
+    const pictures=Array.from(anchor.getElementsByTagNameNS(drawingNs,"pic")||[]);
+    if(!pictures.length)continue;
+    const row=Number(xmlText(anchor,drawingNs,"row"))+1;
+    if(!Number.isSafeInteger(row)||row<2)continue;
+    for(const picture of pictures) {
+      const blip=picture.getElementsByTagNameNS(drawingMainNs,"blip")?.[0];
+      const embedId=blip?.getAttributeNS(relationNs,"embed")||blip?.getAttribute("r:embed");
+      const mediaTarget=drawingRels.get(embedId);
+      if(!mediaTarget)continue;
+      const mediaPath=resolveZipTarget(drawingPath,mediaTarget);
+      const media=zip.file(mediaPath);
+      if(!media)continue;
+      const extension=mediaPath.split(".").pop().toLowerCase();
+      const type=extensionMime(extension);
+      if(!type)continue;
+      const blob=await media.async("blob");
+      if(!blob.size)continue;
+      imageNumber++;
+      const fileName="imagen_"+row+"_"+imageNumber+"."+extension;
+      const photoFile=new File([blob],fileName,{type,lastModified:Date.now()});
+      if(!output.has(row))output.set(row,[]);
+      output.get(row).push(photoFile);
+    }
+  }
+  return output;
+}
 function excelHeaderValue(row,aliases) {
   const keys=Object.keys(row||{});
   const target=new Set(aliases.map(normalize));
@@ -279,20 +405,27 @@ function excelHeaderValue(row,aliases) {
 }
 async function parseExcelProductFile(file) {
   if(!file || !/\.(xlsx|xls|csv)$/i.test(file.name||""))throw new Error("Selecciona una plantilla Excel .xlsx, .xls o .csv.");
-  if(!file.size || file.size>5*1024*1024)throw new Error("La plantilla Excel debe pesar máximo 5 MB.");
+  if(!file.size || file.size>50*1024*1024)throw new Error("El archivo Excel no puede superar 50 MB.");
   const XLSX=await loadXlsxLibrary();
   const workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:false});
   if(!workbook.SheetNames?.length)throw new Error("El archivo no contiene hojas de cálculo.");
   const sheetName=workbook.SheetNames.find(name=>normalize(name)==="productos")||workbook.SheetNames[0];
   const sheet=workbook.Sheets[sheetName];
-  const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false,blankrows:false});
-  if(!rows.length)throw new Error("La hoja Productos no contiene filas de productos.");
+  const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false,blankrows:true});
+  if(!matrix.length)throw new Error("La hoja Productos no contiene filas de productos.");
+  const headerIndex=matrix.findIndex(row=>row.some(value=>["nombre del producto","nombre","producto"].includes(normalize(value))));
+  if(headerIndex<0)throw new Error("No encontré la fila de encabezados. Descarga la plantilla oficial de NovaShop y conserva sus encabezados.");
+  const headers=matrix[headerIndex].map(value=>String(value??"").trim());
+  const headerRow=Object.fromEntries(headers.map((name,index)=>[name,index]));
+  const rows=matrix.slice(headerIndex+1);
   if(rows.length>250)throw new Error("Puedes importar máximo 250 productos por archivo. Divide el catálogo en varios lotes.");
+  const embeddedImages=await extractExcelEmbeddedImages(file,sheetName);
   const recordsText=[];
-  const seenIds=new Set();
+  const rowById=new Map();
   const rowErrors=[];
-  rows.forEach((row,index)=>{
-    const rowNumber=index+2;
+  rows.forEach((values,index)=>{
+    const rowNumber=headerIndex+index+2;
+    const row=Object.fromEntries(headers.map((header,column)=>[header,values[column]??""]));
     const name=excelHeaderValue(row,["Nombre del producto","Nombre","Producto"]);
     const rawId=excelHeaderValue(row,["ID del producto en Dropi","ID Dropi","Dropi ID","ID"]);
     const id=rawId.replace(/\.0+$/,"").replace(/^#/,"").trim();
@@ -307,10 +440,15 @@ async function parseExcelProductFile(file) {
     const stock=excelHeaderValue(row,["Stock","Existencias","Inventario"]);
     const delivery=excelHeaderValue(row,["Tipo de entrega","Entrega"]);
     if(!name&&!id&&!category&&!price&&!sizes&&!color&&!description&&!features&&!stock) return;
+    if(/^EJEMPLO[-_]/i.test(id)) return;
     if(!name){rowErrors.push("Fila "+rowNumber+": falta el nombre del producto.");return;}
     if(!id){rowErrors.push("Fila "+rowNumber+" ("+name+"): falta el ID de Dropi.");return;}
-    if(seenIds.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
-    seenIds.add(id);
+    if(rowById.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
+    const photos=embeddedImages.get(rowNumber)||[];
+    if(photos.length>MAX_IMAGES_PER_PRODUCT){rowErrors.push("Fila "+rowNumber+" ("+name+"): tiene "+photos.length+" fotos; el máximo es "+MAX_IMAGES_PER_PRODUCT+".");return;}
+    const oversized=photos.find(photo=>photo.size>MAX_IMAGE_BYTES);
+    if(oversized){rowErrors.push("Fila "+rowNumber+" ("+name+"): la foto "+oversized.name+" supera 12 MB.");return;}
+    rowById.set(id,{rowNumber,photos,category});
     const cleanLine=value=>String(value||"").replace(/[\r\n]+/g," ").trim();
     recordsText.push([
       "Nombre del producto: "+cleanLine(name),
@@ -331,45 +469,160 @@ async function parseExcelProductFile(file) {
   if(!recordsText.length)throw new Error("No encontré productos válidos en la hoja Productos.");
   const records=parseStructuredProductNote(recordsText.join(String.fromCharCode(10)+String.fromCharCode(10)));
   if(records.length!==recordsText.length)throw new Error("Algunas filas no pudieron interpretarse. Comprueba que los IDs de Dropi sean únicos.");
-  return records;
+  let totalPhotos=0;
+  records.forEach(record=>{
+    const rowInfo=rowById.get(record.id);
+    record.photos=rowInfo?.photos||[];
+    record.excelRow=rowInfo?.rowNumber||null;
+    record.photos.forEach((photo,index)=>{
+      totalPhotos++;
+      const safeCategory=categoryFromValue(record.category)||"Sin_categoria";
+      const path="Excel/"+safeCategory+"/"+record.id+"/"+record.id+"_"+(index+1)+"."+photo.name.split(".").pop().toLowerCase();
+      record.photoPaths=record.photoPaths||new Map();
+      record.photoPaths.set(photo,path);
+    });
+  });
+  return {records,totalPhotos,embeddedImageSupport:/\.xlsx$/i.test(file.name||"")};
 }
 async function downloadExcelTemplate() {
   try {
-    const XLSX=await loadXlsxLibrary();
-    const headers=[
-      "Nombre del producto","Categoría","Público objetivo","ID del producto en Dropi",
-      "Precio venta","Precio anterior","Tallas","Color","Descripción","Características","Stock","Tipo de entrega"
+    const ExcelJS=await loadExcelJsLibrary();
+    const workbook=new ExcelJS.Workbook();
+    workbook.creator="NovaShop";
+    workbook.lastModifiedBy="NovaShop";
+    workbook.title="Plantilla profesional de importación masiva";
+    workbook.subject="Catálogo de productos con fotografías por fila";
+    workbook.company="NovaShop";
+    workbook.created=new Date();
+    workbook.modified=new Date();
+    const navy="FF0C2C47",blue="FF185FA5",pale="FFF3F7FB",line="FFD9E3EC",orange="FFFFF1EB";
+    const sheet=workbook.addWorksheet("Productos",{
+      views:[{state:"frozen",ySplit:1,showGridLines:false}],
+      properties:{defaultRowHeight:82}
+    });
+    const columns=[
+      {header:"FOTOS DEL PRODUCTO",key:"photos",width:24},
+      {header:"NOMBRE DEL PRODUCTO",key:"name",width:28},
+      {header:"CATEGORÍA",key:"category",width:18},
+      {header:"PÚBLICO OBJETIVO",key:"audience",width:18},
+      {header:"ID DEL PRODUCTO EN DROPI",key:"dropiId",width:25},
+      {header:"PRECIO VENTA COP",key:"price",width:17},
+      {header:"PRECIO ANTERIOR COP",key:"oldPrice",width:19},
+      {header:"TALLAS",key:"sizes",width:21},
+      {header:"COLOR",key:"color",width:17},
+      {header:"DESCRIPCIÓN",key:"description",width:46},
+      {header:"CARACTERÍSTICAS",key:"features",width:40},
+      {header:"STOCK",key:"stock",width:13},
+      {header:"TIPO DE ENTREGA",key:"delivery",width:18}
     ];
-    const rows=[
-      headers,
-      ["Camiseta Kakashi","Moda","Unisex","1739450",59900,79900,"S, M, L, XL","Blanco","(Que lo ponga la IA)","(Que lo ponga la IA)",20,"Físico"],
-      ["Smartwatch Active X","Tecnología","Hombre","1738794",89900,129900,"","Negro","(Que lo ponga la IA)","(Que lo ponga la IA)",15,"Físico"]
+    sheet.columns=columns;
+    sheet.getRow(1).height=42;
+    sheet.autoFilter="A1:M251";
+    sheet.getRow(1).eachCell(cell=>{
+      cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:navy}};
+      cell.font={name:"Aptos",size:10,bold:true,color:{argb:"FFFFFFFF"}};
+      cell.alignment={vertical:"middle",horizontal:"center",wrapText:true};
+      cell.border={bottom:{style:"medium",color:{argb:blue}}};
+    });
+    const sampleRows=[
+      ["INSERTE FOTO AQUÍ","Camiseta Kakashi","Moda","Unisex","EJEMPLO-001",59900,79900,"S, M, L, XL","Blanco","(Que lo ponga la IA)","(Que lo ponga la IA)",20,"Físico"],
+      ["INSERTE FOTO AQUÍ","Smartwatch Active X","Tecnología","Unisex","EJEMPLO-002",89900,129900,"","Negro","(Que lo ponga la IA)","(Que lo ponga la IA)",15,"Físico"]
     ];
-    const productsSheet=XLSX.utils.aoa_to_sheet(rows);
-    productsSheet["!cols"]=[
-      {wch:25},{wch:18},{wch:18},{wch:24},{wch:16},{wch:17},
-      {wch:19},{wch:15},{wch:38},{wch:38},{wch:12},{wch:18}
-    ];
+    sampleRows.forEach((values,index)=>{
+      const row=sheet.addRow(values);
+      row.height=84;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:index%2===0?pale:"FFFFFFFF"}};
+        cell.font={name:"Aptos",size:10,color:{argb:"FF263746"}};
+        cell.alignment={vertical:"middle",wrapText:true};
+        cell.border={bottom:{style:"thin",color:{argb:line}}};
+      });
+      row.getCell(1).font={name:"Aptos",size:9,bold:true,color:{argb:"FF185FA5"}};
+      row.getCell(1).alignment={vertical:"middle",horizontal:"center",wrapText:true};
+      [6,7].forEach(col=>row.getCell(col).numFmt='"$"#,##0');
+      row.getCell(5).numFmt="@";
+    });
+    for(let rowNumber=4;rowNumber<=251;rowNumber++){
+      const row=sheet.addRow(["INSERTAR FOTO(S) AQUÍ","","","","","","","","","","","",""]);
+      row.height=78;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:rowNumber%2===0?pale:"FFFFFFFF"}};
+        cell.font={name:"Aptos",size:10,color:{argb:"FF334155"}};
+        cell.alignment={vertical:"middle",wrapText:true};
+        cell.border={bottom:{style:"thin",color:{argb:line}}};
+      });
+      row.getCell(1).font={name:"Aptos",size:9,bold:true,color:{argb:"FF64748B"}};
+      row.getCell(1).alignment={vertical:"middle",horizontal:"center",wrapText:true};
+      [6,7].forEach(col=>row.getCell(col).numFmt='"$"#,##0');
+      row.getCell(5).numFmt="@";
+    }
+    const listValidation=(range,values)=>sheet.getColumn(range).eachCell({includeEmpty:true},(cell,rowNumber)=>{
+      if(rowNumber<2||rowNumber>251)return;
+      cell.dataValidation={type:"list",allowBlank:true,formulae:['"'+values.join(",")+'"'],showErrorMessage:true};
+    });
+    listValidation(3,CATEGORIES);
+    listValidation(4,["Hombre","Mujer","Unisex"]);
+    listValidation(13,["Físico","Digital"]);
+    sheet.getColumn(5).eachCell({includeEmpty:true},(cell,rowNumber)=>{if(rowNumber>=2)cell.numFmt="@";});
+    sheet.pageSetup={orientation:"landscape",fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9,showGridLines:false};
+    sheet.headerFooter={oddHeader:"&BNovaShop · Catálogo de productos",oddFooter:"Página &P de &N"};
+    const guide=workbook.addWorksheet("Guía rápida",{views:[{state:"frozen",ySplit:3,showGridLines:false}]});
+    guide.columns=[{width:28},{width:100}];
+    guide.mergeCells("A1:B1");
+    guide.getCell("A1").value="NOVASHOP  |  PLANTILLA DE IMPORTACIÓN MASIVA";
+    guide.getCell("A1").fill={type:"pattern",pattern:"solid",fgColor:{argb:navy}};
+    guide.getCell("A1").font={name:"Aptos Display",size:17,bold:true,color:{argb:"FFFFFFFF"}};
+    guide.getCell("A1").alignment={vertical:"middle"};
+    guide.getRow(1).height=42;
+    guide.mergeCells("A2:B2");
+    guide.getCell("A2").value="Una ficha por fila · Las fotografías se insertan en la columna A · El ID Dropi relaciona y actualiza el producto";
+    guide.getCell("A2").font={name:"Aptos",size:10,italic:true,color:{argb:"FF475569"}};
+    guide.getCell("A2").alignment={wrapText:true,vertical:"middle"};
+    guide.getRow(2).height=32;
+    guide.addRow([]);
     const guideRows=[
-      ["PASO","QUÉ HACER"],
-      ["1. Completa Productos","Una fila por producto. Conserva los encabezados de la primera fila."],
-      ["2. ID de Dropi","Es el vínculo principal. Escribe el ID exacto y no lo repitas."],
-      ["3. Fotografías","Organiza: Fotos/Moda/1739450/foto1.jpg, foto2.jpg. Una carpeta por ID y hasta 8 fotos dentro."],
-      ["4. Descripción","Deja (Que lo ponga la IA) o vacío para generar un texto comercial con los datos disponibles."],
-      ["5. Características","Escribe datos confirmados separados por punto y coma, o deja (Que lo ponga la IA)."],
-      ["6. Precios","Ingresa pesos colombianos como números: 59900."],
-      ["7. Tallas","Separa varias tallas con comas: S, M, L, XL."],
-      ["8. Stock","Vacío = sin control de inventario. 0 = agotado."],
-      ["9. Tipo de entrega","Físico para mercancía; Digital para servicios. Streaming se toma como digital si lo dejas vacío."],
-      ["IMPORTANTE","No inventes materiales, medidas, compatibilidades o beneficios. Borra o reemplaza las dos filas de ejemplo."]
+      ["PASO","INSTRUCCIÓN"],
+      ["1. Completa los datos","En la hoja Productos, usa una fila para cada producto. No cambies los títulos de las columnas."],
+      ["2. Inserta fotografías","En Excel: Insertar > Imágenes > Este dispositivo. Coloca cada foto sobre la celda de la columna A que corresponda a ese producto. La esquina superior izquierda de la imagen debe quedar dentro de esa fila."],
+      ["3. Varias fotografías","Puedes colocar hasta 8 fotos en la misma fila. Usa imágenes JPG, PNG o GIF. Cada archivo debe pesar máximo 12 MB y el Excel completo máximo 50 MB."],
+      ["4. ID Dropi","Es la clave de relación. Si el ID ya existe en NovaShop, al guardar se actualizará ese producto. Si no existe, se creará uno nuevo. No repitas IDs en el mismo archivo."],
+      ["5. Precio","Ingresa el precio en pesos colombianos como número, por ejemplo 59900. El precio de venta es obligatorio para productos nuevos."],
+      ["6. Descripción","Deja vacío o escribe (Que lo ponga la IA) para generar una descripción comercial con la información disponible. No se inventan especificaciones."],
+      ["7. Características","Separa las características con punto y coma. Deja vacío si no conoces los detalles."],
+      ["8. Tallas y colores","Escribe tallas separadas por coma. El color debe ser el color real del artículo."],
+      ["9. Stock","Vacío = sin dato nuevo; en un producto existente se conserva el stock actual. 0 = agotado."],
+      ["10. Datos vacíos","Al actualizar un producto existente, los campos opcionales vacíos conservan la información guardada. Las nuevas fotos reemplazan las anteriores; si no agregas fotos, se conservan."],
+      ["11. Revisión y publicación","Sube el Excel al Administrador de NovaShop. Revisa las tarjetas y pulsa Guardar productos en NovaShop. Solo entonces se actualiza la tienda."],
+      ["12. Filtrar por sección","Después de leer el archivo, usa Revisar por categoría y Guarda una categoría a la vez o todo el catálogo."],
+      ["IMPORTANTE","Borra o reemplaza las dos filas de ejemplo antes de importar. Mantén los IDs como texto para no perder ceros iniciales."]
     ];
-    const guideSheet=XLSX.utils.aoa_to_sheet(guideRows);
-    guideSheet["!cols"]=[{wch:25},{wch:92}];
-    const book=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book,productsSheet,"Productos");
-    XLSX.utils.book_append_sheet(book,guideSheet,"Instrucciones");
-    XLSX.writeFile(book,"Plantilla_Importacion_Masiva_NovaShop.xlsx");
-    message("Plantilla Excel descargada. Reemplaza o elimina las dos filas de ejemplo antes de importarla.","success");
+    guide.addRows(guideRows);
+    guide.getRow(4).eachCell(cell=>{
+      cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:blue}};
+      cell.font={name:"Aptos",size:10,bold:true,color:{argb:"FFFFFFFF"}};
+      cell.alignment={vertical:"middle",wrapText:true};
+    });
+    for(let r=5;r<=4+guideRows.length-1;r++){
+      const row=guide.getRow(r);
+      row.height=r===6||r===7||r===14?50:38;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:r%2===1?pale:"FFFFFFFF"}};
+        cell.font={name:"Aptos",size:10,color:{argb:"FF263746"}};
+        cell.alignment={vertical:"middle",wrapText:true};
+        cell.border={bottom:{style:"thin",color:{argb:line}}};
+      });
+      row.getCell(1).font={name:"Aptos",size:10,bold:true,color:{argb:navy}};
+    }
+    guide.getRow(5+guideRows.length-1).getCell(1).fill={type:"pattern",pattern:"solid",fgColor:{argb:orange}};
+    guide.getRow(5+guideRows.length-1).getCell(2).fill={type:"pattern",pattern:"solid",fgColor:{argb:orange}};
+    const buffer=await workbook.xlsx.writeBuffer();
+    const blob=new Blob([buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;link.download="Plantilla_Profesional_NovaShop.xlsx";
+    document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    message("Plantilla profesional descargada. Inserta las fotografías sobre la columna A, en la fila de cada producto.","success");
   } catch(error) {
     message(error?.message||"No se pudo generar la plantilla Excel.","error");
   }
@@ -381,22 +634,34 @@ function colorFromRecord(value) {
 }
 function applyProductRecord(group, record) {
   if (!group || !record || group.importedProductId) return;
+  const existing=existingProductsByDropi.get(String(record.id));
   group.txtRecordId = record.id;
   group.name = record.name;
   group.dropiProductId = record.id;
+  group.existingProductId = existing ? Number(existing.id) : null;
   const mappedCategory=categoryFromValue(record.category);
-  if (mappedCategory) group.category = mappedCategory;
+  if (mappedCategory || existing?.category) group.category = mappedCategory || existing.category;
   if (record.price) group.price = record.price;
+  else if (existing?.price_cop!=null) group.price = String(existing.price_cop);
   if (record.oldPrice) group.oldPrice = record.oldPrice;
+  else if (existing?.old_price_cop!=null) group.oldPrice = String(existing.old_price_cop);
   if (record.stock !== "" && record.stock != null) group.stock = record.stock;
-  const delivery=record.deliveryType || deliveryTypeFromValue("",record.category);
+  else if (existing?.stock_quantity!=null) group.stock = String(existing.stock_quantity);
+  const delivery=record.deliveryType || deliveryTypeFromValue("",record.category) || existing?.delivery_type;
   if (delivery) group.deliveryType = delivery;
   if (record.sizes.length) group.sizes = record.sizes.join(", ");
+  else if (Array.isArray(existing?.size_variants)) group.sizes = existing.size_variants.join(", ");
   if (record.audience) group.audience = record.audience;
+  else if (Array.isArray(existing?.target_audiences)) {
+    group.audience=existing.target_audiences.includes("hombre")&&existing.target_audiences.includes("mujer")
+      ? "unisex" : existing.target_audiences.includes("hombre") ? "hombre" : existing.target_audiences.includes("mujer") ? "mujer" : "";
+  }
   const mappedColor = colorFromRecord(record.color);
   if (mappedColor) group.color = mappedColor;
   if (record.features.length) group.features = record.features.slice(0,30);
-  if (record.description) group.description = record.description;
+  else if (Array.isArray(existing?.features)) group.features = existing.features.slice(0,30);
+  if (record.description && !(existing && record.descriptionGenerated)) group.description = record.description;
+  else if (existing?.description) group.description = existing.description;
   group.txtMatched = true;
   group.error = "";
 }
@@ -461,13 +726,32 @@ function resolveNoteFile(noteFiles) {
   const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
   return preferred.length === 1 ? preferred[0] : null;
 }
+function addMissingExcelRecordGroups() {
+  const assigned=new Set(groups.map(group=>group.txtRecordId).filter(Boolean));
+  productRecords.forEach(record=>{
+    if(assigned.has(record.id))return;
+    const group={
+      id:nextGroupId++,name:record.name,category:categoryFromValue(record.category)||"",
+      price:record.price||"",oldPrice:record.oldPrice||"",stock:record.stock||"",
+      sizes:record.sizes.join(", "),description:record.description||"",
+      color:colorFromRecord(record.color),audience:record.audience||"",
+      dropiProductId:record.id,features:record.features.slice(0,30),
+      txtRecordId:record.id,txtMatched:true,files:[],importedProductId:null,error:"",
+      deliveryType:record.deliveryType||deliveryTypeFromValue("",record.category)
+    };
+    applyProductRecord(group,record);
+    groups.push(group);
+  });
+}
 function setProductRecords(records, filename, standalone=true, label="Excel") {
   productRecords=records;
   productRecordsFromStandalone=standalone;
   if (loadedNoteText && $("#bulkDescription")?.value.trim()===loadedNoteText) $("#bulkDescription").value="";
   loadedNoteText="";
   groups.forEach(group=>{
-    if(!group.importedProductId){group.txtRecordId="";group.txtMatched=false;}
+    if(!group.importedProductId){
+      group.txtRecordId="";group.txtMatched=false;group.existingProductId=null;
+    }
   });
   applyProductRecordsToGroups();
   noteStatus(label+" leído: "+records.length+" productos. Las fichas se relacionan por ID exacto de Dropi; completa o revisa las fotografías que queden pendientes.","success");
@@ -835,7 +1119,7 @@ async function hashEntries(list) {
   await Promise.all([worker(),worker(),worker()]);
 }
 function groupHasDuplicateName(group) {
-  return existingNames.has(normalize(group.name));
+  return existingNames.has(normalize(group.name)) && !group.existingProductId;
 }
 function sortGroupsByCategory(items) {
   return items.slice().sort((a,b)=>{
@@ -908,17 +1192,22 @@ function render() {
       })).join("");
       const duplicateWarning = groupHasDuplicateName(group) ?
         '<div class="bulk-product-warning">Ya existe un producto con este nombre en NovaShop. Cambia el nombre o activa la opción para permitir duplicados.</div>' : "";
+      const upsertNotice = group.existingProductId ?
+        '<div class="bulk-product-success">Se actualizará el producto existente #'+group.existingProductId+' mediante el ID Dropi '+esc(group.dropiProductId)+'.</div>' : "";
       const genericWarning = group.name.startsWith("Producto por identificar") ?
         '<div class="bulk-product-warning">El nombre viene de un archivo genérico. Escribe el nombre real antes de publicar.</div>' : "";
       const imageWarning = group.files.length > MAX_IMAGES_PER_PRODUCT ?
-        '<div class="bulk-product-warning">Este grupo tiene ' + group.files.length + ' fotos; el catálogo admite máximo ' + MAX_IMAGES_PER_PRODUCT + '. Sepáralas o quita las sobrantes.</div>' : "";
+        '<div class="bulk-product-warning">Este grupo tiene ' + group.files.length + ' fotos; el catálogo admite máximo ' + MAX_IMAGES_PER_PRODUCT + '. Sepáralas o quita las sobrantes.</div>' :
+        (group.files.length===0 ? (group.existingProductId
+          ? '<div class="bulk-product-note-match">No añadiste fotos nuevas. Se conservarán las imágenes actuales.</div>'
+          : '<div class="bulk-product-warning">Este producto nuevo necesita al menos una fotografía.</div>') : "");
       const imported = group.importedProductId ?
-        '<div class="bulk-product-success">Guardado como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
+        '<div class="bulk-product-success">'+(group.wasUpdated?'Actualizado':'Creado')+' como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
       return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
-        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
+        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + upsertNotice + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
         (productRecords.length ? '<label class="wide">Vincular ficha por ID Dropi<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Elige el ID exacto que corresponde a este grupo de fotos. Si el ID aparece en el nombre de archivo o carpeta, se vincula automáticamente.</span></label>' : '') +
         (group.txtMatched ? '<div class="bulk-product-note-match wide">Ficha del TXT aplicada: Dropi ' + esc(group.txtRecordId) + '</div>' : '') +
@@ -1047,7 +1336,7 @@ function validateGroup(group) {
   if (!String(group.description || "").trim()) return "Añade una descripción general o específica.";
   if (group.stock !== "" && group.stock != null && (!Number.isSafeInteger(Number(group.stock)) || Number(group.stock)<0)) return "El stock debe ser un número entero igual o mayor que cero.";
   if (!["physical","digital"].includes(group.deliveryType||$("#bulkDeliveryType")?.value)) return "Selecciona el tipo de entrega.";
-  if (!group.files.length) return "Añade al menos una imagen.";
+  if (!group.files.length && !group.existingProductId) return "Añade al menos una imagen. Para un producto existente se conservarán las fotos actuales.";
   if (group.files.length > MAX_IMAGES_PER_PRODUCT) return "Supera el máximo de 8 fotos por producto. Separa este grupo.";
   if (!$("#bulkAllowDuplicates").checked && groupHasDuplicateName(group)) return "Ya existe un producto con este nombre; cámbialo o permite duplicados.";
   if ($("#bulkPublishNow").checked && group.name.startsWith("Producto por identificar")) return "Completa el nombre real antes de publicar.";
@@ -1080,7 +1369,7 @@ async function importGroup(group,index,total) {
     message("Subiendo imágenes del producto " + (index+1) + " de " + total + " · " + (i+1) + " de " + uploadEntries.length);
     urls.push(await uploadOne(uploadEntries[i]));
   }
-  if (!urls.length) throw new Error("No quedaron imágenes válidas para guardar el producto.");
+  if (!urls.length && !group.existingProductId) throw new Error("No quedaron imágenes válidas para guardar el producto.");
   const price = Number(group.price);
   const oldPrice = group.oldPrice === "" || group.oldPrice == null ? null : Number(group.oldPrice);
   const stock = group.stock === "" || group.stock == null ? null : Number(group.stock);
@@ -1092,22 +1381,31 @@ async function importGroup(group,index,total) {
   const audience = String(group.audience || "").toLowerCase();
   const targetAudiences = audience === "unisex" ? ["hombre","mujer"] : [audience];
   const payload = {
-    action:"save",id:null,name:String(group.name).trim(),category:String(group.category).trim(),
+    action:"save",id:group.existingProductId||null,
+    preserve_existing_fields:!!group.existingProductId,
+    preserve_existing_variants:!!group.existingProductId,
+    name:String(group.name).trim(),category:String(group.category).trim(),
     delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
     stock_quantity:stock,size_variants:sizes,dropi_product_id:String(group.dropiProductId || "").trim(),dropi_variants:[],
     description:String(group.description).trim(),features:readFeatures(group.features),images:urls.slice(0,MAX_IMAGES_PER_PRODUCT),
-    color_variants:color,video_url:null,tag:oldPrice !== null ? "OFERTA" : "NUEVO",
+    color_variants:group.existingProductId?[]:color,video_url:null,tag:group.existingProductId?"":(oldPrice !== null ? "OFERTA" : "NUEVO"),
     shipping:"",payment_methods:delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"],
-    is_active:!!$("#bulkPublishNow").checked,sort_order:1000+index,
+    is_active:group.existingProductId?null:!!$("#bulkPublishNow").checked,
+    sort_order:group.existingProductId?null:1000+index,
     printful_enabled:false,printful_sync_variant_id:null
   };
   const result = await db.adminCall(payload);
   if (!result || !result.ok || !result.product || !result.product.id) {
-    throw new Error((result && result.error) || "El servidor no confirmó la creación del producto.");
+    throw new Error((result && result.error) || "El servidor no confirmó la creación o actualización del producto.");
   }
+  group.wasUpdated = !!group.existingProductId;
   group.importedProductId = Number(result.product.id);
-  group.active = payload.is_active;
+  group.active = result.product.is_active ?? payload.is_active;
   existingNames.add(normalize(group.name));
+  if(group.dropiProductId)existingProductsByDropi.set(String(group.dropiProductId),{
+    ...(existingProductsByDropi.get(String(group.dropiProductId))||{}),id:Number(result.product.id),
+    name:group.name,category:group.category,price_cop:price,old_price_cop:oldPrice,stock_quantity:stock
+  });
   return group.importedProductId;
 }
 async function runImport(categoryFilter="all") {
@@ -1124,12 +1422,14 @@ async function runImport(categoryFilter="all") {
     return;
   }
   const duplicatePending = new Set();
-  const pendingCounts = new Map();
-  pending.forEach(group => pendingCounts.set(normalize(group.name),(pendingCounts.get(normalize(group.name))||0)+1));
-  if (!$("#bulkAllowDuplicates").checked) pending.forEach(group => {
-    if ((pendingCounts.get(normalize(group.name))||0) > 1) duplicatePending.add(group.id);
-  });
-  const invalid = pending.map(group => ({
+   const pendingCounts = new Map();
+   pending.filter(group=>!group.existingProductId).forEach(group=>{
+     pendingCounts.set(normalize(group.name),(pendingCounts.get(normalize(group.name))||0)+1);
+   });
+   if (!$("#bulkAllowDuplicates").checked) pending.forEach(group=>{
+     if (!group.existingProductId && (pendingCounts.get(normalize(group.name))||0)>1) duplicatePending.add(group.id);
+   });
+   const invalid = pending.map(group => ({
     group,
     error:duplicatePending.has(group.id) ? "Hay otro producto preparado con el mismo nombre. Cambia uno de los nombres." : validateGroup(group)
   })).filter(item => item.error);
@@ -1232,7 +1532,7 @@ async function addFiles(fileList, options={}) {
   const seen = new Set(baseEntries.map(entry => entry.key));
   imageFiles.forEach(file => {
     if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) { rejected.push(file.name + " (supera 12 MB o está vacío)"); return; }
-    const path = file.webkitRelativePath || file.name;
+    const path = options.filePaths?.get(file) || file.webkitRelativePath || file.name;
     const key = fileKey(file,path);
     if (seen.has(key)) return;
     seen.add(key);
@@ -1290,6 +1590,8 @@ async function loadExistingProducts() {
     const result = await db.adminCall({action:"list"});
     const products = Array.isArray(result.products) ? result.products : [];
     existingNames = new Set(products.map(product => normalize(product.name)));
+    existingProductsByDropi = new Map(products.filter(product=>String(product.dropi_product_id||"").trim())
+      .map(product=>[String(product.dropi_product_id).trim(),product]));
   } catch (_) {
     existingNames = new Set();
   }
@@ -1317,11 +1619,25 @@ $("#bulkExcelFile")?.addEventListener("change",async event=>{
   event.target.value="";
   if(!file)return;
   try{
-    noteStatus("Leyendo plantilla Excel y validando los ID de Dropi…");
-    const records=await parseExcelProductFile(file);
+    noteStatus("Leyendo la plantilla, buscando fotografías incrustadas y validando los ID de Dropi…");
+    const parsed=await parseExcelProductFile(file);
+    const records=parsed.records;
     setProductRecords(records,file.name,true,"Excel");
-    const unmatched=records.filter(record=>!groups.some(group=>group.txtRecordId===record.id)).length;
-    noteStatus("Excel importado: "+records.length+" productos · "+(records.length-unmatched)+" vinculados por ID · "+unmatched+" pendientes de asociar a fotos. Conservamos los datos para cuando cargues la carpeta.",unmatched?"info":"success");
+    const photoFiles=records.flatMap(record=>record.photos||[]);
+    const filePaths=new Map();
+    records.forEach(record=>(record.photos||[]).forEach(photo=>{
+      if(record.photoPaths?.has(photo))filePaths.set(photo,record.photoPaths.get(photo));
+    }));
+    if(photoFiles.length){
+      message("Se encontraron "+photoFiles.length+" fotografías incrustadas. Agrupando por fila e ID Dropi…","info");
+      await addFiles(photoFiles,{replace:true,filePaths});
+    }
+    addMissingExcelRecordGroups();
+    page=0;
+    render();
+    const withoutPhotos=groups.filter(group=>!group.files.length).length;
+    noteStatus("Excel importado: "+records.length+" fichas · "+photoFiles.length+" fotos incrustadas · "+withoutPhotos+" producto(s) sin foto nueva. Los ID Dropi existentes se actualizarán; los nuevos se crearán al guardar.",withoutPhotos?"info":"success");
+    message("Plantilla leída. Revisa las fichas y pulsa Guardar productos en NovaShop para publicar los cambios.","success");
   }catch(error){
     noteStatus(error?.message||"No se pudo leer la plantilla Excel.","error");
     message(error?.message||"No se pudo leer la plantilla Excel.","error");
