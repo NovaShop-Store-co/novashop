@@ -123,3 +123,7 @@
  .catalog-ai-actions{display:grid;grid-template-columns:1fr}
  .catalog-ai-actions button{width:100%}
 }
+
+.catalog-ai-setup{padding-top:9px;border-top:1px solid #e2eaf1;color:#617587;font-size:10px;line-height:1.6}
+.catalog-ai-setup a{color:#185fa5;font-weight:800;text-decoration:underline;text-underline-offset:2px}
+.catalog-ai-setup code{padding:2px 5px;border-radius:5px;background:#eaf1f7;color:#24445f;font-size:10px}
