@@ -680,6 +680,18 @@ Deno.serve(async (req: Request) => {
         seenDropiVariantIds.add(variant.dropi_variant_id);
       }
       if (dropiVariants.length && delivery === "digital") return json({error:"Las variantes de Dropi solo se pueden asociar a productos físicos."},400,origin);
+      const rawSizeVariants = Array.isArray(body.size_variants) ? body.size_variants : [];
+      if (rawSizeVariants.length > 40) return json({error:"Un producto admite hasta 40 tallas."},400,origin);
+      if (rawSizeVariants.some((value: unknown)=>!String(value ?? "").trim() || String(value ?? "").trim().length > 24)) {
+        return json({error:"Cada talla debe tener entre 1 y 24 caracteres."},400,origin);
+      }
+      const sizeVariants = rawSizeVariants.map((value: unknown)=>clean(value,24).replace(/\s+/g," "));
+      const seenSizes = new Set<string>();
+      for (const size of sizeVariants) {
+        const key = size.toLocaleLowerCase("es");
+        if (seenSizes.has(key)) return json({error:"No repitas tallas. Usa una sola entrada por talla."},400,origin);
+        seenSizes.add(key);
+      }
       const rawTargetAudiences = Array.isArray(body.target_audiences) ? body.target_audiences : [];
       const requestedAudiences = [...new Set(rawTargetAudiences.map((value: unknown)=>clean(value,20).toLowerCase()).filter(Boolean))];
       const targetAudiences = dropiVariants.length
@@ -759,7 +771,7 @@ Deno.serve(async (req: Request) => {
       if (id !== null && (!Number.isInteger(id) || id <= 0)) return json({error:"Identificador de producto no válido."},400,origin);
 
       const payload = {
-        name,category,delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
+        name,category,delivery_type:delivery,target_audiences:targetAudiences,size_variants:sizeVariants,price_cop:price,old_price_cop:oldPrice,
         description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,payment_methods:paymentMethods,is_active:active,sort_order:sortOrder,
         stock_quantity:stock,printful_enabled:printfulEnabled,printful_sync_variant_id:printfulRaw,updated_at:new Date().toISOString()
       };
