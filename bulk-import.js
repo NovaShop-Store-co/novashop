@@ -792,6 +792,12 @@ function updateStats() {
   const importButtonBottom = $("#bulkImportButtonBottom");
   if (importButton) importButton.disabled = !canSave;
   if (importButtonBottom) importButtonBottom.disabled = !canSave;
+  const categoryButton=$("#bulkImportCategoryButton");
+  const categoryPending=groups.filter(group=>!group.importedProductId&&categoryView!=="all"&&normalize(group.category)===normalize(categoryView)).length;
+  if(categoryButton){
+    categoryButton.disabled=!authorized||importing||aiProcessing||categoryView==="all"||categoryPending===0;
+    categoryButton.textContent=categoryView==="all"?"Guardar categoría actual":("Guardar "+categoryView+" · "+categoryPending);
+  }
   const hasImported=groups.some(group=>group.importedProductId);
   const aiButton=$("#bulkVisualAiButton");
   if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length||hasImported;
@@ -832,10 +838,21 @@ function render() {
   cleanupPreviews();
   const list = $("#bulkGroupList");
   if (!list) return;
-  const pages = Math.max(1,Math.ceil(groups.length/PAGE_SIZE));
+  const categorySelect=$("#bulkReviewCategory");
+  const categories=[...new Set(groups.map(group=>categoryFromValue(group.category)||"Sin categoría"))]
+    .sort((a,b)=>CATEGORIES.indexOf(a)-CATEGORIES.indexOf(b));
+  if(categoryView!=="all"&&!categories.includes(categoryView))categoryView="all";
+  if(categorySelect){
+    categorySelect.innerHTML='<option value="all">Todas las categorías ('+groups.length+')</option>'+
+      categories.map(category=>'<option value="'+esc(category)+'">'+esc(category)+' ('+groups.filter(group=>(categoryFromValue(group.category)||"Sin categoría")===category).length+')</option>').join("");
+    categorySelect.value=categoryView;
+    categorySelect.disabled=!groups.length||importing;
+  }
+  const viewGroups=categoryView==="all"?groups:groups.filter(group=>(categoryFromValue(group.category)||"Sin categoría")===categoryView);
+  const pages = Math.max(1,Math.ceil(viewGroups.length/PAGE_SIZE));
   page = Math.min(page,pages-1);
   const start = page * PAGE_SIZE;
-  const visible = groups.slice(start,start+PAGE_SIZE);
+  const visible = viewGroups.slice(start,start+PAGE_SIZE);
   const globalHashCounts = new Map();
   entries.forEach(entry => {
     if (entry.hash) globalHashCounts.set(entry.hash,(globalHashCounts.get(entry.hash)||0)+1);
@@ -843,7 +860,13 @@ function render() {
   if (!groups.length) {
     list.innerHTML = '<div class="admin-orders-empty">Selecciona una carpeta o varias imágenes para preparar los productos.</div>';
   } else {
+    let previousCategory="";
     list.innerHTML = visible.map(group => {
+      const categoryLabel=categoryFromValue(group.category)||"Sin categoría";
+      const categoryHeading=categoryLabel!==previousCategory
+        ? '<div class="bulk-import-category-heading"><strong>'+esc(categoryLabel)+'</strong><span>'+viewGroups.filter(item=>(categoryFromValue(item.category)||"Sin categoría")===categoryLabel).length+' producto(s)</span></div>'
+        : "";
+      previousCategory=categoryLabel;
       const thumbs = group.files.map((entry,index) => {
         const url = URL.createObjectURL(entry.file);
         previewUrls.push(url);
@@ -881,7 +904,7 @@ function render() {
         '<div class="bulk-product-success">Guardado como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
-      return '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
+      return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
         '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
@@ -890,6 +913,7 @@ function render() {
         '<label class="wide">Nombre del producto *<input data-product-field="name" data-group-id="' + group.id + '" maxlength="140" value="' + esc(group.name) + '"></label>' +
         '<label>Categoría *<select data-product-field="category" data-group-id="' + group.id + '">' + categoryOptions + '</select></label>' +
         '<label>Público objetivo *<select data-product-field="audience" data-group-id="' + group.id + '">' + audienceOptions + '</select></label>' +
+        '<label>Tipo de entrega<select data-product-field="deliveryType" data-group-id="' + group.id + '"><option value="physical"' + ((group.deliveryType||"physical")==="physical"?" selected":"") + '>Físico</option><option value="digital"' + (group.deliveryType==="digital"?" selected":"") + '>Digital</option></select></label>' +
         '<label>ID del producto en Dropi (opcional)<input type="text" maxlength="100" data-product-field="dropiProductId" data-group-id="' + group.id + '" value="' + esc(group.dropiProductId || "") + '" placeholder="ID exacto del producto"></label>' +
         '<label>Precio de venta COP *<input type="number" min="1" step="1" data-product-field="price" data-group-id="' + group.id + '" value="' + esc(group.price) + '"></label>' +
         '<label>Precio anterior COP<input type="number" min="1" step="1" data-product-field="oldPrice" data-group-id="' + group.id + '" value="' + esc(group.oldPrice) + '"></label>' +
@@ -904,9 +928,9 @@ function render() {
     }).join("");
   }
   const pageInfo = $("#bulkPaginationLabel");
-  if (pageInfo) pageInfo.textContent = groups.length ? "Productos " + (start+1) + "–" + Math.min(start+PAGE_SIZE,groups.length) + " de " + groups.length : "Sin productos";
+  if (pageInfo) pageInfo.textContent = viewGroups.length ? (categoryView==="all"?"Todos":"Categoría: "+categoryView)+" · productos " + (start+1) + "–" + Math.min(start+PAGE_SIZE,viewGroups.length) + " de " + viewGroups.length : "Sin productos";
   const pageInfoBottom = $("#bulkPageStatus");
-  if (pageInfoBottom) pageInfoBottom.textContent = groups.length ? "Página " + (page+1) + " de " + pages : "Sin productos";
+  if (pageInfoBottom) pageInfoBottom.textContent = viewGroups.length ? "Página " + (page+1) + " de " + pages : "Sin productos";
   const previous = $("#bulkPrevPage"), next = $("#bulkNextPage");
   if (previous) previous.disabled = page <= 0;
   if (next) next.disabled = page >= pages-1;
@@ -1074,13 +1098,15 @@ async function importGroup(group,index,total) {
   existingNames.add(normalize(group.name));
   return group.importedProductId;
 }
-async function runImport() {
+async function runImport(categoryFilter="all") {
   if (importing) return;
+  if(categoryFilter!=="all"){categoryView=categoryFilter;page=0;}
   if (!authorized || !db?.isConfigured?.()) {
     message("La sesión administrativa no está disponible. Inicia sesión de nuevo.", "error");
     return;
   }
-  const pending = groups.filter(group => !group.importedProductId);
+  const pending = groups.filter(group => !group.importedProductId &&
+    (categoryFilter==="all"||normalize(group.category)===normalize(categoryFilter)));
   if (!pending.length) {
     message("No hay productos pendientes de importar.", "info");
     return;
@@ -1097,13 +1123,15 @@ async function runImport() {
   })).filter(item => item.error);
   invalid.forEach(item => { item.group.error = item.error; });
   if (invalid.length) {
-    page = Math.max(0,Math.floor(groups.indexOf(invalid[0].group)/PAGE_SIZE));
+    const activeGroups=categoryFilter==="all"?groups:groups.filter(group=>normalize(group.category)===normalize(categoryFilter));
+    page = Math.max(0,Math.floor(activeGroups.indexOf(invalid[0].group)/PAGE_SIZE));
     render();
     message("Hay " + invalid.length + " producto(s) por corregir. Revisa las tarjetas marcadas antes de iniciar.", "error");
     return;
   }
   const publishText = $("#bulkPublishNow").checked ? "publicar" : "guardar como borradores";
-  if (!window.confirm("Se crearán " + pending.length + " productos y se subirán sus imágenes a Supabase Storage. Se van a " + publishText + ". ¿Continuar?")) return;
+  const categoryLabel=categoryFilter==="all"?"de todas las categorías":"de "+categoryFilter;
+  if (!window.confirm("Se crearán " + pending.length + " productos "+categoryLabel+" y se subirán sus imágenes a Supabase Storage. Se van a " + publishText + ". ¿Continuar?")) return;
   importing = true;
   $("#bulkImportButton").disabled = true;
   if ($("#bulkImportButtonBottom")) $("#bulkImportButtonBottom").disabled = true;
@@ -1319,8 +1347,10 @@ $("#bulkResetButton")?.addEventListener("click",() => {
   noteStatus("Importación limpia. Puedes seleccionar una nueva carpeta y su TXT.");
   message("Importación limpia. Puedes seleccionar otra carpeta.");
 });
-$("#bulkImportButton")?.addEventListener("click",() => { void runImport(); });
-$("#bulkImportButtonBottom")?.addEventListener("click",() => { void runImport(); });
+$("#bulkImportButton")?.addEventListener("click",() => { void runImport("all"); });
+$("#bulkImportButtonBottom")?.addEventListener("click",() => { void runImport("all"); });
+$("#bulkImportCategoryButton")?.addEventListener("click",() => { if(categoryView!=="all")void runImport(categoryView); });
+$("#bulkReviewCategory")?.addEventListener("change",event=>{categoryView=event.target.value||"all";page=0;render();});
 $("#bulkGroupList")?.addEventListener("input",event => {
   const field = event.target.closest("[data-product-field]");
   if (!field) return;
