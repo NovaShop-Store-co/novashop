@@ -88,6 +88,80 @@ Deno.serve(async (req: Request) => {
 
     if (action === "whoami") return json({ok:true,isAdmin:true,userId:user.id,email:user.email || null,role},200,origin);
 
+    if (action === "get-flash-sale") {
+      if (!canEditCatalog) return json({error:"No tienes permiso para gestionar las ofertas relámpago."},403,origin);
+      const [{data:campaign,error:campaignError},{data:rows,error:productsError}] = await Promise.all([
+        admin.from("flash_sale_campaigns").select("*").eq("id",1).maybeSingle(),
+        admin.from("products").select("id,name,category,delivery_type,price_cop,old_price_cop,images,stock_quantity,is_active")
+          .eq("is_active",true).eq("delivery_type","physical").order("sort_order",{ascending:true}).order("id",{ascending:true})
+      ]);
+      if (campaignError) throw campaignError;
+      if (productsError) throw productsError;
+      const eligibleProducts = (rows||[]).filter((p:any)=>
+        p.category !== "Streaming" && (p.stock_quantity == null || Number(p.stock_quantity) > 0)
+      );
+      return json({ok:true,campaign:campaign||null,products:eligibleProducts},200,origin);
+    }
+
+    if (action === "save-flash-sale") {
+      if (!canEditCatalog) return json({error:"No tienes permiso para gestionar las ofertas relámpago."},403,origin);
+      const productIds = Array.isArray(body.product_ids)
+        ? body.product_ids.map((value: unknown)=>Number(value))
+        : [];
+      if (productIds.length < 5 || productIds.length > 6 ||
+          productIds.some((id: number)=>!Number.isSafeInteger(id)||id<=0) ||
+          new Set(productIds).size !== productIds.length) {
+        return json({error:"Selecciona entre 5 y 6 productos distintos para la campaña."},400,origin);
+      }
+      const rawPrices = body.product_prices && typeof body.product_prices === "object" && !Array.isArray(body.product_prices)
+        ? body.product_prices : {};
+      const now = new Date();
+      const endsAt = new Date(String(body.ends_at||""));
+      if (Number.isNaN(endsAt.getTime()) || endsAt.getTime() < now.getTime()+5*60*1000 ||
+          endsAt.getTime() > now.getTime()+7*24*60*60*1000) {
+        return json({error:"La campaña debe terminar al menos en 5 minutos y como máximo dentro de 7 días."},400,origin);
+      }
+      const {data:rows,error:productsError} = await admin.from("products")
+        .select("id,name,category,delivery_type,price_cop,is_active,stock_quantity")
+        .in("id",productIds).eq("is_active",true);
+      if (productsError) throw productsError;
+      if (!rows || rows.length !== productIds.length) {
+        return json({error:"Uno de los productos seleccionados ya no está disponible."},409,origin);
+      }
+      const productPrices: Record<string,number> = {};
+      for (const product of rows as any[]) {
+        if (product.delivery_type !== "physical" || product.category === "Streaming" ||
+            (product.stock_quantity != null && Number(product.stock_quantity) <= 0)) {
+          return json({error:"Las ofertas relámpago solo admiten productos físicos disponibles."},400,origin);
+        }
+        const salePrice = Number(rawPrices[String(product.id)]);
+        const regularPrice = Number(product.price_cop);
+        if (!Number.isSafeInteger(salePrice) || salePrice < 1 || salePrice >= regularPrice) {
+          return json({error:"El precio relámpago de «"+clean(product.name,120)+"» debe ser un entero mayor que cero y menor que su precio actual."},400,origin);
+        }
+        productPrices[String(product.id)] = salePrice;
+      }
+      const title = clean(body.title,80) || "Ofertas relámpago";
+      const payload = {
+        id:1,title,product_ids:productIds,sale_prices:productPrices,
+        starts_at:now.toISOString(),ends_at:endsAt.toISOString(),
+        is_active:true,updated_at:now.toISOString(),updated_by:user.id
+      };
+      const {data,error} = await admin.from("flash_sale_campaigns")
+        .upsert(payload,{onConflict:"id"}).select("*").single();
+      if (error) throw error;
+      return json({ok:true,campaign:data},200,origin);
+    }
+
+    if (action === "deactivate-flash-sale") {
+      if (!canEditCatalog) return json({error:"No tienes permiso para gestionar las ofertas relámpago."},403,origin);
+      const {data,error} = await admin.from("flash_sale_campaigns")
+        .update({is_active:false,updated_at:new Date().toISOString(),updated_by:user.id})
+        .eq("id",1).select("*").maybeSingle();
+      if (error) throw error;
+      return json({ok:true,campaign:data||null},200,origin);
+    }
+
     if (action === "list-coupons") {
       if (!canManageUsers) return json({error:"Solo propietario y administrador pueden gestionar cupones."},403,origin);
       const {data,error} = await admin.from("coupons").select("*").order("created_at",{ascending:false}).limit(200);
