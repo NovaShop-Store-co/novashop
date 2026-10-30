@@ -621,6 +621,23 @@ function resolveNoteFile(noteFiles) {
   const preferred = noteFiles.filter(file => /^(?:nota|notas|instrucciones|descripci[oó]n|description|readme)\\.txt$/i.test(file.name));
   return preferred.length === 1 ? preferred[0] : null;
 }
+function addMissingExcelRecordGroups() {
+  const assigned=new Set(groups.map(group=>group.txtRecordId).filter(Boolean));
+  productRecords.forEach(record=>{
+    if(assigned.has(record.id))return;
+    const group={
+      id:nextGroupId++,name:record.name,category:categoryFromValue(record.category)||"",
+      price:record.price||"",oldPrice:record.oldPrice||"",stock:record.stock||"",
+      sizes:record.sizes.join(", "),description:record.description||"",
+      color:colorFromRecord(record.color),audience:record.audience||"",
+      dropiProductId:record.id,features:record.features.slice(0,30),
+      txtRecordId:record.id,txtMatched:true,files:[],importedProductId:null,error:"",
+      deliveryType:record.deliveryType||deliveryTypeFromValue("",record.category)
+    };
+    applyProductRecord(group,record);
+    groups.push(group);
+  });
+}
 function setProductRecords(records, filename, standalone=true, label="Excel") {
   productRecords=records;
   productRecordsFromStandalone=standalone;
@@ -1481,11 +1498,25 @@ $("#bulkExcelFile")?.addEventListener("change",async event=>{
   event.target.value="";
   if(!file)return;
   try{
-    noteStatus("Leyendo plantilla Excel y validando los ID de Dropi…");
-    const records=await parseExcelProductFile(file);
+    noteStatus("Leyendo la plantilla, buscando fotografías incrustadas y validando los ID de Dropi…");
+    const parsed=await parseExcelProductFile(file);
+    const records=parsed.records;
     setProductRecords(records,file.name,true,"Excel");
-    const unmatched=records.filter(record=>!groups.some(group=>group.txtRecordId===record.id)).length;
-    noteStatus("Excel importado: "+records.length+" productos · "+(records.length-unmatched)+" vinculados por ID · "+unmatched+" pendientes de asociar a fotos. Conservamos los datos para cuando cargues la carpeta.",unmatched?"info":"success");
+    const photoFiles=records.flatMap(record=>record.photos||[]);
+    const filePaths=new Map();
+    records.forEach(record=>(record.photos||[]).forEach(photo=>{
+      if(record.photoPaths?.has(photo))filePaths.set(photo,record.photoPaths.get(photo));
+    }));
+    if(photoFiles.length){
+      message("Se encontraron "+photoFiles.length+" fotografías incrustadas. Agrupando por fila e ID Dropi…","info");
+      await addFiles(photoFiles,{replace:true,filePaths});
+    }
+    addMissingExcelRecordGroups();
+    page=0;
+    render();
+    const withoutPhotos=groups.filter(group=>!group.files.length).length;
+    noteStatus("Excel importado: "+records.length+" fichas · "+photoFiles.length+" fotos incrustadas · "+withoutPhotos+" producto(s) sin foto nueva. Los ID Dropi existentes se actualizarán; los nuevos se crearán al guardar.",withoutPhotos?"info":"success");
+    message("Plantilla leída. Revisa las fichas y pulsa Guardar productos en NovaShop para publicar los cambios.","success");
   }catch(error){
     noteStatus(error?.message||"No se pudo leer la plantilla Excel.","error");
     message(error?.message||"No se pudo leer la plantilla Excel.","error");
