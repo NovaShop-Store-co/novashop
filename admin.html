@@ -5,6 +5,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=49">
+<link rel="stylesheet" href="bulk-import.css?v=1">
 <style>
 .admin-page-wrap{max-width:1180px;margin:32px auto 70px;padding:0 20px}
 .admin-title{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-bottom:22px}.admin-title h1{margin:6px 0;font-size:34px;letter-spacing:-.05em}.admin-title p{margin:0;color:#697783;font-size:13px}
@@ -276,6 +277,36 @@ body.product-editor-open{overflow:hidden}
   </div>
 </section>
 
+
+<section id="bulkImportPanel" class="admin-card admin-section-panel bulk-import-panel" data-admin-section="catalog" hidden>
+ <div class="bulk-import-head"><div><h2>Importación masiva de productos</h2><p>Selecciona una carpeta completa o imágenes sueltas. El importador agrupa por subcarpetas o nombres de archivo, te permite corregir los grupos y crea las fichas con los datos generales que indiques.</p></div></div>
+ <div class="bulk-import-note"><strong>Importante:</strong> esta primera versión no usa reconocimiento visual de IA. Agrupa por estructura de carpetas y nombres, detecta duplicados exactos y sugiere colores solo cuando aparecen escritos en los nombres de archivo. Revisa las fichas antes de crear productos. El stock de esta importación es general por producto; las existencias independientes por talla/color y la identificación visual automática requieren una ampliación posterior.</div>
+ <div class="bulk-import-files">
+  <label>Seleccionar carpeta completa<input id="bulkFolder" type="file" webkitdirectory directory multiple accept="image/jpeg,image/png,image/webp,image/avif,image/gif"><span class="bulk-import-help">En Chrome de escritorio: elige la carpeta que contiene las fotos. Se recorrerán también sus subcarpetas.</span></label>
+  <label>Agregar imágenes sueltas<input id="bulkImages" type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif,image/gif"><span class="bulk-import-help">También puedes añadir fotos individuales a la selección actual.</span></label>
+ </div>
+ <div class="bulk-import-config">
+  <label class="wide">Nota / descripción general *<textarea id="bulkDescription" maxlength="4000" placeholder="Ej. Camisa casual de uso diario. Consulta las características y medidas disponibles antes de comprar. No incluyas atributos que no estén confirmados."></textarea><span class="bulk-import-help">Se aplicará inicialmente a todos los productos. Podrás personalizar la descripción de cada ficha antes de importarla.</span></label>
+  <label>Categoría general *<select id="bulkCategory"><option value="">Selecciona categoría</option><option>Tecnología</option><option>Hogar</option><option>Moda</option><option>Accesorios</option><option>Oficina</option><option>Streaming</option><option>Belleza</option><option>Deportes</option><option>Otra</option></select></label>
+  <label>Precio de venta general COP *<input id="bulkPrice" type="number" min="1" step="1" placeholder="Ej. 59900"></label>
+  <label>Precio anterior COP (opcional)<input id="bulkOldPrice" type="number" min="1" step="1" placeholder="Opcional"></label>
+  <label>Stock general por producto<input id="bulkStock" type="number" min="0" step="1" placeholder="Vacío = sin control de stock"></label>
+  <label class="wide">Tallas generales (opcional)<input id="bulkSizes" type="text" maxlength="600" placeholder="S, M, L, XL, XXL"><span class="bulk-import-help">Se aplicarán a cada producto. Puedes corregir las tallas individualmente en cada tarjeta.</span></label>
+  <label>Tipo de entrega<select id="bulkDeliveryType"><option value="physical">Producto físico</option><option value="digital">Servicio digital</option></select></label>
+  <label>Tamaño de lote<select id="bulkBatchSize"><option value="5">5 productos</option><option value="10" selected>10 productos</option><option value="20">20 productos</option></select></label>
+  <label class="bulk-import-check wide"><input id="bulkAllowDuplicates" type="checkbox"> Permitir nombres de producto que ya existen en el catálogo</label>
+  <label class="bulk-import-check wide"><input id="bulkPublishNow" type="checkbox"> Publicar los productos al crearlos (por defecto se guardan como borradores)</label>
+ </div>
+ <div class="bulk-import-actions"><button type="button" class="btn btn-ghost" id="bulkApplyDefaults">Aplicar valores generales a todos</button><button type="button" class="btn btn-ghost" id="bulkMergeGroups" disabled>Unir grupos seleccionados</button><button type="button" class="btn btn-ghost" id="bulkResetButton">Limpiar importación</button><button type="button" class="btn btn-primary" id="bulkImportButton" disabled>Crear productos por lotes</button></div>
+ <div id="bulkFileStats" class="bulk-import-status">Aún no has seleccionado imágenes.</div>
+ <div class="bulk-progress-wrap"><div class="bulk-progress-track"><div id="bulkProgressFill" class="bulk-progress-fill"></div></div><div class="bulk-progress-label"><span id="bulkProgressLabel">Sin actividad</span><strong id="bulkProgressPercent">0%</strong></div></div>
+ <div id="bulkStatus" class="bulk-import-status" role="status" aria-live="polite">Verificando permisos administrativos…</div>
+ <div class="bulk-group-toolbar"><div><strong>Revisión de productos</strong><br><span>Se muestran hasta 12 productos por página. Puedes unir grupos, separar imágenes o quitar fotos individuales.</span></div><div id="bulkPaginationLabel" class="bulk-import-status">Sin productos</div></div>
+ <div id="bulkGroupList" class="bulk-group-grid"><div class="admin-orders-empty">Selecciona una carpeta o varias imágenes para preparar los productos.</div></div>
+ <div class="bulk-import-pagination"><button type="button" id="bulkPrevPage" disabled>← Anterior</button><span id="bulkPageStatus">Sin productos</span><button type="button" id="bulkNextPage" disabled>Siguiente →</button></div>
+ <div id="bulkImportResults" class="bulk-import-results" aria-live="polite"></div>
+</section>
+
 <div class="admin-grid admin-section-panel" data-admin-section="catalog">
 <div id="productEditorPlaceholder" hidden></div>
 <section class="admin-card admin-editor-card" hidden><h2 id="adminFormTitle">Añadir nuevo producto</h2>
@@ -319,5 +350,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=1"></script>
 </body></html>
