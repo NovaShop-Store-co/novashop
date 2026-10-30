@@ -440,6 +440,7 @@ async function parseExcelProductFile(file) {
     const stock=excelHeaderValue(row,["Stock","Existencias","Inventario"]);
     const delivery=excelHeaderValue(row,["Tipo de entrega","Entrega"]);
     if(!name&&!id&&!category&&!price&&!sizes&&!color&&!description&&!features&&!stock) return;
+    if(/^EJEMPLO[-_]/i.test(id)) return;
     if(!name){rowErrors.push("Fila "+rowNumber+": falta el nombre del producto.");return;}
     if(!id){rowErrors.push("Fila "+rowNumber+" ("+name+"): falta el ID de Dropi.");return;}
     if(rowById.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
@@ -748,7 +749,9 @@ function setProductRecords(records, filename, standalone=true, label="Excel") {
   if (loadedNoteText && $("#bulkDescription")?.value.trim()===loadedNoteText) $("#bulkDescription").value="";
   loadedNoteText="";
   groups.forEach(group=>{
-    if(!group.importedProductId){group.txtRecordId="";group.txtMatched=false;}
+    if(!group.importedProductId){
+      group.txtRecordId="";group.txtMatched=false;group.existingProductId=null;
+    }
   });
   applyProductRecordsToGroups();
   noteStatus(label+" leído: "+records.length+" productos. Las fichas se relacionan por ID exacto de Dropi; completa o revisa las fotografías que queden pendientes.","success");
@@ -1196,7 +1199,7 @@ function render() {
       const imageWarning = group.files.length > MAX_IMAGES_PER_PRODUCT ?
         '<div class="bulk-product-warning">Este grupo tiene ' + group.files.length + ' fotos; el catálogo admite máximo ' + MAX_IMAGES_PER_PRODUCT + '. Sepáralas o quita las sobrantes.</div>' : "";
       const imported = group.importedProductId ?
-        '<div class="bulk-product-success">Guardado como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
+        '<div class="bulk-product-success">'+(group.wasUpdated?'Actualizado':'Creado')+' como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
       return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
@@ -1392,6 +1395,7 @@ async function importGroup(group,index,total) {
   if (!result || !result.ok || !result.product || !result.product.id) {
     throw new Error((result && result.error) || "El servidor no confirmó la creación o actualización del producto.");
   }
+  group.wasUpdated = !!group.existingProductId;
   group.importedProductId = Number(result.product.id);
   group.active = result.product.is_active ?? payload.is_active;
   existingNames.add(normalize(group.name));
