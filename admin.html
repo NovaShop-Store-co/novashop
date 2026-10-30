@@ -312,6 +312,7 @@ body.product-editor-open{overflow:hidden}
    <button type="button" class="btn btn-primary" id="bulkAiAdvancedAnalyzeButton" disabled>Analizar con IA avanzada</button>
   </div>
   <div class="catalog-ai-footnote">El modo local aprovecha el agrupador visual CLIP y los datos del Excel/TXT. El análisis avanzado puede enviar hasta 4 fotos comprimidas por producto al proveedor de IA y genera consumo facturable según uso. Revisa siempre las sugerencias antes de guardar.</div>
+  <div class="catalog-ai-setup">Para activar la IA avanzada: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">crear clave API de OpenAI</a> y guardarla como <code>OPENAI_API_KEY</code> en <a href="https://supabase.com/dashboard/project/fbcffmhcypsprvgdbtas/functions/secrets" target="_blank" rel="noopener noreferrer">Secretos de Edge Functions en Supabase</a>. No pegues la clave en el Excel, GitHub ni en esta página.</div>
   <div id="catalogAiProgress" class="catalog-ai-progress" hidden></div>
  </section>
 
