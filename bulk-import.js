@@ -257,7 +257,6 @@ function parseStructuredProductNote(source) {
   valid.forEach(record=>idCounts.set(record.id,(idCounts.get(record.id)||0)+1));
   return valid.filter(record=>idCounts.get(record.id) === 1);
 }
-let xlsxLoaderPromise = null;
 async function loadXlsxLibrary() {
   if (window.XLSX) return window.XLSX;
   if (xlsxLoaderPromise) return xlsxLoaderPromise;
