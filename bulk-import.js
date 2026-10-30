@@ -812,13 +812,13 @@ async function loadLocalTransformers() {
   return library;
 }
 async function createLocalPipeline(library,task,model) {
-  const options={dtype:"q4"};
   const hasWebGpu=typeof navigator!=="undefined" && !!navigator.gpu;
   if(hasWebGpu) {
-    try{return await library.pipeline(task,model,{...options,device:"webgpu"});}
+    const gpuDtype=model===LOCAL_TEXT_MODEL?"q4f16":"q4";
+    try{return await library.pipeline(task,model,{dtype:gpuDtype,device:"webgpu"});}
     catch(error){console.warn("WebGPU no pudo cargar "+model+"; se intentará CPU/WASM.",error);}
   }
-  return await library.pipeline(task,model,options);
+  return await library.pipeline(task,model,{dtype:"q4"});
 }
 async function getLocalTextGenerator() {
   if(localTextGeneratorPromise)return localTextGeneratorPromise;
