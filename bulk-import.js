@@ -171,6 +171,7 @@ function parseStructuredProductNote(source) {
     if (!record) return;
     record.name = cleanName(record.name);
     record.features = Array.from(new Set(record.features));
+    record.descriptionGenerated = !record.descriptionText;
     record.description = record.descriptionText || buildCreativeDescription(record);
   }
   function createRecord(name,id) {
@@ -658,7 +659,8 @@ function applyProductRecord(group, record) {
   if (mappedColor) group.color = mappedColor;
   if (record.features.length) group.features = record.features.slice(0,30);
   else if (Array.isArray(existing?.features)) group.features = existing.features.slice(0,30);
-  if (record.description) group.description = record.description;
+  if (record.description && !(existing && record.descriptionGenerated)) group.description = record.description;
+  else if (existing?.description) group.description = existing.description;
   group.txtMatched = true;
   group.error = "";
 }
@@ -1328,7 +1330,7 @@ function validateGroup(group) {
   if (!String(group.description || "").trim()) return "Añade una descripción general o específica.";
   if (group.stock !== "" && group.stock != null && (!Number.isSafeInteger(Number(group.stock)) || Number(group.stock)<0)) return "El stock debe ser un número entero igual o mayor que cero.";
   if (!["physical","digital"].includes(group.deliveryType||$("#bulkDeliveryType")?.value)) return "Selecciona el tipo de entrega.";
-  if (!group.files.length) return "Añade al menos una imagen.";
+  if (!group.files.length && !group.existingProductId) return "Añade al menos una imagen. Para un producto existente se conservarán las fotos actuales.";
   if (group.files.length > MAX_IMAGES_PER_PRODUCT) return "Supera el máximo de 8 fotos por producto. Separa este grupo.";
   if (!$("#bulkAllowDuplicates").checked && groupHasDuplicateName(group)) return "Ya existe un producto con este nombre; cámbialo o permite duplicados.";
   if ($("#bulkPublishNow").checked && group.name.startsWith("Producto por identificar")) return "Completa el nombre real antes de publicar.";
@@ -1361,7 +1363,7 @@ async function importGroup(group,index,total) {
     message("Subiendo imágenes del producto " + (index+1) + " de " + total + " · " + (i+1) + " de " + uploadEntries.length);
     urls.push(await uploadOne(uploadEntries[i]));
   }
-  if (!urls.length) throw new Error("No quedaron imágenes válidas para guardar el producto.");
+  if (!urls.length && !group.existingProductId) throw new Error("No quedaron imágenes válidas para guardar el producto.");
   const price = Number(group.price);
   const oldPrice = group.oldPrice === "" || group.oldPrice == null ? null : Number(group.oldPrice);
   const stock = group.stock === "" || group.stock == null ? null : Number(group.stock);
@@ -1373,22 +1375,30 @@ async function importGroup(group,index,total) {
   const audience = String(group.audience || "").toLowerCase();
   const targetAudiences = audience === "unisex" ? ["hombre","mujer"] : [audience];
   const payload = {
-    action:"save",id:null,name:String(group.name).trim(),category:String(group.category).trim(),
+    action:"save",id:group.existingProductId||null,
+    preserve_existing_fields:!!group.existingProductId,
+    preserve_existing_variants:!!group.existingProductId,
+    name:String(group.name).trim(),category:String(group.category).trim(),
     delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
     stock_quantity:stock,size_variants:sizes,dropi_product_id:String(group.dropiProductId || "").trim(),dropi_variants:[],
     description:String(group.description).trim(),features:readFeatures(group.features),images:urls.slice(0,MAX_IMAGES_PER_PRODUCT),
-    color_variants:color,video_url:null,tag:oldPrice !== null ? "OFERTA" : "NUEVO",
+    color_variants:group.existingProductId?[]:color,video_url:null,tag:oldPrice !== null ? "OFERTA" : "NUEVO",
     shipping:"",payment_methods:delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"],
-    is_active:!!$("#bulkPublishNow").checked,sort_order:1000+index,
+    is_active:group.existingProductId?null:!!$("#bulkPublishNow").checked,
+    sort_order:group.existingProductId?null:1000+index,
     printful_enabled:false,printful_sync_variant_id:null
   };
   const result = await db.adminCall(payload);
   if (!result || !result.ok || !result.product || !result.product.id) {
-    throw new Error((result && result.error) || "El servidor no confirmó la creación del producto.");
+    throw new Error((result && result.error) || "El servidor no confirmó la creación o actualización del producto.");
   }
   group.importedProductId = Number(result.product.id);
-  group.active = payload.is_active;
+  group.active = result.product.is_active ?? payload.is_active;
   existingNames.add(normalize(group.name));
+  if(group.dropiProductId)existingProductsByDropi.set(String(group.dropiProductId),{
+    ...(existingProductsByDropi.get(String(group.dropiProductId))||{}),id:Number(result.product.id),
+    name:group.name,category:group.category,price_cop:price,old_price_cop:oldPrice,stock_quantity:stock
+  });
   return group.importedProductId;
 }
 async function runImport(categoryFilter="all") {
@@ -1405,12 +1415,14 @@ async function runImport(categoryFilter="all") {
     return;
   }
   const duplicatePending = new Set();
-  const pendingCounts = new Map();
-  pending.forEach(group => pendingCounts.set(normalize(group.name),(pendingCounts.get(normalize(group.name))||0)+1));
-  if (!$("#bulkAllowDuplicates").checked) pending.forEach(group => {
-    if ((pendingCounts.get(normalize(group.name))||0) > 1) duplicatePending.add(group.id);
-  });
-  const invalid = pending.map(group => ({
+   const pendingCounts = new Map();
+   pending.filter(group=>!group.existingProductId).forEach(group=>{
+     pendingCounts.set(normalize(group.name),(pendingCounts.get(normalize(group.name))||0)+1);
+   });
+   if (!$("#bulkAllowDuplicates").checked) pending.forEach(group=>{
+     if (!group.existingProductId && (pendingCounts.get(normalize(group.name))||0)>1) duplicatePending.add(group.id);
+   });
+   const invalid = pending.map(group => ({
     group,
     error:duplicatePending.has(group.id) ? "Hay otro producto preparado con el mismo nombre. Cambia uno de los nombres." : validateGroup(group)
   })).filter(item => item.error);
