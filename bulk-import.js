@@ -1245,6 +1245,7 @@ function updateStats() {
     categoryButton.textContent=categoryView==="all"?"Guardar categoría actual":("Guardar "+categoryView+" · "+categoryPending);
   }
   const hasImported=groups.some(group=>group.importedProductId);
+  updateCatalogAiButtons();
   const aiButton=$("#bulkVisualAiButton");
   if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length||hasImported;
   const recluster=$("#bulkReclusterAiButton");
@@ -1364,9 +1365,15 @@ function render() {
         '<div class="bulk-product-success">'+(group.wasUpdated?'Actualizado':'Creado')+' como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
+      const advancedAiNotice = group.aiAdvancedAnalysis ?
+        '<div class="bulk-product-note-match wide"><strong>IA avanzada · confianza '+esc(group.aiAdvancedAnalysis.confidence)+'</strong>' +
+        (group.aiAdvancedAnalysis.visualSummary?'<p>'+esc(group.aiAdvancedAnalysis.visualSummary)+'</p>':'') +
+        (group.aiAdvancedAnalysis.needsReview.length?'<small>Revisar: '+esc(group.aiAdvancedAnalysis.needsReview.join(' · '))+'</small>':'')+'</div>' : "";
+      const advancedAiError = group.aiAssistantError ?
+        '<div class="bulk-product-error">'+esc(group.aiAssistantError)+'</div>' : "";
       return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
-        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + upsertNotice + genericWarning + imageWarning +
+        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + advancedAiNotice + advancedAiError + duplicateWarning + upsertNotice + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
         (productRecords.length ? '<label class="wide">Vincular ficha por ID Dropi<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Elige el ID exacto que corresponde a este grupo de fotos. Si el ID aparece en el nombre de archivo o carpeta, se vincula automáticamente.</span></label>' : '') +
         (group.txtMatched ? '<div class="bulk-product-note-match wide">Ficha del TXT aplicada: Dropi ' + esc(group.txtRecordId) + '</div>' : '') +
@@ -1766,12 +1773,15 @@ async function init() {
     panel.hidden = false;
     await loadExistingProducts();
     render();
+    await checkCatalogAiStatus();
     message("Importador habilitado para la cuenta administrativa. Selecciona una carpeta para comenzar.", "success");
   } catch (_) {
     panel.hidden = true;
   }
 }
 
+$("#bulkAiLocalPrepareButton")?.addEventListener("click",prepareCatalogLocally);
+$("#bulkAiAdvancedAnalyzeButton")?.addEventListener("click",()=>{void runAdvancedCatalogAnalysis();});
 $("#bulkDownloadTemplate")?.addEventListener("click",()=>{void downloadExcelTemplate();});
 $("#bulkExcelFile")?.addEventListener("change",async event=>{
   const file=event.target.files?.[0];
