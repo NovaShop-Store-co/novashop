@@ -26,6 +26,7 @@ let nextGroupId = 1;
 let previewUrls = [];
 let selectedGroups = new Set();
 let existingNames = new Set();
+let existingProductsByDropi = new Map();
 let authorized = false;
 let importing = false;
 let loadedNoteText = "";
@@ -529,21 +530,32 @@ function colorFromRecord(value) {
 }
 function applyProductRecord(group, record) {
   if (!group || !record || group.importedProductId) return;
+  const existing=existingProductsByDropi.get(String(record.id));
   group.txtRecordId = record.id;
   group.name = record.name;
   group.dropiProductId = record.id;
+  group.existingProductId = existing ? Number(existing.id) : null;
   const mappedCategory=categoryFromValue(record.category);
-  if (mappedCategory) group.category = mappedCategory;
+  if (mappedCategory || existing?.category) group.category = mappedCategory || existing.category;
   if (record.price) group.price = record.price;
+  else if (existing?.price_cop!=null) group.price = String(existing.price_cop);
   if (record.oldPrice) group.oldPrice = record.oldPrice;
+  else if (existing?.old_price_cop!=null) group.oldPrice = String(existing.old_price_cop);
   if (record.stock !== "" && record.stock != null) group.stock = record.stock;
-  const delivery=record.deliveryType || deliveryTypeFromValue("",record.category);
+  else if (existing?.stock_quantity!=null) group.stock = String(existing.stock_quantity);
+  const delivery=record.deliveryType || deliveryTypeFromValue("",record.category) || existing?.delivery_type;
   if (delivery) group.deliveryType = delivery;
   if (record.sizes.length) group.sizes = record.sizes.join(", ");
+  else if (Array.isArray(existing?.size_variants)) group.sizes = existing.size_variants.join(", ");
   if (record.audience) group.audience = record.audience;
+  else if (Array.isArray(existing?.target_audiences)) {
+    group.audience=existing.target_audiences.includes("hombre")&&existing.target_audiences.includes("mujer")
+      ? "unisex" : existing.target_audiences.includes("hombre") ? "hombre" : existing.target_audiences.includes("mujer") ? "mujer" : "";
+  }
   const mappedColor = colorFromRecord(record.color);
   if (mappedColor) group.color = mappedColor;
   if (record.features.length) group.features = record.features.slice(0,30);
+  else if (Array.isArray(existing?.features)) group.features = existing.features.slice(0,30);
   if (record.description) group.description = record.description;
   group.txtMatched = true;
   group.error = "";
@@ -983,7 +995,7 @@ async function hashEntries(list) {
   await Promise.all([worker(),worker(),worker()]);
 }
 function groupHasDuplicateName(group) {
-  return existingNames.has(normalize(group.name));
+  return existingNames.has(normalize(group.name)) && !group.existingProductId;
 }
 function sortGroupsByCategory(items) {
   return items.slice().sort((a,b)=>{
@@ -1056,6 +1068,8 @@ function render() {
       })).join("");
       const duplicateWarning = groupHasDuplicateName(group) ?
         '<div class="bulk-product-warning">Ya existe un producto con este nombre en NovaShop. Cambia el nombre o activa la opción para permitir duplicados.</div>' : "";
+      const upsertNotice = group.existingProductId ?
+        '<div class="bulk-product-success">Se actualizará el producto existente #'+group.existingProductId+' mediante el ID Dropi '+esc(group.dropiProductId)+'.</div>' : "";
       const genericWarning = group.name.startsWith("Producto por identificar") ?
         '<div class="bulk-product-warning">El nombre viene de un archivo genérico. Escribe el nombre real antes de publicar.</div>' : "";
       const imageWarning = group.files.length > MAX_IMAGES_PER_PRODUCT ?
@@ -1066,7 +1080,7 @@ function render() {
       const aiWarning = group.aiAnalysisFailed ? '<div class="bulk-product-warning">La IA no pudo analizar esta imagen. Quedó separada para que la revises. '+esc(group.aiError)+'</div>' : "";
       return categoryHeading + '<article class="bulk-product-card' + (group.importedProductId ? ' is-imported' : '') + (group.error ? ' is-error' : '') + '" data-card-group="' + group.id + '">' +
         '<div class="bulk-product-top"><label><input type="checkbox" data-select-group="' + group.id + '"' + (selectedGroups.has(group.id) ? " checked" : "") + '> Seleccionar para unir</label>' +
-        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + genericWarning + imageWarning +
+        '<strong>' + group.files.length + ' foto(s)' + (group.aiSimilarity!=null?' · IA '+Math.round(group.aiSimilarity*100)+'%':'') + '</strong></div>' + imported + error + aiWarning + duplicateWarning + upsertNotice + genericWarning + imageWarning +
         '<div class="bulk-product-fields">' +
         (productRecords.length ? '<label class="wide">Vincular ficha por ID Dropi<select data-product-record="' + group.id + '">' + txtRecordOptions + '</select><span class="bulk-import-help">Elige el ID exacto que corresponde a este grupo de fotos. Si el ID aparece en el nombre de archivo o carpeta, se vincula automáticamente.</span></label>' : '') +
         (group.txtMatched ? '<div class="bulk-product-note-match wide">Ficha del TXT aplicada: Dropi ' + esc(group.txtRecordId) + '</div>' : '') +
@@ -1380,7 +1394,7 @@ async function addFiles(fileList, options={}) {
   const seen = new Set(baseEntries.map(entry => entry.key));
   imageFiles.forEach(file => {
     if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) { rejected.push(file.name + " (supera 12 MB o está vacío)"); return; }
-    const path = file.webkitRelativePath || file.name;
+    const path = options.filePaths?.get(file) || file.webkitRelativePath || file.name;
     const key = fileKey(file,path);
     if (seen.has(key)) return;
     seen.add(key);
@@ -1438,6 +1452,8 @@ async function loadExistingProducts() {
     const result = await db.adminCall({action:"list"});
     const products = Array.isArray(result.products) ? result.products : [];
     existingNames = new Set(products.map(product => normalize(product.name)));
+    existingProductsByDropi = new Map(products.filter(product=>String(product.dropi_product_id||"").trim())
+      .map(product=>[String(product.dropi_product_id).trim(),product]));
   } catch (_) {
     existingNames = new Set();
   }
