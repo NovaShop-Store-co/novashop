@@ -312,8 +312,11 @@ function updateStats() {
   if (el) el.textContent = entries.length.toLocaleString("es-CO") + " imágenes · " +
     groups.length.toLocaleString("es-CO") + " productos agrupados · " +
     (bytes/1024/1024).toFixed(1) + " MB seleccionados";
+  const canSave = authorized && !importing && !aiProcessing && groups.some(group => !group.importedProductId);
   const importButton = $("#bulkImportButton");
-  if (importButton) importButton.disabled = !authorized || importing || aiProcessing || !groups.some(group => !group.importedProductId);
+  const importButtonBottom = $("#bulkImportButtonBottom");
+  if (importButton) importButton.disabled = !canSave;
+  if (importButtonBottom) importButtonBottom.disabled = !canSave;
   const hasImported=groups.some(group=>group.importedProductId);
   const aiButton=$("#bulkVisualAiButton");
   if (aiButton) aiButton.disabled=!authorized||importing||aiProcessing||!entries.length||hasImported;
@@ -613,6 +616,7 @@ async function runImport() {
   if (!window.confirm("Se crearán " + pending.length + " productos y se subirán sus imágenes a Supabase Storage. Se van a " + publishText + ". ¿Continuar?")) return;
   importing = true;
   $("#bulkImportButton").disabled = true;
+  if ($("#bulkImportButtonBottom")) $("#bulkImportButtonBottom").disabled = true;
   $("#bulkFolder").disabled = true;
   $("#bulkImages").disabled = true;
   $("#bulkResetButton").disabled = true;
@@ -651,7 +655,9 @@ async function runImport() {
   $("#bulkFolder").disabled = false;
   $("#bulkImages").disabled = false;
   $("#bulkResetButton").disabled = false;
-  $("#bulkImportButton").disabled = !groups.some(group => !group.importedProductId);
+  const canSaveAgain = groups.some(group => !group.importedProductId);
+  $("#bulkImportButton").disabled = !canSaveAgain;
+  if ($("#bulkImportButtonBottom")) $("#bulkImportButtonBottom").disabled = !canSaveAgain;
   if (succeeded) $("#refreshAdminProducts")?.click();
   const report = $("#bulkImportResults");
   if (report) {
@@ -770,6 +776,7 @@ $("#bulkResetButton")?.addEventListener("click",() => {
   message("Importación limpia. Puedes seleccionar otra carpeta.");
 });
 $("#bulkImportButton")?.addEventListener("click",() => { void runImport(); });
+$("#bulkImportButtonBottom")?.addEventListener("click",() => { void runImport(); });
 $("#bulkGroupList")?.addEventListener("input",event => {
   const field = event.target.closest("[data-product-field]");
   if (!field) return;
