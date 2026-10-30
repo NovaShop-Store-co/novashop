@@ -183,6 +183,10 @@ function render() {
   page = Math.min(page,pages-1);
   const start = page * PAGE_SIZE;
   const visible = groups.slice(start,start+PAGE_SIZE);
+  const globalHashCounts = new Map();
+  entries.forEach(entry => {
+    if (entry.hash) globalHashCounts.set(entry.hash,(globalHashCounts.get(entry.hash)||0)+1);
+  });
   if (!groups.length) {
     list.innerHTML = '<div class="admin-orders-empty">Selecciona una carpeta o varias imágenes para preparar los productos.</div>';
   } else {
@@ -190,10 +194,10 @@ function render() {
       const thumbs = group.files.map((entry,index) => {
         const url = URL.createObjectURL(entry.file);
         previewUrls.push(url);
-        const duplicate = entry.hash && group.files.some((other,otherIndex) => otherIndex < index && other.hash === entry.hash);
+        const duplicate = entry.hash && (globalHashCounts.get(entry.hash)||0) > 1;
         return '<div class="bulk-product-image"><img src="' + esc(url) + '" alt="' + esc(entry.file.name) + '" loading="lazy">' +
           '<button type="button" title="Quitar imagen" data-remove-file="' + index + '" data-group-id="' + group.id + '">×</button>' +
-          (duplicate ? '<span class="duplicate-mark">Duplicado en este producto</span>' : '') +
+          (duplicate ? '<span class="duplicate-mark">Imagen repetida</span>' : '') +
           '<small>' + esc(entry.file.name) + '</small></div>';
       }).join("");
       const categoryOptions = ['<option value="">Selecciona categoría</option>'].concat(CATEGORIES.map(category =>
@@ -329,6 +333,7 @@ function validateGroup(group) {
   return "";
 }
 async function uploadOne(entry) {
+  if (entry.publicUrl) return entry.publicUrl;
   const file = entry.file;
   const type = fileMime(file);
   if (!type) throw new Error("Formato no compatible: " + file.name);
@@ -341,7 +346,8 @@ async function uploadOne(entry) {
     signed.path,signed.token,file,{contentType:type,upsert:false}
   );
   if (result.error) throw new Error("No se pudo subir " + file.name + ": " + result.error.message);
-  return signed.publicUrl;
+  entry.publicUrl = signed.publicUrl;
+  return entry.publicUrl;
 }
 async function importGroup(group,index,total) {
   group.error = "";
