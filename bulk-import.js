@@ -484,41 +484,143 @@ async function parseExcelProductFile(file) {
 }
 async function downloadExcelTemplate() {
   try {
-    const XLSX=await loadXlsxLibrary();
-    const headers=[
-      "Nombre del producto","Categoría","Público objetivo","ID del producto en Dropi",
-      "Precio venta","Precio anterior","Tallas","Color","Descripción","Características","Stock","Tipo de entrega"
+    const ExcelJS=await loadExcelJsLibrary();
+    const workbook=new ExcelJS.Workbook();
+    workbook.creator="NovaShop";
+    workbook.lastModifiedBy="NovaShop";
+    workbook.title="Plantilla profesional de importación masiva";
+    workbook.subject="Catálogo de productos con fotografías por fila";
+    workbook.company="NovaShop";
+    workbook.created=new Date();
+    workbook.modified=new Date();
+    const navy="FF0C2C47",blue="FF185FA5",pale="FFF3F7FB",line="FFD9E3EC",orange="FFFFF1EB";
+    const sheet=workbook.addWorksheet("Productos",{
+      views:[{state:"frozen",ySplit:1,showGridLines:false}],
+      properties:{defaultRowHeight:82}
+    });
+    const columns=[
+      {header:"FOTOS DEL PRODUCTO",key:"photos",width:24},
+      {header:"NOMBRE DEL PRODUCTO",key:"name",width:28},
+      {header:"CATEGORÍA",key:"category",width:18},
+      {header:"PÚBLICO OBJETIVO",key:"audience",width:18},
+      {header:"ID DEL PRODUCTO EN DROPI",key:"dropiId",width:25},
+      {header:"PRECIO VENTA COP",key:"price",width:17},
+      {header:"PRECIO ANTERIOR COP",key:"oldPrice",width:19},
+      {header:"TALLAS",key:"sizes",width:21},
+      {header:"COLOR",key:"color",width:17},
+      {header:"DESCRIPCIÓN",key:"description",width:46},
+      {header:"CARACTERÍSTICAS",key:"features",width:40},
+      {header:"STOCK",key:"stock",width:13},
+      {header:"TIPO DE ENTREGA",key:"delivery",width:18}
     ];
-    const rows=[
-      headers,
-      ["Camiseta Kakashi","Moda","Unisex","1739450",59900,79900,"S, M, L, XL","Blanco","(Que lo ponga la IA)","(Que lo ponga la IA)",20,"Físico"],
-      ["Smartwatch Active X","Tecnología","Hombre","1738794",89900,129900,"","Negro","(Que lo ponga la IA)","(Que lo ponga la IA)",15,"Físico"]
+    sheet.columns=columns;
+    sheet.getRow(1).height=42;
+    sheet.autoFilter="A1:M251";
+    sheet.getRow(1).eachCell(cell=>{
+      cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:navy}};
+      cell.font={name:"Aptos",size:10,bold:true,color:{argb:"FFFFFFFF"}};
+      cell.alignment={vertical:"middle",horizontal:"center",wrapText:true};
+      cell.border={bottom:{style:"medium",color:{argb:blue}}};
+    });
+    const sampleRows=[
+      ["INSERTE FOTO AQUÍ","Camiseta Kakashi","Moda","Unisex","EJEMPLO-001",59900,79900,"S, M, L, XL","Blanco","(Que lo ponga la IA)","(Que lo ponga la IA)",20,"Físico"],
+      ["INSERTE FOTO AQUÍ","Smartwatch Active X","Tecnología","Unisex","EJEMPLO-002",89900,129900,"","Negro","(Que lo ponga la IA)","(Que lo ponga la IA)",15,"Físico"]
     ];
-    const productsSheet=XLSX.utils.aoa_to_sheet(rows);
-    productsSheet["!cols"]=[
-      {wch:25},{wch:18},{wch:18},{wch:24},{wch:16},{wch:17},
-      {wch:19},{wch:15},{wch:38},{wch:38},{wch:12},{wch:18}
-    ];
+    sampleRows.forEach((values,index)=>{
+      const row=sheet.addRow(values);
+      row.height=84;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:index%2===0?pale:"FFFFFFFF"}};
+        cell.font={name:"Aptos",size:10,color:{argb:"FF263746"}};
+        cell.alignment={vertical:"middle",wrapText:true};
+        cell.border={bottom:{style:"thin",color:{argb:line}}};
+      });
+      row.getCell(1).font={name:"Aptos",size:9,bold:true,color:{argb:"FF185FA5"}};
+      row.getCell(1).alignment={vertical:"middle",horizontal:"center",wrapText:true};
+      [6,7].forEach(col=>row.getCell(col).numFmt='"$"#,##0');
+      row.getCell(5).numFmt="@";
+    });
+    for(let rowNumber=4;rowNumber<=251;rowNumber++){
+      const row=sheet.addRow(["INSERTAR FOTO(S) AQUÍ","","","","","","","","","","","",""]);
+      row.height=78;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:rowNumber%2===0?pale:"FFFFFFFF"}};
+        cell.font={name:"Aptos",size:10,color:{argb:"FF334155"}};
+        cell.alignment={vertical:"middle",wrapText:true};
+        cell.border={bottom:{style:"thin",color:{argb:line}}};
+      });
+      row.getCell(1).font={name:"Aptos",size:9,bold:true,color:{argb:"FF64748B"}};
+      row.getCell(1).alignment={vertical:"middle",horizontal:"center",wrapText:true};
+      [6,7].forEach(col=>row.getCell(col).numFmt='"$"#,##0');
+      row.getCell(5).numFmt="@";
+    }
+    const listValidation=(range,values)=>sheet.getColumn(range).eachCell({includeEmpty:true},(cell,rowNumber)=>{
+      if(rowNumber<2||rowNumber>251)return;
+      cell.dataValidation={type:"list",allowBlank:true,formulae:['"'+values.join(",")+'"'],showErrorMessage:true};
+    });
+    listValidation(3,CATEGORIES);
+    listValidation(4,["Hombre","Mujer","Unisex"]);
+    listValidation(13,["Físico","Digital"]);
+    sheet.getColumn(5).eachCell({includeEmpty:true},(cell,rowNumber)=>{if(rowNumber>=2)cell.numFmt="@";});
+    sheet.pageSetup={orientation:"landscape",fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9,showGridLines:false};
+    sheet.headerFooter={oddHeader:"&BNovaShop · Catálogo de productos",oddFooter:"Página &P de &N"};
+    const guide=workbook.addWorksheet("Guía rápida",{views:[{state:"frozen",ySplit:3,showGridLines:false}]});
+    guide.columns=[{width:28},{width:100}];
+    guide.mergeCells("A1:B1");
+    guide.getCell("A1").value="NOVASHOP  |  PLANTILLA DE IMPORTACIÓN MASIVA";
+    guide.getCell("A1").fill={type:"pattern",pattern:"solid",fgColor:{argb:navy}};
+    guide.getCell("A1").font={name:"Aptos Display",size:17,bold:true,color:{argb:"FFFFFFFF"}};
+    guide.getCell("A1").alignment={vertical:"middle"};
+    guide.getRow(1).height=42;
+    guide.mergeCells("A2:B2");
+    guide.getCell("A2").value="Una ficha por fila · Las fotografías se insertan en la columna A · El ID Dropi relaciona y actualiza el producto";
+    guide.getCell("A2").font={name:"Aptos",size:10,italic:true,color:{argb:"FF475569"}};
+    guide.getCell("A2").alignment={wrapText:true,vertical:"middle"};
+    guide.getRow(2).height=32;
+    guide.addRow([]);
     const guideRows=[
-      ["PASO","QUÉ HACER"],
-      ["1. Completa Productos","Una fila por producto. Conserva los encabezados de la primera fila."],
-      ["2. ID de Dropi","Es el vínculo principal. Escribe el ID exacto y no lo repitas."],
-      ["3. Fotografías","Organiza: Fotos/Moda/1739450/foto1.jpg, foto2.jpg. Una carpeta por ID y hasta 8 fotos dentro."],
-      ["4. Descripción","Deja (Que lo ponga la IA) o vacío para generar un texto comercial con los datos disponibles."],
-      ["5. Características","Escribe datos confirmados separados por punto y coma, o deja (Que lo ponga la IA)."],
-      ["6. Precios","Ingresa pesos colombianos como números: 59900."],
-      ["7. Tallas","Separa varias tallas con comas: S, M, L, XL."],
-      ["8. Stock","Vacío = sin control de inventario. 0 = agotado."],
-      ["9. Tipo de entrega","Físico para mercancía; Digital para servicios. Streaming se toma como digital si lo dejas vacío."],
-      ["IMPORTANTE","No inventes materiales, medidas, compatibilidades o beneficios. Borra o reemplaza las dos filas de ejemplo."]
+      ["PASO","INSTRUCCIÓN"],
+      ["1. Completa los datos","En la hoja Productos, usa una fila para cada producto. No cambies los títulos de las columnas."],
+      ["2. Inserta fotografías","En Excel: Insertar > Imágenes > Este dispositivo. Coloca cada foto sobre la celda de la columna A que corresponda a ese producto. La esquina superior izquierda de la imagen debe quedar dentro de esa fila."],
+      ["3. Varias fotografías","Puedes colocar hasta 8 fotos en la misma fila. Usa imágenes JPG, PNG o GIF. Cada archivo debe pesar máximo 12 MB y el Excel completo máximo 50 MB."],
+      ["4. ID Dropi","Es la clave de relación. Si el ID ya existe en NovaShop, al guardar se actualizará ese producto. Si no existe, se creará uno nuevo. No repitas IDs en el mismo archivo."],
+      ["5. Precio","Ingresa el precio en pesos colombianos como número, por ejemplo 59900. El precio de venta es obligatorio para productos nuevos."],
+      ["6. Descripción","Deja vacío o escribe (Que lo ponga la IA) para generar una descripción comercial con la información disponible. No se inventan especificaciones."],
+      ["7. Características","Separa las características con punto y coma. Deja vacío si no conoces los detalles."],
+      ["8. Tallas y colores","Escribe tallas separadas por coma. El color debe ser el color real del artículo."],
+      ["9. Stock","Vacío = sin dato nuevo; en un producto existente se conserva el stock actual. 0 = agotado."],
+      ["10. Datos vacíos","Al actualizar un producto existente, los campos opcionales vacíos conservan la información guardada. Las nuevas fotos reemplazan las anteriores; si no agregas fotos, se conservan."],
+      ["11. Revisión y publicación","Sube el Excel al Administrador de NovaShop. Revisa las tarjetas y pulsa Guardar productos en NovaShop. Solo entonces se actualiza la tienda."],
+      ["12. Filtrar por sección","Después de leer el archivo, usa Revisar por categoría y Guarda una categoría a la vez o todo el catálogo."],
+      ["IMPORTANTE","Borra o reemplaza las dos filas de ejemplo antes de importar. Mantén los IDs como texto para no perder ceros iniciales."]
     ];
-    const guideSheet=XLSX.utils.aoa_to_sheet(guideRows);
-    guideSheet["!cols"]=[{wch:25},{wch:92}];
-    const book=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book,productsSheet,"Productos");
-    XLSX.utils.book_append_sheet(book,guideSheet,"Instrucciones");
-    XLSX.writeFile(book,"Plantilla_Importacion_Masiva_NovaShop.xlsx");
-    message("Plantilla Excel descargada. Reemplaza o elimina las dos filas de ejemplo antes de importarla.","success");
+    guide.addRows(guideRows);
+    guide.getRow(4).eachCell(cell=>{
+      cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:blue}};
+      cell.font={name:"Aptos",size:10,bold:true,color:{argb:"FFFFFFFF"}};
+      cell.alignment={vertical:"middle",wrapText:true};
+    });
+    for(let r=5;r<=4+guideRows.length-1;r++){
+      const row=guide.getRow(r);
+      row.height=r===6||r===7||r===14?50:38;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:r%2===1?pale:"FFFFFFFF"}};
+        cell.font={name:"Aptos",size:10,color:{argb:"FF263746"}};
+        cell.alignment={vertical:"middle",wrapText:true};
+        cell.border={bottom:{style:"thin",color:{argb:line}}};
+      });
+      row.getCell(1).font={name:"Aptos",size:10,bold:true,color:{argb:navy}};
+    }
+    guide.getRow(5+guideRows.length-1).getCell(1).fill={type:"pattern",pattern:"solid",fgColor:{argb:orange}};
+    guide.getRow(5+guideRows.length-1).getCell(2).fill={type:"pattern",pattern:"solid",fgColor:{argb:orange}};
+    const buffer=await workbook.xlsx.writeBuffer();
+    const blob=new Blob([buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;link.download="Plantilla_Profesional_NovaShop.xlsx";
+    document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    message("Plantilla profesional descargada. Inserta las fotografías sobre la columna A, en la fila de cada producto.","success");
   } catch(error) {
     message(error?.message||"No se pudo generar la plantilla Excel.","error");
   }
