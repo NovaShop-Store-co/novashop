@@ -48,11 +48,17 @@ function updateFeaturedSaleCountdown(){
   if(featuredSaleCountdownInterval)clearInterval(featuredSaleCountdownInterval);
   if(featuredSaleRotationInterval)clearInterval(featuredSaleRotationInterval);
   featuredSaleCountdownInterval=null;featuredSaleRotationInterval=null;
+  products.filter(item=>item.flashSale).forEach(item=>{
+   item.price=Number(item.regularPrice??item.price);
+   item.oldPrice=item.regularOldPrice??null;
+   item.flashSale=false;item.flashSaleEndsAt=null;item.flashSaleTitle="";
+  });
+  syncCartPricesFromProducts();
+  renderFeaturedProduct();
   const client=window.NovaShopDB;
   Promise.resolve(client?.syncCatalog?.(products)).then(()=>{
    syncCartPricesFromProducts();renderProducts();renderCategories();renderFeaturedProduct();
   }).catch(error=>console.warn("No se pudo cerrar la campaña relámpago:",error));
-  renderFeaturedProduct();
   return;
  }
  timer.textContent=formatFlashSaleCountdown(remaining);
