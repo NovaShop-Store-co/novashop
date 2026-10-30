@@ -278,7 +278,7 @@ function excelHeaderValue(row,aliases) {
   return key==null?"":String(row[key]??"").trim();
 }
 async function parseExcelProductFile(file) {
-  if(!file || !/\\.(xlsx|xls|csv)$/i.test(file.name||""))throw new Error("Selecciona una plantilla Excel .xlsx, .xls o .csv.");
+  if(!file || !/\.(xlsx|xls|csv)$/i.test(file.name||""))throw new Error("Selecciona una plantilla Excel .xlsx, .xls o .csv.");
   if(!file.size || file.size>5*1024*1024)throw new Error("La plantilla Excel debe pesar máximo 5 MB.");
   const XLSX=await loadXlsxLibrary();
   const workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:false});
@@ -295,7 +295,7 @@ async function parseExcelProductFile(file) {
     const rowNumber=index+2;
     const name=excelHeaderValue(row,["Nombre del producto","Nombre","Producto"]);
     const rawId=excelHeaderValue(row,["ID del producto en Dropi","ID Dropi","Dropi ID","ID"]);
-    const id=rawId.replace(/\\.0+$/,"").replace(/^#/,"").trim();
+    const id=rawId.replace(/\.0+$/,"").replace(/^#/,"").trim();
     const category=categoryFromValue(excelHeaderValue(row,["Categoría","Categoria"]));
     const audience=excelHeaderValue(row,["Público objetivo","Publico objetivo","Público","Audiencia"]);
     const price=excelHeaderValue(row,["Precio venta","Precio de venta","Precio"]);
@@ -311,7 +311,7 @@ async function parseExcelProductFile(file) {
     if(!id){rowErrors.push("Fila "+rowNumber+" ("+name+"): falta el ID de Dropi.");return;}
     if(seenIds.has(id)){rowErrors.push("Fila "+rowNumber+": el ID "+id+" está repetido.");return;}
     seenIds.add(id);
-    const cleanLine=value=>String(value||"").replace(/[\\r\\n]+/g," ").trim();
+    const cleanLine=value=>String(value||"").replace(/[\r\n]+/g," ").trim();
     recordsText.push([
       "Nombre del producto: "+cleanLine(name),
       "ID del producto en Dropi: "+cleanLine(id),
@@ -325,11 +325,11 @@ async function parseExcelProductFile(file) {
       features?"Características: "+cleanLine(features):"Características: (Que lo ponga la IA)",
       stock!==""?"Stock: "+cleanLine(stock):"",
       delivery?"Tipo de entrega: "+cleanLine(delivery):""
-    ].filter(Boolean).join("\\n"));
+    ].filter(Boolean).join(String.fromCharCode(10)));
   });
-  if(rowErrors.length)throw new Error("Corrige la plantilla antes de importar:\\n"+rowErrors.slice(0,8).join("\\n")+(rowErrors.length>8?"\\nY "+(rowErrors.length-8)+" error(es) más.":""));
+  if(rowErrors.length)throw new Error("Corrige la plantilla antes de importar:\n"+rowErrors.slice(0,8).join("\n")+(rowErrors.length>8?"\nY "+(rowErrors.length-8)+" error(es) más.":""));
   if(!recordsText.length)throw new Error("No encontré productos válidos en la hoja Productos.");
-  const records=parseStructuredProductNote(recordsText.join("\\n\\n"));
+  const records=parseStructuredProductNote(recordsText.join(String.fromCharCode(10)+String.fromCharCode(10)));
   if(records.length!==recordsText.length)throw new Error("Algunas filas no pudieron interpretarse. Comprueba que los IDs de Dropi sean únicos.");
   return records;
 }
