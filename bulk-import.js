@@ -1197,7 +1197,10 @@ function render() {
       const genericWarning = group.name.startsWith("Producto por identificar") ?
         '<div class="bulk-product-warning">El nombre viene de un archivo genérico. Escribe el nombre real antes de publicar.</div>' : "";
       const imageWarning = group.files.length > MAX_IMAGES_PER_PRODUCT ?
-        '<div class="bulk-product-warning">Este grupo tiene ' + group.files.length + ' fotos; el catálogo admite máximo ' + MAX_IMAGES_PER_PRODUCT + '. Sepáralas o quita las sobrantes.</div>' : "";
+        '<div class="bulk-product-warning">Este grupo tiene ' + group.files.length + ' fotos; el catálogo admite máximo ' + MAX_IMAGES_PER_PRODUCT + '. Sepáralas o quita las sobrantes.</div>' :
+        (group.files.length===0 ? (group.existingProductId
+          ? '<div class="bulk-product-note-match">No añadiste fotos nuevas. Se conservarán las imágenes actuales.</div>'
+          : '<div class="bulk-product-warning">Este producto nuevo necesita al menos una fotografía.</div>') : "");
       const imported = group.importedProductId ?
         '<div class="bulk-product-success">'+(group.wasUpdated?'Actualizado':'Creado')+' como producto #' + group.importedProductId + ' · ' + (group.active ? "publicado" : "borrador") + '</div>' : "";
       const error = group.error ? '<div class="bulk-product-error">' + esc(group.error) + '</div>' : "";
@@ -1385,7 +1388,7 @@ async function importGroup(group,index,total) {
     delivery_type:delivery,target_audiences:targetAudiences,price_cop:price,old_price_cop:oldPrice,
     stock_quantity:stock,size_variants:sizes,dropi_product_id:String(group.dropiProductId || "").trim(),dropi_variants:[],
     description:String(group.description).trim(),features:readFeatures(group.features),images:urls.slice(0,MAX_IMAGES_PER_PRODUCT),
-    color_variants:group.existingProductId?[]:color,video_url:null,tag:oldPrice !== null ? "OFERTA" : "NUEVO",
+    color_variants:group.existingProductId?[]:color,video_url:null,tag:group.existingProductId?"":(oldPrice !== null ? "OFERTA" : "NUEVO"),
     shipping:"",payment_methods:delivery === "digital" ? ["bold"] : ["bold","cash_on_delivery"],
     is_active:group.existingProductId?null:!!$("#bulkPublishNow").checked,
     sort_order:group.existingProductId?null:1000+index,
