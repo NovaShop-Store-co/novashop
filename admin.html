@@ -298,14 +298,19 @@ body.product-editor-open{overflow:hidden}
   <label class="bulk-import-check wide"><input id="bulkAllowDuplicates" type="checkbox"> Permitir nombres de producto que ya existen en el catálogo</label>
   <label class="bulk-import-check wide"><input id="bulkPublishNow" type="checkbox"> Publicar los productos al crearlos (por defecto se guardan como borradores)</label>
  </div>
- <div class="bulk-import-actions"><button type="button" class="btn btn-primary" id="bulkVisualAiButton" disabled>✦ Agrupar con IA visual</button><button type="button" class="btn btn-ghost" id="bulkApplyDefaults">Aplicar valores generales a todos</button><button type="button" class="btn btn-ghost" id="bulkMergeGroups" disabled>Unir grupos seleccionados</button><button type="button" class="btn btn-ghost" id="bulkResetButton">Limpiar importación</button><button type="button" class="btn btn-primary" id="bulkImportButton" disabled>Crear productos por lotes</button></div>
+ <div class="bulk-import-actions"><button type="button" class="btn btn-primary" id="bulkVisualAiButton" disabled>✦ Agrupar con IA visual</button><button type="button" class="btn btn-ghost" id="bulkApplyDefaults">Copiar datos generales a las fichas</button><button type="button" class="btn btn-ghost" id="bulkMergeGroups" disabled>Unir grupos seleccionados</button><button type="button" class="btn btn-ghost" id="bulkResetButton">Limpiar importación</button><button type="button" class="btn btn-primary" id="bulkImportButton" disabled>Guardar productos en NovaShop</button></div>
  <div class="bulk-import-config" style="padding:10px 12px"><label style="grid-column:1/-1">Similitud mínima entre fotos <strong id="bulkAiThresholdValue">78%</strong><input id="bulkAiThreshold" type="range" min="65" max="95" step="1" value="78"><span class="bulk-import-help">Más bajo = agrupa más fotos, pero puede juntar productos parecidos. Más alto = grupos más estrictos, pero puede separar fotos del mismo artículo. Cambia el valor y pulsa «Reagrupar con este nivel» después del primer análisis.</span></label><div class="bulk-import-actions"><button type="button" class="btn btn-ghost" id="bulkReclusterAiButton" disabled>Reagrupar con este nivel</button></div></div>
  <div id="bulkFileStats" class="bulk-import-status">Aún no has seleccionado imágenes.</div>
  <div class="bulk-progress-wrap"><div class="bulk-progress-track"><div id="bulkProgressFill" class="bulk-progress-fill"></div></div><div class="bulk-progress-label"><span id="bulkProgressLabel">Sin actividad</span><strong id="bulkProgressPercent">0%</strong></div></div>
  <div id="bulkStatus" class="bulk-import-status" role="status" aria-live="polite">Verificando permisos administrativos…</div>
+ <div class="bulk-save-instructions"><strong>Antes de guardar:</strong> revisa los datos de cada tarjeta. Los valores generales se copian a las fichas cuando pulsas «Copiar datos generales a las fichas». Tus cambios no se envían al catálogo hasta pulsar uno de los botones «Guardar productos en NovaShop».</div>
  <div class="bulk-group-toolbar"><div><strong>Revisión de productos</strong><br><span>Se muestran hasta 12 productos por página. Puedes unir grupos, separar imágenes o quitar fotos individuales.</span></div><div id="bulkPaginationLabel" class="bulk-import-status">Sin productos</div></div>
  <div id="bulkGroupList" class="bulk-group-grid"><div class="admin-orders-empty">Selecciona una carpeta o varias imágenes para preparar los productos.</div></div>
  <div class="bulk-import-pagination"><button type="button" id="bulkPrevPage" disabled>← Anterior</button><span id="bulkPageStatus">Sin productos</span><button type="button" id="bulkNextPage" disabled>Siguiente →</button></div>
+ <div class="bulk-save-step">
+  <div><strong>Paso final: guardar tus productos</strong><p>Al pulsar el botón se subirán las fotografías y se crearán las fichas en NovaShop. Por defecto quedarán como borradores, salvo que marques la opción de publicar.</p></div>
+  <button type="button" class="btn btn-primary" id="bulkImportButtonBottom" disabled>Guardar productos en NovaShop</button>
+ </div>
  <div id="bulkImportResults" class="bulk-import-results" aria-live="polite"></div>
 </section>
 
@@ -352,5 +357,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=38"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=38"></script><script src="bulk-import.js?v=3"></script>
 </body></html>
