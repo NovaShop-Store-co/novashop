@@ -835,6 +835,15 @@ async function hashEntries(list) {
 function groupHasDuplicateName(group) {
   return existingNames.has(normalize(group.name));
 }
+function sortGroupsByCategory(items) {
+  return items.slice().sort((a,b)=>{
+    const categoryA=categoryFromValue(a.category)||"Sin categoría";
+    const categoryB=categoryFromValue(b.category)||"Sin categoría";
+    const indexA=categoryA==="Sin categoría"?CATEGORIES.length:CATEGORIES.indexOf(categoryA);
+    const indexB=categoryB==="Sin categoría"?CATEGORIES.length:CATEGORIES.indexOf(categoryB);
+    return indexA-indexB || String(a.name||"").localeCompare(String(b.name||""),"es");
+  });
+}
 function render() {
   cleanupPreviews();
   const list = $("#bulkGroupList");
@@ -849,7 +858,7 @@ function render() {
     categorySelect.value=categoryView;
     categorySelect.disabled=!groups.length||importing;
   }
-  const viewGroups=categoryView==="all"?groups:groups.filter(group=>(categoryFromValue(group.category)||"Sin categoría")===categoryView);
+  const viewGroups=sortGroupsByCategory(categoryView==="all"?groups:groups.filter(group=>(categoryFromValue(group.category)||"Sin categoría")===categoryView));
   const pages = Math.max(1,Math.ceil(viewGroups.length/PAGE_SIZE));
   page = Math.min(page,pages-1);
   const start = page * PAGE_SIZE;
@@ -1124,8 +1133,8 @@ async function runImport(categoryFilter="all") {
   })).filter(item => item.error);
   invalid.forEach(item => { item.group.error = item.error; });
   if (invalid.length) {
-    const activeGroups=categoryFilter==="all"?groups:groups.filter(group=>
-      categoryFilter==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryFilter));
+    const activeGroups=sortGroupsByCategory(categoryFilter==="all"?groups:groups.filter(group=>
+      categoryFilter==="Sin categoría"?!normalize(group.category):normalize(group.category)===normalize(categoryFilter)));
     page = Math.max(0,Math.floor(activeGroups.indexOf(invalid[0].group)/PAGE_SIZE));
     render();
     message("Hay " + invalid.length + " producto(s) por corregir. Revisa las tarjetas marcadas antes de iniciar.", "error");
