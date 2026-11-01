@@ -398,7 +398,43 @@ function initReviewStarPicker(){
  });
  drawReviewStars();
 }
+function updateProductStructuredData(published=[],mean=0){
+ if(!currentProduct)return;
+ const description=String(currentProduct.description||"").replace(/\s+/g," ").trim().slice(0,500);
+ const images=Array.isArray(currentProduct.images)?currentProduct.images.filter(Boolean):[];
+ const image=images[0]||"";
+ const url=document.querySelector('link[rel="canonical"]')?.href||window.location.href;
+ const price=Number(currentProduct.price)||0;
+ const variants=typeof productDropiVariants==="function"?productDropiVariants():[];
+ const baseStock=currentProduct.stockQuantity;
+ let available=null;
+ if(variants.length)available=variants.some(v=>v.is_active!==false&&Number(v.stock_quantity)>0);
+ else if(baseStock!==null&&baseStock!==undefined&&baseStock!=="")available=Number(baseStock)>0;
+ const setMeta=(attribute,key,value)=>{
+  if(value==null||value==="")return;
+  let tag=document.querySelector("meta["+attribute+'="'+key+'"]');
+  if(!tag){tag=document.createElement("meta");tag.setAttribute(attribute,key);document.head.appendChild(tag);}
+  tag.setAttribute("content",String(value));
+ };
+ setMeta("property","og:type","product");setMeta("property","og:site_name","NovaShop");
+ setMeta("property","og:title",document.title);setMeta("property","og:description",description);
+ setMeta("property","og:url",url);setMeta("property","og:image",image);
+ setMeta("name","twitter:card","summary_large_image");setMeta("name","twitter:title",document.title);
+ setMeta("name","twitter:description",description);setMeta("name","twitter:image",image);
+ const schema={
+  "@context":"https://schema.org","@type":"Product",name:String(currentProduct.name||"Producto"),
+  description,image:images,category:String(currentProduct.category||""),
+  brand:{"@type":"Brand","name":"NovaShop"},sku:String(currentProduct.id),
+  offers:{"@type":"Offer",url,priceCurrency:"COP",price:String(price),itemCondition:"https://schema.org/NewCondition",
+   ...(available===null?{}:{availability:"https://schema.org/"+(available?"InStock":"OutOfStock")})}
+ };
+ if(published.length>0&&Number.isFinite(mean)&&mean>0)schema.aggregateRating={"@type":"AggregateRating",ratingValue:Number(mean.toFixed(2)),reviewCount:published.length,bestRating:5,worstRating:1};
+ let script=document.getElementById("novaProductStructuredData");
+ if(!script){script=document.createElement("script");script.id="novaProductStructuredData";script.type="application/ld+json";document.head.appendChild(script);}
+ script.textContent=JSON.stringify(schema);
+}
 function renderReviewStats(published,mean){
+ updateProductStructuredData(published,mean);
  const box=$("#productReviewStats");if(!box)return;
  if(!published.length){box.hidden=true;box.innerHTML="";return;}
  const fullStars="★".repeat(Math.round(mean))+"☆".repeat(5-Math.round(mean));
@@ -895,7 +931,7 @@ function renderProduct() {
     .replace(/\s+/g, " ").trim().slice(0, 155);
   const descriptionMeta = document.querySelector('meta[name="description"]');
   if (descriptionMeta) descriptionMeta.setAttribute("content", seoDescription);
-  const productCanonical = new URL(`producto.html?id=${encodeURIComponent(currentProduct.id)}`, window.location.origin + "/").href;
+  const productCanonical = new URL(`producto.html?id=${encodeURIComponent(currentProduct.id)}`, window.location.href).href;
   let canonicalMeta = document.querySelector('link[rel="canonical"]');
   if (!canonicalMeta) {
     canonicalMeta = document.createElement("link");
@@ -903,6 +939,7 @@ function renderProduct() {
     document.head.appendChild(canonicalMeta);
   }
   canonicalMeta.href = productCanonical;
+  updateProductStructuredData();
   const isDigitalProduct=currentProduct.category==='Streaming'||currentProduct.deliveryType==='digital';
 
   $('#breadcrumbCategory').textContent = currentProduct.category;
