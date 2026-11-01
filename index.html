@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Descubre productos y servicios digitales en NovaShop Colombia. Explora el catálogo, consulta opciones de compra y recibe atención por WhatsApp.">
+  <meta name="description" content="Celebra la Navidad con NovaShop. Encuentra regalos, tecnología, moda y servicios digitales con opciones de compra claras y atención cercana.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://novashop-store-co.pages.dev/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_CO">
   <meta property="og:site_name" content="NovaShop">
-  <meta property="og:title" content="NovaShop Colombia | Tienda online">
-  <meta property="og:description" content="Explora productos y servicios digitales en NovaShop. Compra online con opciones claras y atención cercana.">
+  <meta property="og:title" content="Navidad en NovaShop | Regalos que emocionan">
+  <meta property="og:description" content="Encuentra el regalo perfecto en NovaShop: tecnología, moda, hogar y mucho más.">
   <meta property="og:url" content="https://novashop-store-co.pages.dev/">
   <meta name="twitter:card" content="summary">
-  <title>NovaShop Colombia | Tienda online</title>
+  <title>Navidad en NovaShop | Regalos que emocionan</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,11 +25,12 @@
   <link rel="stylesheet" href="storefront-editorial.css?v=1">
   <link rel="stylesheet" href="storefront-neon.css?v=1">
   <link rel="stylesheet" href="storefront-signature.css?v=1">
+  <link rel="stylesheet" href="storefront-christmas.css?v=1">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<meta name="theme-color" content="#0c2c47"><link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#941b24"><link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
-  <div class="announcement" role="region" aria-label="Beneficios de NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🚚 Envío gratis en productos físicos al pagar en línea</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Elige cómo pagar, sin complicaciones</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🚚 Envío gratis en productos físicos al pagar en línea</span><b>•</b><span>💻 Servicios digitales sin envío físico</span><b>•</b><span>💳 Elige cómo pagar, sin complicaciones</span><b>•</b><span>🤝 Atención cercana en cada paso</span><b>•</b></div></div></div></div>
+  <div class="announcement" role="region" aria-label="Beneficios de NovaShop"><div class="announcement-viewport"><div class="announcement-track"><div class="announcement-group"><span>🎄 Navidad en NovaShop · encuentra el regalo perfecto</span><b>•</b><span>🚚 Envío gratis en productos físicos al pagar en línea</span><b>•</b><span>🎁 Ideas para regalar, precios para disfrutar</span><b>•</b><span>💬 Atención cercana por WhatsApp</span><b>•</b></div><div class="announcement-group" aria-hidden="true"><span>🎄 Navidad en NovaShop · encuentra el regalo perfecto</span><b>•</b><span>🚚 Envío gratis en productos físicos al pagar en línea</span><b>•</b><span>🎁 Ideas para regalar, precios para disfrutar</span><b>•</b><span>💬 Atención cercana por WhatsApp</span><b>•</b></div></div></div></div>
 
   <header class="site-header">
     <div class="container nav-wrap">
@@ -40,7 +41,9 @@
       <nav class="main-nav" aria-label="Navegación principal">
         <a href="#inicio">Inicio</a>
         <a href="#categorias">Categorías</a>
-        <a href="#productos">Productos</a><a href="streaming.html">Streaming</a>
+        <a href="#navidad">🎄 Navidad</a>
+        <a href="#productos">🔥 Más vendidos</a>
+        <a href="#productos">🎁 Ofertas</a><a href="streaming.html">Streaming</a>
         <a href="favoritos.html">♡ Favoritos</a>
         <a href="#beneficios">Beneficios</a>
       </nav>
@@ -65,9 +68,9 @@
     <section class="hero">
       <div class="container hero-grid">
         <div class="hero-copy">
-          <span class="eyebrow" id="heroEyebrow">DESCUBRE ALGO NUEVO · OFERTAS DESTACADAS</span>
-          <h1>Eso que buscas.<br><em>Está más cerca.</em></h1>
-          <p>Encuentra productos y servicios digitales para disfrutar, resolver algo pendiente o darte ese gusto que llevas días pensando. Mira con calma, elige a tu manera y escríbenos si necesitas una mano.</p>
+          <span class="eyebrow" id="heroEyebrow">🎄 NAVIDAD EN NOVASHOP · REGALOS QUE ILUSIONAN</span>
+          <h1>La magia de<br><em>regalar está aquí.</em></h1>
+          <p>Encuentra ese detalle que alegra el día. Explora tecnología, moda, hogar y servicios digitales con precios para disfrutar y opciones claras para comprar.</p>
           <div class="hero-product-search" role="search" aria-label="Buscar en el catálogo">
             <div class="hero-search-shell">
               <span class="hero-search-icon" aria-hidden="true">⌕</span>
@@ -78,13 +81,13 @@
             <div id="heroCategoryChips" class="hero-category-chips" aria-label="Categorías rápidas"></div>
           </div>
           <div class="hero-cta">
-            <a class="btn btn-primary" href="#productos">Descubrir productos</a>
-            <a class="btn btn-ghost" href="#categorias">Explorar categorías</a>
+            <a class="btn btn-primary" href="#productos">🎁 Explorar ofertas</a>
+            <a class="btn btn-ghost" href="#categorias">Ver categorías</a>
           </div>
-          <a class="hero-digital-link" href="streaming.html">¿Buscas algo digital? Descubre nuestros servicios <span aria-hidden="true">↗</span></a>
+          <a class="hero-digital-link" href="streaming.html">¿Buscas un regalo digital? Explora Streaming <span aria-hidden="true">↗</span></a>
           <div class="micro-trust">
             <span>✓ Envío gratis al pagar en línea</span>
-            <span>✓ Dudas sobre productos, por WhatsApp</span>
+            <span>✓ Te orientamos antes de comprar</span>
           </div>
         </div>
         <div class="hero-visual">
@@ -112,19 +115,19 @@
       </div>
     </section>
 
-    <section class="experience-strip" aria-label="Una experiencia de compra sencilla">
+    <section class="experience-strip christmas-assurance" aria-label="Compra con tranquilidad en Navidad">
       <div class="container experience-grid">
         <article class="experience-item">
           <span class="experience-icon" aria-hidden="true">♡</span>
-          <div><h2>Elige a tu ritmo</h2><p>Guarda lo que te guste y vuelve cuando quieras. Aquí no hay afán.</p></div>
+          <div><h2>Compra con tranquilidad</h2><p>Revisa cada detalle y elige con confianza antes de confirmar.</p></div>
         </article>
         <article class="experience-item">
           <span class="experience-icon" aria-hidden="true">↗</span>
-          <div><h2>Tu compra, a tu manera</h2><p>Consulta las formas de pago disponibles antes de confirmar tu pedido.</p></div>
+          <div><h2>Opciones de pago claras</h2><p>Conoce las condiciones antes de completar tu pedido.</p></div>
         </article>
         <article class="experience-item">
           <span class="experience-icon" aria-hidden="true">☺</span>
-          <div><h2>Hablemos si lo necesitas</h2><p>¿Quieres saber algo antes de elegir? Escríbenos, con gusto te ayudamos.</p></div>
+          <div><h2>Estamos para ayudarte</h2><p>¿Tienes dudas sobre un producto? Escríbenos por WhatsApp.</p></div>
         </article>
       </div>
     </section>
@@ -141,7 +144,7 @@
     <section class="section" id="categorias">
       <div class="container">
         <div class="section-head">
-          <div><span class="eyebrow">DESCUBRE</span><h2>Compra por categoría</h2></div>
+          <div><span class="eyebrow">🎄 ENCUENTRA SU FAVORITO</span><h2>Explora nuestras categorías</h2></div>
           <a href="#productos" class="text-link">Ver todo →</a>
         </div>
         <div class="category-grid" id="categoryGrid"></div>
@@ -151,7 +154,7 @@
     <section class="section muted" id="productos">
       <div class="container">
         <div class="section-head product-heading">
-          <div><span class="eyebrow">PARA TI</span><h2>Encuentra algo que te encante</h2></div>
+          <div><span class="eyebrow">🎁 IDEAS PARA REGALAR</span><h2>Detalles que hacen especial la Navidad</h2></div>
           <div class="toolbar">
             <select id="categoryFilter" aria-label="Filtrar por categoría">
               <option value="all">Todas las categorías</option>
@@ -177,6 +180,23 @@
         </div>
         <div class="product-grid" id="productGrid"></div>
         <div class="empty-state" id="emptyState" hidden>No encontramos productos con esa búsqueda. Prueba con otra palabra o ajusta los filtros.</div>
+      </div>
+    </section>
+
+    <section class="christmas-gift-guide" id="navidad" aria-labelledby="christmasGiftTitle">
+      <div class="container christmas-gift-inner">
+        <div class="christmas-gift-heading">
+          <span class="christmas-kicker">✨ ESPECIAL DE TEMPORADA</span>
+          <h2 id="christmasGiftTitle">Encuentra el regalo perfecto</h2>
+          <p>Una buena sorpresa puede estar más cerca de lo que imaginas.</p>
+        </div>
+        <div class="christmas-gift-links">
+          <a href="#productos" data-gift-filter="mujer"><span class="gift-emoji">🎀</span><strong>Regalos para ella</strong><span>Ver ideas ↗</span></a>
+          <a href="#productos" data-gift-filter="hombre"><span class="gift-emoji">🎁</span><strong>Regalos para él</strong><span>Ver ideas ↗</span></a>
+          <a href="#productos" data-gift-category="Hogar"><span class="gift-emoji">🏡</span><strong>Para el hogar</strong><span>Ver ideas ↗</span></a>
+          <a href="#productos" data-gift-category="Tecnología"><span class="gift-emoji">💻</span><strong>Tecnología en oferta</strong><span>Ver ideas ↗</span></a>
+        </div>
+        <div class="christmas-gift-foot"><span>🎄</span> Que esta Navidad esté llena de detalles especiales <span>✦</span></div>
       </div>
     </section>
 
@@ -219,8 +239,10 @@
 
   <footer class="site-footer">
     <div class="container footer-grid">
-      <div><a class="brand footer-brand" href="#inicio"><span class="brand-mark">N</span><span>Nova<span>Shop</span></span></a><p>Productos y servicios para tu día a día, con atención directa antes de confirmar tu pedido.</p></div>
-      <div><h4>Tienda</h4><a href="#productos">Productos</a><a href="#categorias">Categorías</a><a href="streaming.html">Streaming</a><a href="cuenta.html">Mi cuenta</a><a href="#beneficios">Beneficios</a></div>
+      <div><a class="brand footer-brand" href="#inicio"><span class="brand-mark">N</span><span>Nova<span>Shop</span></span></a><p>Regalos, tecnología y detalles para compartir momentos especiales.</p></div>
+      <div><h4>Tienda</h4><a href="#productos">🔥 Más vendidos</a>
+        <a href="#productos">🎁 Ofertas</a><a href="#categorias">Categorías</a>
+        <a href="#navidad">🎄 Navidad</a><a href="streaming.html">Streaming</a><a href="cuenta.html">Mi cuenta</a><a href="#beneficios">Beneficios</a></div>
       <div><h4>Ayuda</h4><a href="#" onclick="openModal('shipping');return false;">Envíos</a><a href="#" onclick="openModal('returns');return false;">Cambios y devoluciones</a><a href="#" onclick="openModal('privacy');return false;">Privacidad</a></div>
       <div><h4>Contacto</h4><p>WhatsApp: +57 300 335 8382</p><p>hola@novashop.co</p></div>
     </div>
