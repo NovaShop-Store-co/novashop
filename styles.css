@@ -484,3 +484,16 @@ body[data-page="streaming"] .hero .eyebrow{color:#ffb49f}
 
 /* Botón para instalar NovaShop como aplicación */
 .pwa-install-button{border:1px solid #cbd9e5;border-radius:999px;background:#fff;color:#17324a;padding:8px 13px;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.pwa-install-button:hover{background:#edf4f9;border-color:#90aeca}.pwa-install-button[hidden]{display:none!important}
+
+/* Aviso local para retomar un carrito guardado, sin envío de datos al servidor */
+.saved-cart-reminder{max-width:1180px;margin:12px auto;padding:12px 16px;border:1px solid #dce6ee;border-radius:14px;background:#f7fafc;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.saved-cart-reminder[hidden]{display:none!important}
+.saved-cart-reminder>div{display:grid;gap:3px;flex:1 1 180px}
+.saved-cart-reminder strong{font-size:13px;color:#17324a}
+.saved-cart-reminder span{font-size:11px;color:#637384}
+.saved-cart-reminder button{border:0;border-radius:999px;background:#0c2c47;color:#fff;padding:9px 13px;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.saved-cart-reminder button:last-child{background:transparent;color:#62717f;font-size:18px;padding:4px 8px}
+.admin-stock-alert-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #e5ebf0;font-size:12px}
+.admin-stock-alert-item button{flex:0 0 auto;border:1px solid #cad8e4;border-radius:8px;background:#fff;color:#294b68;padding:6px 9px;font:inherit;font-size:11px;font-weight:750;cursor:pointer}
+.admin-stock-alert-item button:hover{background:#eef5fa}
+@media(max-width:600px){.saved-cart-reminder{margin:10px 12px}.saved-cart-reminder button{flex:1}.admin-stock-alert-item{align-items:flex-start;flex-direction:column}}
