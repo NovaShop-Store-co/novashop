@@ -43,7 +43,7 @@ function syncPaymentMethodControls({resetPhysical=false}={}) {
    : "Marca al menos una forma de pago. En productos físicos puedes habilitar una o ambas.";
 }
 function parseDropiVariantsText(value){return String(value||"").split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map((line,index)=>{const cells=line.split("|").map(part=>part.trim());if(cells.length<5||cells.length>6)throw new Error("La fila "+(index+1)+" de variantes Dropi debe tener 5 o 6 columnas separadas por |.");const rawAudience=cells[0].toLocaleLowerCase("es");const audience=["dama","mujer","mujeril"].includes(rawAudience)?"mujer":rawAudience;if(!["hombre","mujer"].includes(audience))throw new Error("La fila "+(index+1)+" debe indicar el corte Hombre o Dama.");const stock=Number(cells[4]);if(cells[4]===""||!Number.isSafeInteger(stock)||stock<0)throw new Error("La fila "+(index+1)+" debe indicar las existencias como entero (0 o más).");const cost=cells[5]===""||cells[5]==null?null:Number(cells[5]);if(cost!==null&&(!Number.isSafeInteger(cost)||cost<0))throw new Error("El costo de proveedor de la fila "+(index+1)+" debe ser un valor entero en COP.");return {audience,color:cells[1],size:cells[2],dropi_variant_id:cells[3],stock_quantity:stock,supplier_price_cop:cost};});}
-function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,dropi_product_id:String(v.get("dropi_product_id")||"").trim().slice(0,100),dropi_variants:parseDropiVariantsText(v.get("dropi_variants_text")),target_audiences:Array.from(f.querySelectorAll('input[name="target_audiences"]:checked')).map(input=>input.value),name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),size_variants:String(v.get("size_variants")||"").split(",").map(size=>size.trim()).filter(Boolean),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),payment_methods:v.getAll("payment_methods").map(value=>String(value)),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
+function formData(){const f=$("#adminProductForm"),v=new FormData(f);return {id:v.get("id")?Number(v.get("id")):null,dropi_product_id:String(v.get("dropi_product_id")||"").trim().slice(0,100),dropi_variants:parseDropiVariantsText(v.get("dropi_variants_text")),target_audiences:Array.from(f.querySelectorAll('input[name="target_audiences"]:checked')).map(input=>input.value),name:String(v.get("name")||"").trim(),category:String(v.get("category")||""),delivery_type:v.get("delivery_type"),price_cop:Number(v.get("price_cop")),old_price_cop:v.get("old_price_cop")?Number(v.get("old_price_cop")):null,stock_quantity:v.get("stock_quantity")===""?null:Number(v.get("stock_quantity")),unit_cost_cop:v.get("unit_cost_cop")===""?null:Number(v.get("unit_cost_cop")),size_variants:String(v.get("size_variants")||"").split(",").map(size=>size.trim()).filter(Boolean),description:String(v.get("description")||"").trim(),features:String(v.get("features")||"").split("\n").map(s=>s.trim()).filter(Boolean),images:editingImages.map(item=>item.url).filter(Boolean),video_url:editingVideo,tag:String(v.get("tag")||"").trim(),shipping:String(v.get("shipping")||"").trim(),payment_methods:v.getAll("payment_methods").map(value=>String(value)),is_active:!!f.elements.is_active.checked,printful_enabled:!!f.elements.printful_enabled.checked,printful_sync_variant_id:v.get("printful_sync_variant_id")===""?null:Number(v.get("printful_sync_variant_id")),sort_order:v.get("sort_order")?Number(v.get("sort_order")):(v.get("id")?Number(v.get("id")):100)};}
 async function call(body){if(!db?.isConfigured?.())throw new Error("Supabase no está conectado.");return db.adminCall(body);}
 async function upload(file){
  const signed=await call({action:"upload-url",filename:file.name,contentType:file.type,size:file.size});
@@ -778,9 +778,12 @@ function renderMetrics(m){
   return;
  }
  box.innerHTML=[
-  ["Ingresos netos",money(m.revenueCop)],
+  ["Ventas pagadas",money(m.revenueCop)],
   ["Pedidos pagados",Number(m.paidOrders||0)],
   ["Unidades vendidas",Number(m.unitsSold||0)],
+  ["Costo de productos",money(m.costOfGoodsCop||0)],
+  ["Utilidad bruta estimada",money(m.grossProfitCop||0)],
+  ["Cobertura de costos",Number(m.costCoveragePercent||0).toLocaleString("es-CO",{maximumFractionDigits:1})+"%"],
   ["Pedidos pendientes",Number(m.pendingOrders||0)],
   ["Pedidos cancelados",Number(m.cancelledOrders||0)],
   ["Clientes recurrentes",Number(m.repeatCustomers||0)],
@@ -804,12 +807,21 @@ function renderMetrics(m){
   let alertHtml="";
   if(out.length)alertHtml+='<div class="admin-stock-alert critical"><div><strong>Agotados ('+out.length+')</strong>'+listItems(out)+'</div></div>';
   if(low.length)alertHtml+='<div class="admin-stock-alert"><div><strong>Stock bajo ('+low.length+')</strong>'+listItems(low)+'</div></div>';
+  const variantAlerts=rows=>rows.map(v=>'<div class="admin-stock-alert-item"><span>'+esc(v.product_name)+' · '+esc(v.audience==="mujer"?"Dama":v.audience==="hombre"?"Hombre":"")+' · '+esc(v.color)+' · '+esc(v.size)+' · '+Number(v.stock_quantity||0)+' unidades</span>'+(canEditStock?'<button type="button" data-stock-variant-edit="'+Number(v.product_id)+'">Revisar variantes</button>':"")+'</div>').join("");
+  const outVariants=Array.isArray(inv.outOfStockVariants)?inv.outOfStockVariants:[];
+  const lowVariants=Array.isArray(inv.lowStockVariants)?inv.lowStockVariants:[];
+  if(outVariants.length)alertHtml+='<div class="admin-stock-alert critical"><div><strong>Variantes agotadas ('+Number(inv.outOfStockVariantCount||outVariants.length)+')</strong>'+variantAlerts(outVariants)+'</div></div>';
+  if(lowVariants.length)alertHtml+='<div class="admin-stock-alert"><div><strong>Variantes con stock bajo ('+Number(inv.lowStockVariantCount||lowVariants.length)+')</strong>'+variantAlerts(lowVariants)+'</div></div>';
   if(Number(inv.untrackedProducts||0)>0)alertHtml+='<div class="admin-stock-alert neutral"><div><strong>Inventario sin configurar</strong>'+Number(inv.untrackedProducts)+' productos no tienen cantidad registrada. Introduce las existencias reales desde Catálogo.</div>'+(canEditStock?'<button type="button" data-stock-goto>Ir al catálogo</button>':"")+'</div>';
   if(!alertHtml)alertHtml='<div class="admin-stock-alert neutral"><div><strong>Inventario al día</strong>No hay alertas de stock bajo o agotado en los productos controlados.</div></div>';
   alertBox.innerHTML=alertHtml;
   alertBox.querySelectorAll("[data-stock-edit]").forEach(button=>button.addEventListener("click",()=>{
    const product=products.find(p=>Number(p.id)===Number(button.dataset.stockEdit));
    if(product){editProduct(product.id);const input=$("#adminProductForm").elements.stock_quantity;input.focus();input.scrollIntoView({behavior:"smooth",block:"center"});}
+  }));
+  alertBox.querySelectorAll("[data-stock-variant-edit]").forEach(button=>button.addEventListener("click",()=>{
+   const product=products.find(p=>Number(p.id)===Number(button.dataset.stockVariantEdit));
+   if(product){editProduct(product.id);const field=$("#adminProductForm").elements.dropi_variants_text;field?.scrollIntoView({behavior:"smooth",block:"center"});field?.focus();}
   }));
   alertBox.querySelector("[data-stock-goto]")?.addEventListener("click",()=>{$(".admin-grid")?.scrollIntoView({behavior:"smooth",block:"start"});});
  }
@@ -946,7 +958,7 @@ function editProduct(id){
   const option=document.createElement("option");option.value=p.category;option.textContent=p.category;categorySelect.add(option);
  }
  f.elements.id.value=p.id;f.elements.dropi_product_id.value=p.dropi_product_id||"";f.elements.dropi_variants_text.value=(Array.isArray(p.dropi_variants)?p.dropi_variants:[]).map(v=>[(v.audience==="mujer"?"Dama":"Hombre"),v.color,v.size,v.dropi_variant_id,v.stock_quantity,v.supplier_price_cop??""].join(" | ")).join("\n");f.querySelectorAll('input[name="target_audiences"]').forEach(input=>{input.checked=Array.isArray(p.target_audiences)&&p.target_audiences.includes(input.value);});f.elements.name.value=p.name;f.elements.category.value=p.category;f.elements.delivery_type.value=p.delivery_type;
- f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.size_variants.value=(Array.isArray(p.size_variants)?p.size_variants:[]).join(", ");f.elements.sort_order.value=p.sort_order??100;
+ f.elements.price_cop.value=p.price_cop;f.elements.old_price_cop.value=p.old_price_cop??"";f.elements.stock_quantity.value=p.stock_quantity==null?"":p.stock_quantity;f.elements.unit_cost_cop.value=p.unit_cost_cop==null?"":p.unit_cost_cop;f.elements.size_variants.value=(Array.isArray(p.size_variants)?p.size_variants:[]).join(", ");f.elements.sort_order.value=p.sort_order??100;
  f.elements.description.value=p.description||"";f.elements.features.value=(p.features||[]).join("\n");
  f.elements.tag.value=p.tag||"";f.elements.shipping.value=p.shipping||"";const configuredPaymentMethods=Array.isArray(p.payment_methods)?p.payment_methods:(p.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]);f.querySelectorAll('input[name="payment_methods"]').forEach(input=>{input.checked=configuredPaymentMethods.includes(input.value);});syncPaymentMethodControls();f.elements.printful_enabled.checked=!!p.printful_enabled;f.elements.printful_sync_variant_id.value=p.printful_sync_variant_id??"";f.elements.is_active.checked=!!p.is_active;
  disposeEditingImagePreviews();editingImages=(p.images||[]).filter(Boolean).map(url=>({url,file:null,previewUrl:null}));editingVideo=p.video_url||null;disposeColorVariantPreviews();editingColorVariants=(Array.isArray(p.color_variants)?p.color_variants:[]).map(normalizeColorVariant);f.elements.images.value="";f.elements.video.value="";
