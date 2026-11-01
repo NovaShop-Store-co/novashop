@@ -166,8 +166,10 @@ function renderFeaturedProduct(){
  $("#featuredProductBadge").textContent=featured.oldPrice?"OFERTA":"DESTACADO";
  $("#featuredProductName").textContent=featured.name;
  $("#featuredProductDiscount").textContent=featured.oldPrice?(pct+"% OFF"):"Ver producto";
- if(eyebrow)eyebrow.textContent="DESCUBRE ALGO NUEVO · OFERTAS DESTACADAS";
- if(countdown)countdown.hidden=true;if(prices)prices.hidden=true;if(controls)controls.hidden=true;
+ if(eyebrow)eyebrow.textContent="🎄 NAVIDAD EN NOVASHOP · IDEAS PARA REGALAR";
+ if(countdown)countdown.hidden=true;
+ if(prices){prices.hidden=false;$("#featuredProductOldPrice").textContent=featured.oldPrice?money(featured.oldPrice):"";$("#featuredProductPrice").textContent=money(featured.price);}
+ if(controls)controls.hidden=true;
  card?.classList.remove("is-flash-sale");
  const floatLabel=$("#featuredFloatLabel");
  if(floatLabel)floatLabel.innerHTML="★ <span>Productos seleccionados</span>";
