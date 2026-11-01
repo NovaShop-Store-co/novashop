@@ -257,16 +257,23 @@ async function loadOrders(){
  if(error){$("#ordersList").innerHTML='<p class="account-help">No pudimos cargar el historial. Comprueba la conexión y las políticas RLS.</p>';return;}
  if(!data?.length){$("#ordersList").innerHTML='<div class="account-order"><strong>Aún no tienes pedidos vinculados</strong><p class="account-help">Cuando compres con tu sesión iniciada, el historial aparecerá aquí.</p><a href="index.html#productos">Explorar productos →</a></div>';return;}
  const labels={pending_payment:"Pendiente de pago",paid:"Pago confirmado",preparing:"En preparación",shipped:"Enviado",delivered:"Entregado",cancelled:"Cancelado",payment_failed:"Pago rechazado",refunded:"Reembolsado"};
+ const progressSteps=["Pedido","Pago","Preparación","Envío","Entrega"];
+ const progressIndex={pending_payment:0,paid:1,preparing:2,shipped:3,delivered:4};
  $("#ordersList").innerHTML=data.map(o=>{
   const items=(o.order_items||[]).map(i=>'<li>'+esc(i.product_name)+(i.selected_variant?' · Color: '+esc(i.selected_variant):"")+(i.selected_size?' · Talla: '+esc(i.selected_size):"")+' ×'+Number(i.quantity)+' — '+money(i.line_total_cop??i.unit_price_cop*i.quantity)+'</li>').join("");
   const subtotal=Number(o.subtotal_cop)||0,discount=Number(o.discount_cop)||0,total=Number(o.total_cop??(subtotal-discount));
   const fixedCODFreight=o.payment_provider==="cash_on_delivery"&&o.cash_on_delivery_due_cop!=null;
+  const progressClosed=["cancelled","payment_failed","refunded"].includes(o.status);
+  const stage=progressIndex[o.status]??0;
+  const progress=progressClosed
+   ?'<div class="account-order-progress is-closed">Este pedido está '+esc(labels[o.status]||"cerrado")+'. Consulta con NovaShop si necesitas ayuda.</div>'
+   :'<div class="account-order-progress" aria-label="Progreso del pedido"><div class="account-progress-bar"><span style="width:'+(stage/4*100)+'%"></span></div><ol>'+progressSteps.map((label,index)=>'<li class="'+(index<stage?"done":index===stage?"current":"")+'"><i aria-hidden="true"></i><span>'+label+'</span></li>').join("")+'</ol></div>';
   const paymentSplit=fixedCODFreight?'<div class="account-order-shipping"><strong>Pago contraentrega</strong><div>Anticipo de envío por Bold: <strong>'+money(12000)+'</strong> · '+(o.shipping_payment_status==="approved"?'Confirmado':'Pendiente de pago')+'</div><div>Saldo por pagar al recibir: <strong>'+money(o.cash_on_delivery_due_cop)+'</strong></div></div>':"";
   const paymentAction=fixedCODFreight&&o.shipping_payment_status!=="approved"&&o.status==="pending_payment"
    ?'<div class="account-order-shipping"><a class="btn btn-primary" href="pedido.html?modo=contraentrega&pedido='+encodeURIComponent(o.order_number||"")+'&id='+encodeURIComponent(o.id)+'">Pagar anticipo de $12.000 con Bold</a></div>'
    :"";
   const shipping=o.tracking_number||o.shipping_carrier||o.estimated_delivery_date?'<div class="account-order-shipping"><strong>Seguimiento del envío</strong>'+(o.shipping_carrier?'<div>Transportadora: '+esc(o.shipping_carrier)+'</div>':'')+(o.tracking_number?'<div>Número de guía: <strong>'+esc(o.tracking_number)+'</strong></div>':'')+(o.estimated_delivery_date?'<div>Entrega estimada: '+esc(String(o.estimated_delivery_date).slice(0,10))+'</div>':'')+'</div>':"";
-  return '<article class="account-order"><div class="account-order-head"><div><h3>'+esc(o.order_number)+'</h3><small>'+esc(new Date(o.created_at).toLocaleString("es-CO"))+'</small></div><span class="account-status">'+(labels[o.status]||"En revisión")+'</span></div><ul>'+items+'</ul>'+(o.coupon_code?'<p class="account-help">Cupón aplicado: <strong>'+esc(o.coupon_code)+'</strong></p>':"")+'<div class="account-order-total"><span>Subtotal</span><strong>'+money(subtotal)+'</strong></div>'+(discount>0?'<div class="account-order-total"><span>Descuento</span><strong>−'+money(discount)+'</strong></div>':"")+'<div class="account-order-total"><span>Total del pedido</span><strong>'+money(total)+'</strong></div>'+paymentSplit+paymentAction+shipping+'</article>';
+  return '<article class="account-order"><div class="account-order-head"><div><h3>'+esc(o.order_number)+'</h3><small>'+esc(new Date(o.created_at).toLocaleString("es-CO"))+'</small></div><span class="account-status">'+(labels[o.status]||"En revisión")+'</span></div>'+progress+'<ul>'+items+'</ul>'+(o.coupon_code?'<p class="account-help">Cupón aplicado: <strong>'+esc(o.coupon_code)+'</strong></p>':"")+'<div class="account-order-total"><span>Subtotal</span><strong>'+money(subtotal)+'</strong></div>'+(discount>0?'<div class="account-order-total"><span>Descuento</span><strong>−'+money(discount)+'</strong></div>':"")+'<div class="account-order-total"><span>Total del pedido</span><strong>'+money(total)+'</strong></div>'+paymentSplit+paymentAction+shipping+'</article>';
  }).join("");
 }
 function deliveryAddressKey(values){

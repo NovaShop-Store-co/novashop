@@ -18,7 +18,11 @@ async function toggleFavoriteFromButton(button){
 }
 const money = (n) => new Intl.NumberFormat('es-CO',{style:'currency',currency:CONFIG.currency,maximumFractionDigits:0}).format(n);
 
-function saveCart(){ localStorage.setItem('novashop-cart',JSON.stringify(cart)); }
+function saveCart(){
+ localStorage.setItem('novashop-cart',JSON.stringify(cart));
+ if(cart.length)localStorage.setItem('novashop-cart-updated-at',String(Date.now()));
+ else localStorage.removeItem('novashop-cart-updated-at');
+}
 function cartCount(){ return cart.reduce((sum,i)=>sum+i.qty,0); }
 function cartTotal(){ return cart.reduce((sum,i)=>sum+i.price*i.qty,0); }
 function product(id){ return products.find(p=>p.id===id); }
@@ -827,6 +831,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(!streamingPage&&requestedCategory&&pageCategories.includes(requestedCategory))$('#categoryFilter').value=requestedCategory;
   if(streamingPage){ $('#categorias')?.setAttribute('hidden',''); const h=$('.product-heading h2'); if(h) h.textContent='Plataformas de Streaming'; const eye=$('.product-heading .eyebrow'); if(eye) eye.textContent='SERVICIOS DIGITALES'; }
   renderFeaturedProduct(); renderCategories(); renderProducts(); renderCart();
+  const savedCartReminder=$("#savedCartReminder");
+  const savedCartUpdatedAt=Number(localStorage.getItem("novashop-cart-updated-at")||0);
+  if(savedCartReminder&&cart.length&&Date.now()-savedCartUpdatedAt>=30*60*1000)savedCartReminder.hidden=false;
+  $("#resumeSavedCart")?.addEventListener("click",()=>{if(savedCartReminder)savedCartReminder.hidden=true;openCart();});
+  $("#dismissSavedCart")?.addEventListener("click",()=>{if(savedCartReminder)savedCartReminder.hidden=true;});
   loadCatalogReviewStats();
   window.NovaShopDB?.syncCatalog?.(products).then(async()=>{syncCartPricesFromProducts();renderCategories();renderProducts();await loadHomepageFlashSale();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
   $('#categoryFilter').addEventListener('change',renderProducts); $('#audienceFilter')?.addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
