@@ -1,0 +1,9 @@
+{
+  "id":"./","name":"NovaShop Colombia","short_name":"NovaShop",
+  "description":"Compra productos y servicios digitales en NovaShop.",
+  "lang":"es-CO","start_url":"./index.html","scope":"./",
+  "display":"standalone","orientation":"portrait-primary",
+  "background_color":"#f7f8fa","theme_color":"#0c2c47",
+  "categories":["shopping","lifestyle"],
+  "icons":[{"src":"./icon-novashop.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
