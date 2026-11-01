@@ -15,15 +15,15 @@ self.addEventListener("fetch",event=>{
  const request=event.request;if(request.method!=="GET")return;
  const url=new URL(request.url);
  if(url.origin!==SCOPE_URL.origin||!url.pathname.startsWith(SCOPE_URL.pathname))return;
- if(/\\/(rest\\/v1|auth\\/v1|functions\\/v1|storage\\/v1)\\//i.test(url.pathname))return;
- if(/\\/(admin|cuenta|pedido|pago|estado-bold|restablecer)\\.html$/i.test(url.pathname))return;
+ if(/\/(rest\/v1|auth\/v1|functions\/v1|storage\/v1)\//i.test(url.pathname))return;
+ if(/\/(admin|cuenta|pedido|pago|estado-bold|restablecer)\.html$/i.test(url.pathname))return;
  if(request.mode==="navigate"){
   event.respondWith(fetch(request).catch(async()=>{
    const cache=await caches.open(CACHE_NAME);
    return (await cache.match(new URL("./offline.html",SCOPE_URL)))||(await cache.match(new URL("./index.html",SCOPE_URL)))||new Response("Sin conexión",{status:503,headers:{"Content-Type":"text/plain; charset=utf-8"}});
   }));return;
  }
- if(/\\.(?:css|js|svg|png|jpe?g|webp|woff2?|webmanifest)$/i.test(url.pathname)){
+ if(/\.(?:css|js|svg|png|jpe?g|webp|woff2?|webmanifest)$/i.test(url.pathname)){
   event.respondWith((async()=>{const cache=await caches.open(CACHE_NAME),cached=await cache.match(request);
    const network=fetch(request).then(response=>{if(response.ok&&response.type==="basic")cache.put(request,response.clone());return response;}).catch(()=>cached);
    return cached||network;
