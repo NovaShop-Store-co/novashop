@@ -344,3 +344,20 @@ body::before{content:none}
     background-size:cover,auto 100%;
   }
 }
+
+
+/* Final panoramic Christmas background: crisp vector art, designed for the hero proportions. */
+.hero{
+  background-color:#941a27;
+  background-image:
+    linear-gradient(100deg,rgba(75,7,15,.34) 0%,rgba(112,12,22,.16) 48%,rgba(69,7,16,.28) 100%),
+    url("assets/christmas-hero.svg");
+  background-size:cover,cover;
+  background-position:center center,center center;
+  background-repeat:no-repeat,no-repeat;
+  background-attachment:scroll,scroll;
+}
+.hero::before,.hero::after{content:none!important;display:none!important}
+@media(max-width:800px){
+  .hero{background-position:center center,center center;background-size:cover,cover}
+}
