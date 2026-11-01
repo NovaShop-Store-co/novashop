@@ -40,7 +40,7 @@ body::before{content:none}
 .search-box input::placeholder{color:#a39688}
 
 /* Holiday hero: seasonal red, evergreen and warm gold. */
-.hero{position:relative;isolation:isolate;overflow:hidden;padding:clamp(42px,5.2vw,70px) 0 48px;background:radial-gradient(ellipse at 75% 58%,rgba(244,159,62,.27),transparent 34%),radial-gradient(ellipse at 91% 22%,rgba(231,184,92,.16),transparent 29%),linear-gradient(112deg,#4b1018 0%,#8d1a25 48%,#4a1019 100%);border-bottom:5px solid #d5a64f}
+.hero{position:relative;isolation:isolate;overflow:hidden;padding:clamp(42px,5.2vw,70px) 0 48px;background-color:#821923;background-image:linear-gradient(112deg,rgba(65,8,17,.76) 0%,rgba(137,19,30,.68) 48%,rgba(65,8,17,.78) 100%),url("assets/christmas-pattern.webp");background-position:center,center;background-size:cover,960px 540px;background-repeat:no-repeat,repeat;border-bottom:5px solid #d5a64f}
 .hero::before{content:"";position:absolute;z-index:-1;inset:0;opacity:.55;background:radial-gradient(circle at 6% 22%,rgba(255,230,170,.9) 0 2px,transparent 3px),radial-gradient(circle at 20% 78%,rgba(255,230,170,.8) 0 1.5px,transparent 3px),radial-gradient(circle at 44% 18%,rgba(255,230,170,.7) 0 2px,transparent 3px),radial-gradient(circle at 64% 80%,rgba(255,230,170,.7) 0 1.5px,transparent 3px),radial-gradient(circle at 90% 70%,rgba(255,230,170,.8) 0 2px,transparent 3px),repeating-linear-gradient(132deg,transparent 0 90px,rgba(255,236,188,.035) 91px 92px,transparent 93px 168px)}
 .hero::after{content:"✦      ❄       ✧       ❄";position:absolute;z-index:-1;right:2%;top:8%;color:rgba(255,227,174,.5);font-size:clamp(24px,3vw,42px);letter-spacing:.5em;pointer-events:none}
 .hero-grid{gap:clamp(24px,4vw,55px)}
@@ -297,4 +297,13 @@ body::before{content:none}
  html{scroll-behavior:auto}
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
  .hero-card.main:hover,.product-card:hover,.category-card:hover{transform:none}
+}
+
+
+/* Uploaded Christmas artwork: visible seasonal wallpaper behind the hero, softened for text contrast. */
+.hero::before{opacity:.22;mix-blend-mode:screen}
+.hero::after{z-index:0;pointer-events:none}
+.hero-grid{position:relative;z-index:1}
+@media(max-width:800px){
+ .hero{background-position:center,center;background-size:cover,720px 405px}
 }
