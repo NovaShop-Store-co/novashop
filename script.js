@@ -156,7 +156,7 @@ function renderFeaturedProduct(){
   updateFeaturedSaleCountdown();
   return;
  }
- const featured=products.find(p=>p.category!=="Streaming"&&p.oldPrice)||products.find(p=>p.category!=="Streaming");
+ const featured=products.find(p=>p.category!=="Streaming"&&p.isHomepageFeatured)||products.find(p=>p.category!=="Streaming"&&p.oldPrice)||products.find(p=>p.category!=="Streaming");
  if(!featured)return;
  const pct=featured.oldPrice?Math.round((1-(featured.price/featured.oldPrice))*100):0;
  link.href="producto.html?id="+featured.id;
