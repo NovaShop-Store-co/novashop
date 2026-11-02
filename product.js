@@ -942,13 +942,13 @@ function renderProduct() {
   updateProductStructuredData();
   const isDigitalProduct=currentProduct.category==='Streaming'||currentProduct.deliveryType==='digital';
 
-  $('#breadcrumbCategory').textContent = currentProduct.category;
+  $('#breadcrumbCategory').textContent = currentProduct.subcategory ? currentProduct.category+" · "+currentProduct.subcategory : currentProduct.category;
   $('#breadcrumbProduct').textContent = currentProduct.name;
-  $('#breadcrumbCategory').href = isDigitalProduct ? 'streaming.html' : `index.html?category=${encodeURIComponent(currentProduct.category)}#productos`;
+  $('#breadcrumbCategory').href = isDigitalProduct ? 'streaming.html' : `index.html?category=${encodeURIComponent(currentProduct.category)}${currentProduct.subcategory?'&subcategory='+encodeURIComponent(currentProduct.subcategory):''}#productos`;
 
   const productAudiences=Array.isArray(currentProduct.targetAudiences)?currentProduct.targetAudiences:[];
   const productAudienceLabel=productAudiences.includes('hombre')&&productAudiences.includes('mujer')?'UNISEX':productAudiences.includes('hombre')?'HOMBRE':productAudiences.includes('mujer')?'MUJER':'';
-  $('#productCategory').textContent = currentProduct.category.toUpperCase()+(currentProduct.category==='Moda'&&productAudienceLabel?' · '+productAudienceLabel:'');
+  $('#productCategory').textContent = currentProduct.category.toUpperCase()+(currentProduct.subcategory?' · '+currentProduct.subcategory.toUpperCase():'')+(currentProduct.category==='Moda'&&productAudienceLabel?' · '+productAudienceLabel:'');
   $('#productName').textContent = currentProduct.name;
   // Public ratings are calculated only from actual approved customer reviews.
   const ratingRow = document.querySelector('.rating-row');
