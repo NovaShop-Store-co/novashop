@@ -1,0 +1,26 @@
+/* Admin — compact controls for the homepage featured-product slot. */
+.admin-homepage-featured{margin-top:18px;border:1px solid #dce7f1;border-radius:18px;background:linear-gradient(145deg,#fff 0%,#f6faff 100%);box-shadow:0 12px 32px rgba(16,43,72,.07)}
+.admin-homepage-featured-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:18px}
+.admin-homepage-featured-heading h2{margin:4px 0 6px;color:#163758;font-size:21px;letter-spacing:-.04em}
+.admin-homepage-featured-heading p{margin:0;max-width:650px;color:#657b91;font-size:12px;line-height:1.6}
+.admin-homepage-featured-kicker{color:#3976b5;font-size:9px;font-weight:900;letter-spacing:.16em}
+.admin-homepage-featured-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border:1px solid #d2e3f4;border-radius:14px;background:#eaf4ff;color:#2867a5;font-size:22px}
+.admin-homepage-featured-layout{display:grid;grid-template-columns:minmax(260px,.9fr) minmax(260px,1.1fr);gap:20px;align-items:center}
+.admin-homepage-featured-controls{display:grid;gap:10px;min-width:0}
+.admin-homepage-featured-controls>label{font-size:12px;font-weight:850;color:#314f6d}
+.admin-homepage-featured-controls select{width:100%;min-width:0;height:45px;border:1px solid #cfdeec;border-radius:11px;padding:0 12px;background:#fff;color:#173a5e;font:inherit;font-size:12px}
+.admin-homepage-featured-controls select:focus{outline:0;border-color:#74a6d8;box-shadow:0 0 0 3px rgba(95,151,207,.15)}
+.admin-homepage-featured-controls .admin-help{margin:0;line-height:1.55}
+.admin-homepage-featured-controls .admin-buttons{margin:3px 0}
+.admin-homepage-featured-controls .admin-status{margin:0}
+.admin-homepage-featured-preview-wrap{display:grid;gap:8px;min-width:0}
+.admin-homepage-featured-preview-wrap>span{color:#7b8fa2;font-size:9px;font-weight:900;letter-spacing:.13em}
+.admin-homepage-featured-preview{display:flex;align-items:center;gap:13px;min-width:0;min-height:100px;padding:13px;border:1px solid #dbe7f2;border-radius:15px;background:radial-gradient(ellipse at 18% 50%,#fff 0%,#f4f9ff 56%,#e5f0fb 100%);box-shadow:inset 0 1px 0 #fff}
+.admin-homepage-featured-preview[hidden]{display:none!important}
+.admin-homepage-featured-preview>img{width:76px;height:76px;flex:0 0 76px;object-fit:contain;border-radius:11px;background:rgba(255,255,255,.86);box-shadow:0 5px 14px rgba(21,54,88,.08)}
+.admin-homepage-featured-preview-copy{display:grid;gap:5px;min-width:0;flex:1}
+.admin-homepage-featured-preview-copy strong{color:#173a5e;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.admin-homepage-featured-preview-copy span{color:#71869a;font-size:10px}
+.admin-homepage-featured-preview-state{flex:0 0 auto;padding:6px 8px;border:1px solid #cfdfef;border-radius:999px;background:#fff;color:#326a9f;font-size:8px;font-weight:900;letter-spacing:.08em}
+@media(max-width:760px){.admin-homepage-featured-layout{grid-template-columns:1fr}.admin-homepage-featured-preview-wrap{margin-top:2px}}
+@media(max-width:520px){.admin-homepage-featured{padding:15px}.admin-homepage-featured-heading h2{font-size:19px}.admin-homepage-featured-preview{gap:9px;padding:10px}.admin-homepage-featured-preview>img{width:60px;height:60px;flex-basis:60px}.admin-homepage-featured-preview-copy strong{font-size:11px}.admin-homepage-featured-preview-state{padding:5px 6px;font-size:7px}}
