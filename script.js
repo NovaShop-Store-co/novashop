@@ -299,17 +299,44 @@ function initFeaturedProductMotion(){
  card.addEventListener("pointerleave",reset,{passive:true});
  card.addEventListener("pointercancel",reset,{passive:true});
 }
+function escapeCatalogText(value){
+ return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+}
+function updateSubcategoryFilter({preserve=true}={}){
+ const select=$("#subcategoryFilter"),categorySelect=$("#categoryFilter");
+ if(!select||!categorySelect)return;
+ const streamingPage=document.body.dataset.page==="streaming";
+ const category=categorySelect.value;
+ const previous=preserve?select.value:"all";
+ const eligible=products.filter(p=>(streamingPage?p.category==="Streaming":p.category!=="Streaming")&&(category==="all"?(streamingPage):(p.category===category)));
+ const names=[...new Set(eligible.map(p=>String(p.subcategory||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+ select.innerHTML='<option value="all">Todas las subcategorías</option>'+names.map(name=>'<option value="'+escapeCatalogText(name)+'">'+escapeCatalogText(name)+'</option>').join("");
+ const visible=names.length>0&&(streamingPage||category!=="all");
+ select.hidden=!visible;select.disabled=!visible;
+ select.value=names.includes(previous)?previous:"all";
+}
+function populateCatalogCategoryFilters({preserve=true}={}){
+ const select=$("#categoryFilter");if(!select)return;
+ const streamingPage=document.body.dataset.page==="streaming";
+ const previous=preserve?select.value:"all";
+ const pageCategories=[...new Set(products.filter(p=>streamingPage?p.category==="Streaming":p.category!=="Streaming").map(p=>p.category).filter(Boolean))];
+ select.innerHTML='<option value="all">'+(streamingPage?"Todas las plataformas":"Todas las categorías")+'</option>'+pageCategories.map(name=>'<option value="'+escapeCatalogText(name)+'">'+escapeCatalogText(name)+'</option>').join("");
+ select.value=pageCategories.includes(previous)?previous:"all";
+ updateSubcategoryFilter({preserve});
+}
 function renderCategories(){
   const streamingPage=document.body.dataset.page==='streaming';
   const metaByName=new Map(categoryMeta.map(item=>[item.name,item]));
   const names=streamingPage?['Streaming']:[...new Set([...categoryMeta.map(item=>item.name),...products.map(item=>item.category)])];
   const visibleCategories=names.map(name=>{
     const meta=metaByName.get(name)||{};
-    const count=products.filter(item=>item.category===name).length;
-    return {name,image:meta.image||'images/streaming-placeholder.svg',count:name==='Streaming'?count+' servicios digitales':count+' '+(count===1?'producto':'productos')};
+    const categoryProducts=products.filter(item=>item.category===name);
+    const count=categoryProducts.length;
+    const subcategories=[...new Set(categoryProducts.map(item=>String(item.subcategory||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+    return {name,image:meta.image||'images/streaming-placeholder.svg',count:name==='Streaming'?count+' servicios digitales':count+' '+(count===1?'producto':'productos'),subcategories};
   });
-  $('#categoryGrid').innerHTML=visibleCategories.map(c=>`<button class="category-card" data-cat="${c.name}" aria-label="Ver ${c.name}"><img src="${c.image}" alt="${c.name}" loading="lazy"><div class="category-info"><h3>${c.name}</h3><span>${c.count}</span></div></button>`).join('');
-  document.querySelectorAll('.category-card').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.cat==='Streaming'){location.href='streaming.html';return;}$('#categoryFilter').value=btn.dataset.cat;renderProducts();document.querySelector('#productos').scrollIntoView({behavior:'smooth'});}));
+  $('#categoryGrid').innerHTML=visibleCategories.map(c=>`<button class="category-card" data-cat="${escapeCatalogText(c.name)}" aria-label="Ver ${escapeCatalogText(c.name)}"><img src="${escapeCatalogText(c.image)}" alt="${escapeCatalogText(c.name)}" loading="lazy"><div class="category-info"><h3>${escapeCatalogText(c.name)}</h3><span>${escapeCatalogText(c.count)}</span>${c.subcategories.length?'<small class="category-subcategories">'+c.subcategories.slice(0,3).map(escapeCatalogText).join(' · ')+(c.subcategories.length>3?' · +'+(c.subcategories.length-3):'')+'</small>':''}</div></button>`).join('');
+  document.querySelectorAll('.category-card').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.cat==='Streaming'){location.href='streaming.html';return;}$('#categoryFilter').value=btn.dataset.cat;updateSubcategoryFilter({preserve:false});renderProducts();document.querySelector('#productos').scrollIntoView({behavior:'smooth'});}));
 }
 
 function renderLiveRating(productId){
@@ -345,6 +372,7 @@ function productAudienceLabel(p){
 function renderProducts(){
   const query = $('#searchInput').value.trim().toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const cat = $('#categoryFilter').value;
+  const subcat = $('#subcategoryFilter')?.value || 'all';
   const audience = $('#audienceFilter')?.value || 'all';
   const sort = $('#sortSelect').value;
   const streamingPage = document.body.dataset.page === 'streaming';
@@ -354,8 +382,8 @@ function renderProducts(){
   let list = products.filter(p=>{
     const targetAudiences=Array.isArray(p.targetAudiences)?p.targetAudiences:[];
     const audienceNames=targetAudiences.map(value=>value==='hombre'?'hombre':value==='mujer'?'mujer':'').filter(Boolean);
-    const searchText=[p.name,p.category,p.description,p.tag,...audienceNames,...(Array.isArray(p.features)?p.features:[])].filter(Boolean).join(' ').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    return (streamingPage ? p.category==='Streaming' : p.category!=='Streaming')&&(cat==='all'||p.category===cat)&&(audience==='all'||targetAudiences.includes(audience))&&searchText.includes(query)&&Number(p.price)>=minValue&&Number(p.price)<=maxValue&&(!hideSoldOut||p.stockQuantity==null||Number(p.stockQuantity)>0)&&(!onlyOffers||(Number(p.oldPrice)>Number(p.price)));
+    const searchText=[p.name,p.category,p.subcategory,p.description,p.tag,...audienceNames,...(Array.isArray(p.features)?p.features:[])].filter(Boolean).join(' ').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return (streamingPage ? p.category==='Streaming' : p.category!=='Streaming')&&(cat==='all'||p.category===cat)&&(subcat==='all'||p.subcategory===subcat)&&(audience==='all'||targetAudiences.includes(audience))&&searchText.includes(query)&&Number(p.price)>=minValue&&Number(p.price)<=maxValue&&(!hideSoldOut||p.stockQuantity==null||Number(p.stockQuantity)>0)&&(!onlyOffers||(Number(p.oldPrice)>Number(p.price)));
   });
   if(sort==='priceAsc') list.sort((a,b)=>a.price-b.price);
   if(sort==='priceDesc') list.sort((a,b)=>b.price-a.price);
@@ -364,7 +392,7 @@ function renderProducts(){
   $('#productGrid').innerHTML=list.map(p=>`<article class="product-card">
     <a class="product-link" href="producto.html?id=${p.id}" aria-label="Ver ${p.name}">
       <div class="product-media"><img src="${p.images[0]}" alt="${p.name}" loading="lazy">${p.category==='Streaming'?'':(p.oldPrice?'<span class="tag">OFERTA</span>':(p.tag?'<span class="tag">'+p.tag+'</span>':''))}</div>
-      <div class="product-body"><div class="category-label">${p.category}${p.category==='Moda'&&productAudienceLabel(p)?' · '+productAudienceLabel(p):''}</div>${renderLiveRating(p.id)}<div class="product-title">${p.name}</div>
+      <div class="product-body"><div class="category-label">${escapeCatalogText(p.category)}${p.subcategory?' · '+escapeCatalogText(p.subcategory):''}${p.category==='Moda'&&productAudienceLabel(p)?' · '+productAudienceLabel(p):''}</div>${renderLiveRating(p.id)}<div class="product-title">${p.name}</div>
         <div class="price-row"><span class="price">${money(p.price)}</span>${p.oldPrice?`<span class="old-price">${money(p.oldPrice)}</span>`:''}</div>
         <div class="product-fulfillment-note ${p.category==='Streaming'?'is-digital':'is-physical'}"><span aria-hidden="true">${p.category==='Streaming'?'💻':'🚚'}</span><span>${p.category==='Streaming'?'Servicio digital · sin envío físico':'Envío gratis pagando con Bold'}</span></div>
       </div>
@@ -951,10 +979,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   else if(registrationNotice==='acceso')toast('¡Listo! Guardamos tus datos y ya puedes comprar en NovaShop.',5000);
   if(registrationNotice)history.replaceState(null,'',window.location.pathname+window.location.hash);
   const streamingPage = document.body.dataset.page === 'streaming';
-  const pageCategories = [...new Set(products.filter(p=>streamingPage ? p.category==='Streaming' : p.category!=='Streaming').map(p=>p.category))];
-  $('#categoryFilter').innerHTML='<option value="all">'+(streamingPage?'Todas las plataformas':'Todas las categorías')+'</option>'+pageCategories.map(c=>`<option>${c}</option>`).join('');
   const requestedCategory=new URLSearchParams(window.location.search).get('category');
-  if(!streamingPage&&requestedCategory&&pageCategories.includes(requestedCategory))$('#categoryFilter').value=requestedCategory;
+  populateCatalogCategoryFilters({preserve:false});
+  if(!streamingPage&&requestedCategory&&Array.from($('#categoryFilter').options).some(option=>option.value===requestedCategory))$('#categoryFilter').value=requestedCategory;
+  const requestedSubcategory=new URLSearchParams(window.location.search).get('subcategory');
+  updateSubcategoryFilter({preserve:false});
+  if(requestedSubcategory&&Array.from($('#subcategoryFilter')?.options||[]).some(option=>option.value===requestedSubcategory))$('#subcategoryFilter').value=requestedSubcategory;
   if(streamingPage){ $('#categorias')?.setAttribute('hidden',''); const h=$('.product-heading h2'); if(h) h.textContent='Plataformas de Streaming'; const eye=$('.product-heading .eyebrow'); if(eye) eye.textContent='SERVICIOS DIGITALES'; }
   renderFeaturedProduct(); initFeaturedProductMotion(); renderCategories(); renderProducts(); renderCart();
   const savedCartReminder=$("#savedCartReminder");
@@ -963,8 +993,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   $("#resumeSavedCart")?.addEventListener("click",()=>{if(savedCartReminder)savedCartReminder.hidden=true;openCart();});
   $("#dismissSavedCart")?.addEventListener("click",()=>{if(savedCartReminder)savedCartReminder.hidden=true;});
   loadCatalogReviewStats();
-  window.NovaShopDB?.syncCatalog?.(products).then(async()=>{syncCartPricesFromProducts();renderCategories();renderProducts();await loadHomepageFlashSale();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
-  $('#categoryFilter').addEventListener('change',renderProducts); $('#audienceFilter')?.addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
+  window.NovaShopDB?.syncCatalog?.(products).then(async()=>{syncCartPricesFromProducts();populateCatalogCategoryFilters();renderCategories();renderProducts();await loadHomepageFlashSale();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
+  $('#categoryFilter').addEventListener('change',()=>{updateSubcategoryFilter({preserve:false});renderProducts();});
+  $('#subcategoryFilter')?.addEventListener('change',renderProducts);
+  $('#audienceFilter')?.addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
   $('#minPriceFilter')?.addEventListener('input',renderProducts);$('#maxPriceFilter')?.addEventListener('input',renderProducts);$('#hideSoldOut')?.addEventListener('change',renderProducts);$('#onlyOffers')?.addEventListener('change',renderProducts);
   refreshFavoriteIds();
   $('#searchToggle').addEventListener('click',()=>{ const x=$('#searchBarWrap'); x.classList.toggle('open'); if(x.classList.contains('open')) $('#searchInput').focus(); });
