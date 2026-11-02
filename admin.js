@@ -494,8 +494,8 @@ function renderHomepageFeaturedControl(){
   note.textContent=selected
    ? "Producto fijado: "+selected.name+". Su foto principal, nombre y precios se toman directamente de su ficha."
    : "Sin selección manual. NovaShop elegirá automáticamente un producto destacado del catálogo.";
-  if(document.body.dataset.page!=="streaming"&&typeof adminFlashSale!=="undefined"&&adminFlashSale?.is_active){
-   note.textContent+=" La campaña de ofertas relámpago activa seguirá teniendo prioridad hasta que termine o la detengas.";
+  if(typeof adminFlashSale!=="undefined"&&adminFlashSale?.is_active){
+   note.textContent+=" Tu selección manual se mostrará en la portada durante la campaña. Si el producto elegido está incluido en ella, conservará el precio especial y el contador.";
   }
  }
  if(preview){
