@@ -722,6 +722,24 @@ Deno.serve(async (req: Request) => {
       }},200,origin);
     }
 
+    if (action === "set-homepage-featured-image") {
+      if (!canEditCatalog) return json({error:"No tienes permiso para cambiar la imagen del producto destacado."},403,origin);
+      const productId = Number(body.product_id);
+      if (!Number.isSafeInteger(productId) || productId <= 0) return json({error:"Selecciona un producto destacado válido."},400,origin);
+      const rawImageUrl = body.image_url == null || body.image_url === "" ? null : clean(body.image_url,2000);
+      if (rawImageUrl && !safeMediaUrl(rawImageUrl,supabaseUrl)) {
+        return json({error:"La imagen debe estar subida en el almacenamiento público de medios de NovaShop."},400,origin);
+      }
+      const {data,error} = await admin.from("products").update({
+        homepage_featured_image_url:rawImageUrl,
+        updated_at:new Date().toISOString()
+      }).eq("id",productId).eq("is_active",true).eq("is_homepage_featured",true)
+        .neq("category","Streaming").select("id,homepage_featured_image_url").maybeSingle();
+      if (error) throw error;
+      if (!data) return json({error:"Primero fija ese producto como destacado en la portada."},409,origin);
+      return json({ok:true,product_id:productId,image_url:data.homepage_featured_image_url},200,origin);
+    }
+
     if (action === "upload-url") {
       if (!canEditCatalog) return json({error:"No tienes permiso para subir medios de productos."},403,origin);
       const filename = clean(body.filename,180);
