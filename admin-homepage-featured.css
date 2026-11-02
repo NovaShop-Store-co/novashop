@@ -24,3 +24,11 @@
 .admin-homepage-featured-preview-state{flex:0 0 auto;padding:6px 8px;border:1px solid #cfdfef;border-radius:999px;background:#fff;color:#326a9f;font-size:8px;font-weight:900;letter-spacing:.08em}
 @media(max-width:760px){.admin-homepage-featured-layout{grid-template-columns:1fr}.admin-homepage-featured-preview-wrap{margin-top:2px}}
 @media(max-width:520px){.admin-homepage-featured{padding:15px}.admin-homepage-featured-heading h2{font-size:19px}.admin-homepage-featured-preview{gap:9px;padding:10px}.admin-homepage-featured-preview>img{width:60px;height:60px;flex-basis:60px}.admin-homepage-featured-preview-copy strong{font-size:11px}.admin-homepage-featured-preview-state{padding:5px 6px;font-size:7px}}
+
+
+.admin-homepage-featured-image-tools{display:grid;gap:8px;margin-top:12px;padding:13px;border:1px solid #d8e6f3;border-radius:14px;background:rgba(255,255,255,.76)}
+.admin-homepage-featured-image-tools>label{color:#314f6d;font-size:12px;font-weight:850}
+.admin-homepage-featured-image-tools input[type=file]{width:100%;max-width:100%;padding:9px;border:1px dashed #b9cfe3;border-radius:10px;background:#fff;color:#315371;font:inherit;font-size:11px}
+.admin-homepage-featured-image-tools>small{color:#71869a;font-size:10px;line-height:1.5}
+.admin-homepage-featured-image-tools .admin-buttons{margin:2px 0}
+@media(max-width:520px){.admin-homepage-featured-image-tools{padding:10px}}
