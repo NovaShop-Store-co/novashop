@@ -477,9 +477,56 @@ async function pauseAdminFlashSale(){
  catch(error){flashSaleNotice(error.message||"No se pudo detener la campaña.","error");}
  finally{if(button){button.disabled=false;button.textContent="Detener campaña";}}
 }
+function renderHomepageFeaturedControl(){
+ const wrap=$("#adminHomepageFeaturedWrap"),select=$("#adminHomepageFeaturedSelect"),preview=$("#adminHomepageFeaturedPreview"),note=$("#adminHomepageFeaturedNote");
+ if(!wrap||!select)return;
+ const canEdit=["owner","admin","catalog_manager"].includes(currentRole);
+ wrap.hidden=!canEdit;
+ if(!canEdit)return;
+ const eligible=products.filter(p=>p.is_active&&p.category!=="Streaming");
+ const selected=eligible.find(p=>p.is_homepage_featured);
+ const automatic=eligible.find(p=>p.old_price_cop)||eligible[0]||null;
+ select.innerHTML='<option value="">Selección automática de NovaShop</option>'+eligible.map(p=>'<option value="'+Number(p.id)+'">'+esc(p.name)+' · '+money(p.price_cop)+'</option>').join("");
+ select.value=selected?String(selected.id):"";
+ const shown=selected||automatic;
+ if(note){
+  note.textContent=selected
+   ? "Producto fijado: "+selected.name+". Su foto principal, nombre y precios se toman directamente de su ficha."
+   : "Sin selección manual. NovaShop elegirá automáticamente un producto destacado del catálogo.";
+  if(document.body.dataset.page!=="streaming"&&typeof adminFlashSale!=="undefined"&&adminFlashSale?.is_active){
+   note.textContent+=" La campaña de ofertas relámpago activa seguirá teniendo prioridad hasta que termine o la detengas.";
+  }
+ }
+ if(preview){
+  preview.hidden=!shown;
+  preview.innerHTML=shown
+   ? '<img src="'+esc((shown.images||[])[0]||"images/streaming-placeholder.svg")+'" alt=""><div class="admin-homepage-featured-preview-copy"><strong>'+esc(shown.name)+'</strong><span>'+esc(shown.category||"Producto")+' · '+money(shown.price_cop)+'</span></div><span class="admin-homepage-featured-preview-state">'+(selected?"FIJADO":"AUTOMÁTICO")+'</span>'
+   : '<div class="admin-help">No hay productos activos disponibles para destacar.</div>';
+ }
+ const save=$("#saveAdminHomepageFeatured");
+ if(save)save.disabled=!eligible.length;
+}
+async function saveAdminHomepageFeatured(){
+ const select=$("#adminHomepageFeaturedSelect"),button=$("#saveAdminHomepageFeatured"),notice=$("#adminHomepageFeaturedStatus");
+ if(!select||!button)return;
+ const productId=select.value?Number(select.value):null;
+ if(productId!==null&&!Number.isSafeInteger(productId)){if(notice){notice.textContent="Selecciona un producto válido.";notice.className="admin-status error";}return;}
+ button.disabled=true;button.textContent="Guardando…";
+ if(notice){notice.textContent="Actualizando el producto destacado de la portada…";notice.className="admin-status";}
+ try{
+  await call({action:"set-homepage-featured",product_id:productId});
+  products.forEach(p=>{p.is_homepage_featured=productId!==null&&Number(p.id)===productId;});
+  renderHomepageFeaturedControl();
+  if(notice){notice.textContent=productId===null?"Selección automática restaurada.":"Producto destacado actualizado para todos los visitantes.";notice.className="admin-status success";}
+ }catch(error){
+  if(notice){notice.textContent=error.message||"No se pudo actualizar el producto destacado.";notice.className="admin-status error";}
+ }finally{
+  button.disabled=false;button.textContent="Guardar producto destacado";
+ }
+}
 async function loadProducts(){
  try{
-  const r=await call({action:"list"});products=r.products||[];renderProducts();
+  const r=await call({action:"list"});products=r.products||[];renderProducts();renderHomepageFeaturedControl();
   if(["owner","admin","analyst"].includes(currentRole)){
    try{await loadAdminMetrics();}
    catch(e){status("Catálogo cargado, pero las métricas no están disponibles: "+(e.message||""),"error");}
@@ -1105,6 +1152,8 @@ async function init(){
  $("#refreshAdminFlashSale")?.addEventListener("click",loadAdminFlashSale);
  $("#adminFlashSaleForm")?.addEventListener("submit",saveAdminFlashSale);
  $("#pauseAdminFlashSale")?.addEventListener("click",pauseAdminFlashSale);
+ $("#saveAdminHomepageFeatured")?.addEventListener("click",saveAdminHomepageFeatured);
+ $("#refreshAdminHomepageFeatured")?.addEventListener("click",()=>loadProducts());
  $("#adminFlashSaleProducts")?.addEventListener("change",event=>{
   const checkbox=event.target.closest("[data-flash-sale-select]");if(!checkbox)return;
   const id=Number(checkbox.dataset.flashSaleSelect);
