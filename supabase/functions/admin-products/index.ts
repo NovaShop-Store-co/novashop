@@ -795,6 +795,9 @@ Deno.serve(async (req: Request) => {
       }
       const name = clean(body.name,140) || (preserveExistingFields ? clean(existingProduct?.name,140) : "");
       const category = clean(body.category,80) || (preserveExistingFields ? clean(existingProduct?.category,80) : "");
+      const subcategory = body.subcategory == null
+        ? (preserveExistingFields ? clean(existingProduct?.subcategory,80) : "")
+        : clean(body.subcategory,80).replace(/\s+/g," ");
       const delivery = clean(body.delivery_type,20) || (preserveExistingFields ? clean(existingProduct?.delivery_type,20) : "");
       const rawDropiVariants = Array.isArray(body.dropi_variants) ? body.dropi_variants : [];
       if (rawDropiVariants.length > 250) return json({error:"Un producto admite hasta 250 combinaciones de Dropi."},400,origin);
@@ -940,7 +943,7 @@ Deno.serve(async (req: Request) => {
       if (id !== null && (!Number.isInteger(id) || id <= 0)) return json({error:"Identificador de producto no válido."},400,origin);
 
       const payload = {
-        name,category,delivery_type:delivery,target_audiences:targetAudiences,size_variants:sizeVariants,price_cop:price,old_price_cop:oldPrice,
+        name,category,subcategory:subcategory||null,delivery_type:delivery,target_audiences:targetAudiences,size_variants:sizeVariants,price_cop:price,old_price_cop:oldPrice,
         description,features,images,color_variants:colorVariants,video_url:video,tag,shipping,payment_methods:paymentMethods,is_active:active,sort_order:sortOrder,
         stock_quantity:stock,printful_enabled:printfulEnabled,printful_sync_variant_id:printfulRaw,updated_at:new Date().toISOString()
       };
