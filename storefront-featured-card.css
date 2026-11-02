@@ -305,3 +305,7 @@
 @media (prefers-reduced-motion: reduce) {
   #featuredProductImage { animation: none !important; }
 }
+
+
+/* Keep the original colors and transparency of standalone PNG/WebP artwork. */
+#featuredProductImage{mix-blend-mode:normal!important;background:transparent!important}
