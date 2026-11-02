@@ -98,7 +98,11 @@
     <span class="hero-badge" id="featuredProductBadge">OFERTA</span>
     <span class="featured-hot-badge" id="featuredProductHot" hidden>HOT</span>
     <span class="featured-view-cta" id="featuredProductCta" hidden>Ver detalles y comprar ↗</span>
-    <div class="featured-sale-countdown" id="featuredSaleCountdown" hidden><small>TIEMPO RESTANTE</small><strong id="featuredSaleTimer">12:00:00</strong></div>
+    <div class="featured-sale-countdown" id="featuredSaleCountdown" hidden aria-label="Tiempo restante de la oferta">
+      <div class="featured-countdown-copy"><small>TERMINA EN</small><strong id="featuredSaleTimer">12:00:00</strong></div>
+      <div class="featured-offer-progress" id="featuredSaleProgress" role="progressbar" aria-label="Tiempo de oferta restante" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span id="featuredSaleProgressFill"></span></div>
+      <span class="featured-countdown-foot">Oferta de 12 horas</span>
+    </div>
     <div class="hero-caption">
       <div class="hero-caption-main">
         <span id="featuredProductName">Smartwatch Active X</span>
