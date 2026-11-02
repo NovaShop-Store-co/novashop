@@ -127,6 +127,43 @@ function renderFeaturedProduct(){
   if(cta)cta.textContent="Ver catálogo completo ↗";
   return;
  }
+
+ // A manually selected product always takes the main stage, even during a flash campaign.
+ const manuallyFeatured=products.find(p=>p.category!=="Streaming"&&p.isHomepageFeatured);
+ if(manuallyFeatured){
+  const featured=manuallyFeatured;
+  const isFlashSale=featured.flashSale===true;
+  const base=isFlashSale
+   ? Number(featured.regularPrice??featured.oldPrice??featured.price)
+   : Number(featured.oldPrice??featured.price);
+  const current=Number(featured.price);
+  const hasDiscount=Number.isFinite(base)&&base>current;
+  const pct=hasDiscount?Math.round((1-current/base)*100):0;
+  link.href="producto.html?id="+featured.id;
+  link.setAttribute("aria-label",(isFlashSale?"Oferta relámpago: ":"Producto destacado: ")+featured.name+(hasDiscount?". "+pct+"% de descuento.":"")+" Ver detalles y comprar.");
+  $("#featuredProductImage").src=(featured.images&&featured.images[0])||"images/streaming-placeholder.svg";
+  $("#featuredProductImage").alt=featured.name;
+  $("#featuredProductBadge").textContent=isFlashSale?"OFERTA ESPECIAL":(hasDiscount?"OFERTA":"DESTACADO");
+  $("#featuredProductName").textContent=featured.name;
+  $("#featuredProductDiscount").textContent=hasDiscount?(pct+"% OFF"):"VER PRODUCTO";
+  if(eyebrow)eyebrow.textContent=isFlashSale
+   ? "⚡ PRODUCTO DESTACADO · OFERTA POR TIEMPO LIMITADO"
+   : "✦ PRODUCTO DESTACADO · SELECCIÓN DE NOVASHOP";
+  if(prices){
+   prices.hidden=false;
+   $("#featuredProductOldPrice").textContent=hasDiscount?money(base):"";
+   $("#featuredProductPrice").textContent=money(current);
+  }
+  if(countdown)countdown.hidden=!isFlashSale;
+  if(controls)controls.hidden=true;
+  card?.classList.toggle("is-flash-sale",isFlashSale);
+  if(cta)cta.textContent=isFlashSale?"Aprovechar oferta y comprar ↗":"Ver detalles y comprar ↗";
+  const floatLabel=$("#featuredFloatLabel");
+  if(floatLabel)floatLabel.innerHTML=isFlashSale?"⚡ <span>Tu producto destacado</span>":"✦ <span>Elegido para la portada</span>";
+  if(isFlashSale)updateFeaturedSaleCountdown();
+  return;
+ }
+
  const saleItems=currentFlashSaleProducts();
  if(saleItems.length>=5){
   activeFlashSaleIndex=Math.max(0,Math.min(activeFlashSaleIndex,saleItems.length-1));
@@ -156,7 +193,8 @@ function renderFeaturedProduct(){
   updateFeaturedSaleCountdown();
   return;
  }
- const featured=products.find(p=>p.category!=="Streaming"&&p.isHomepageFeatured)||products.find(p=>p.category!=="Streaming"&&p.oldPrice)||products.find(p=>p.category!=="Streaming");
+
+ const featured=products.find(p=>p.category!=="Streaming"&&p.oldPrice)||products.find(p=>p.category!=="Streaming");
  if(!featured)return;
  const pct=featured.oldPrice?Math.round((1-(featured.price/featured.oldPrice))*100):0;
  link.href="producto.html?id="+featured.id;
