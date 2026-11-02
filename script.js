@@ -115,34 +115,51 @@ function clearHomepageFeaturedTimer(){
 }
 function updateHomepageFeaturedTimer(product,hasDiscount){
  const box=$("#featuredSaleCountdown"),timer=$("#featuredSaleTimer"),hot=$("#featuredProductHot");
+ const progress=$("#featuredSaleProgress"),progressFill=$("#featuredSaleProgressFill");
  if(!box||!timer)return false;
  const end=Date.parse(product?.homepageFeaturedEndsAt||"");
  const id=Number(product?.id);
  if(!hasDiscount||!Number.isFinite(end)||end<=Date.now()){
   box.hidden=true;
   if(hot)hot.hidden=true;
+  if(progressFill)progressFill.style.width="0%";
+  if(progress)progress.setAttribute("aria-valuenow","0");
   clearHomepageFeaturedTimer();
   return false;
  }
+ const parsedStart=Date.parse(product?.homepageFeaturedStartedAt||"");
+ const start=Number.isFinite(parsedStart)&&parsedStart<end?parsedStart:end-(12*60*60*1000);
+ const paint=()=>{
+  const remaining=Math.max(0,end-Date.now());
+  const duration=Math.max(1,end-start);
+  const percent=Math.max(0,Math.min(100,(remaining/duration)*100));
+  timer.textContent=formatFlashSaleCountdown(remaining);
+  if(progressFill)progressFill.style.width=percent.toFixed(2)+"%";
+  if(progress){
+   progress.setAttribute("aria-valuenow",String(Math.round(percent)));
+   progress.setAttribute("aria-valuetext",Math.round(percent)+"% del tiempo de oferta restante");
+  }
+  return remaining;
+ };
  box.hidden=false;
  if(hot)hot.hidden=false;
- timer.textContent=formatFlashSaleCountdown(end-Date.now());
+ const remaining=paint();
  if(homepageFeaturedTimerProductId!==id||homepageFeaturedTimerEnd!==end||!homepageFeaturedTimerInterval){
   clearHomepageFeaturedTimer();
   homepageFeaturedTimerProductId=id;
   homepageFeaturedTimerEnd=end;
   homepageFeaturedTimerInterval=setInterval(()=>{
-   const remaining=homepageFeaturedTimerEnd-Date.now();
-   if(remaining<=0){
+   if(paint()<=0){
     box.hidden=true;
     if(hot)hot.hidden=true;
+    if(progressFill)progressFill.style.width="0%";
+    if(progress)progress.setAttribute("aria-valuenow","0");
+    $("#featuredProductLink")?.classList.remove("is-hot-active");
     clearHomepageFeaturedTimer();
-    return;
    }
-   timer.textContent=formatFlashSaleCountdown(remaining);
   },1000);
  }
- return true;
+ return remaining>0;
 }
 function renderFeaturedProduct(){
  const link=$("#featuredProductLink");
@@ -251,6 +268,36 @@ function renderFeaturedProduct(){
  if(controls)controls.hidden=true;
  card?.classList.remove("is-flash-sale");
  if(cta)cta.hidden=true;
+}
+function initFeaturedProductMotion(){
+ const card=$("#featuredProductLink");
+ const image=$("#featuredProductImage");
+ if(!card||!image||card.dataset.motionBound==="true")return;
+ card.dataset.motionBound="true";
+ const reduced=window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+ const finePointer=window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches;
+ if(reduced||!finePointer)return;
+ const reset=()=>{
+  card.classList.remove("is-pointer-active");
+  card.style.removeProperty("--featured-tilt-x");
+  card.style.removeProperty("--featured-tilt-y");
+  card.style.removeProperty("--featured-shift-x");
+  card.style.removeProperty("--featured-shift-y");
+ };
+ card.addEventListener("pointermove",event=>{
+  if(event.pointerType!=="mouse"&&event.pointerType!=="pen")return;
+  const rect=card.getBoundingClientRect();
+  if(!rect.width||!rect.height)return;
+  const x=Math.max(-1,Math.min(1,((event.clientX-rect.left)/rect.width-.5)*2));
+  const y=Math.max(-1,Math.min(1,((event.clientY-rect.top)/rect.height-.5)*2));
+  card.style.setProperty("--featured-tilt-y",(x*8).toFixed(2)+"deg");
+  card.style.setProperty("--featured-tilt-x",(-y*6).toFixed(2)+"deg");
+  card.style.setProperty("--featured-shift-x",(x*-7).toFixed(1)+"px");
+  card.style.setProperty("--featured-shift-y",(y*-5).toFixed(1)+"px");
+  card.classList.add("is-pointer-active");
+ },{passive:true});
+ card.addEventListener("pointerleave",reset,{passive:true});
+ card.addEventListener("pointercancel",reset,{passive:true});
 }
 function renderCategories(){
   const streamingPage=document.body.dataset.page==='streaming';
@@ -909,7 +956,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const requestedCategory=new URLSearchParams(window.location.search).get('category');
   if(!streamingPage&&requestedCategory&&pageCategories.includes(requestedCategory))$('#categoryFilter').value=requestedCategory;
   if(streamingPage){ $('#categorias')?.setAttribute('hidden',''); const h=$('.product-heading h2'); if(h) h.textContent='Plataformas de Streaming'; const eye=$('.product-heading .eyebrow'); if(eye) eye.textContent='SERVICIOS DIGITALES'; }
-  renderFeaturedProduct(); renderCategories(); renderProducts(); renderCart();
+  renderFeaturedProduct(); initFeaturedProductMotion(); renderCategories(); renderProducts(); renderCart();
   const savedCartReminder=$("#savedCartReminder");
   const savedCartUpdatedAt=Number(localStorage.getItem("novashop-cart-updated-at")||0);
   if(savedCartReminder&&cart.length&&Date.now()-savedCartUpdatedAt>=30*60*1000)savedCartReminder.hidden=false;
