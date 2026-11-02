@@ -55,7 +55,7 @@
  }
  async function syncCatalog(localProducts){
   if(!client||!Array.isArray(localProducts))return localProducts;
-  const {data,error}=await client.from("products").select("id,name,category,price_cop,delivery_type,is_active,updated_at,old_price_cop,description,images,color_variants,size_variants,video_url,features,rating,reviews,tag,shipping,sort_order,stock_quantity,payment_methods,printful_enabled,target_audiences").eq("is_active",true).order("sort_order");
+  const {data,error}=await client.from("products").select("id,name,category,price_cop,delivery_type,is_active,updated_at,old_price_cop,description,images,color_variants,size_variants,video_url,features,rating,reviews,tag,shipping,sort_order,stock_quantity,payment_methods,printful_enabled,target_audiences,is_homepage_featured").eq("is_active",true).order("sort_order");
   if(error||!data)return localProducts;
   const catalogIds=data.map(row=>Number(row.id)).filter(Number.isSafeInteger);
   let publicVariants=[];
@@ -85,7 +85,7 @@
     local.dropiVariants=variantsByProduct.get(Number(row.id))||[];
     local.videoUrl=row.video_url||null;if(images.length){local.images=images;local.description=row.description||local.description;local.features=row.features||local.features;local.shipping=row.shipping||local.shipping;}
     local.tag=row.category==="Streaming"?"DIGITAL":(row.old_price_cop!=null?(row.tag||"OFERTA"):(row.tag||local.tag||"DESTACADO"));
-    local.sortOrder=row.sort_order;local.stockQuantity=row.stock_quantity==null?null:Number(row.stock_quantity);local.targetAudiences=Array.isArray(row.target_audiences)?row.target_audiences:[];
+    local.sortOrder=row.sort_order;local.stockQuantity=row.stock_quantity==null?null:Number(row.stock_quantity);local.targetAudiences=Array.isArray(row.target_audiences)?row.target_audiences:[];local.isHomepageFeatured=!!row.is_homepage_featured;
    }else{
     localProducts.push({id:Number(row.id),name:row.name,category:row.category,price:Number(row.price_cop),regularPrice:Number(row.price_cop),
      regularOldPrice:row.old_price_cop==null?null:Number(row.old_price_cop),oldPrice:row.old_price_cop==null?null:Number(row.old_price_cop),
@@ -93,7 +93,7 @@
      reviews:Number(row.reviews)||0,tag:row.category==="Streaming"?"DIGITAL":(row.old_price_cop!=null?(row.tag||"OFERTA"):(row.tag||"NUEVO")),
      images:images.length?images:["images/streaming-placeholder.svg"],description:row.description||"",
      features:row.features||[],shipping:row.shipping||"",videoUrl:row.video_url||null,colorVariants:Array.isArray(row.color_variants)?row.color_variants:[],sizeVariants:Array.isArray(row.size_variants)?row.size_variants.map(size=>String(size).trim()).filter(Boolean):[],
-     deliveryType:row.delivery_type,paymentMethods:Array.isArray(row.payment_methods)?row.payment_methods:(row.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]),printfulEnabled:!!row.printful_enabled,sortOrder:row.sort_order,stockQuantity:row.stock_quantity==null?null:Number(row.stock_quantity),targetAudiences:Array.isArray(row.target_audiences)?row.target_audiences:[],dropiVariants:variantsByProduct.get(Number(row.id))||[]});
+     deliveryType:row.delivery_type,paymentMethods:Array.isArray(row.payment_methods)?row.payment_methods:(row.delivery_type==="digital"?["bold"]:["bold","cash_on_delivery"]),printfulEnabled:!!row.printful_enabled,isHomepageFeatured:!!row.is_homepage_featured,sortOrder:row.sort_order,stockQuantity:row.stock_quantity==null?null:Number(row.stock_quantity),targetAudiences:Array.isArray(row.target_audiences)?row.target_audiences:[],dropiVariants:variantsByProduct.get(Number(row.id))||[]});
    }
   }
   try{
