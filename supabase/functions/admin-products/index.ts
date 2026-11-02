@@ -88,6 +88,20 @@ Deno.serve(async (req: Request) => {
 
     if (action === "whoami") return json({ok:true,isAdmin:true,userId:user.id,email:user.email || null,role},200,origin);
 
+    if (action === "set-homepage-featured") {
+      if (!canEditCatalog) return json({error:"No tienes permiso para cambiar el producto destacado de la portada."},403,origin);
+      let productId: number | null = null;
+      if (body.product_id !== null && body.product_id !== undefined && body.product_id !== "") {
+        productId = Number(body.product_id);
+        if (!Number.isSafeInteger(productId) || productId <= 0) {
+          return json({error:"Selecciona un producto válido."},400,origin);
+        }
+      }
+      const {data,error} = await admin.rpc("set_homepage_featured_product",{p_product_id:productId});
+      if (error) throw error;
+      return json({ok:true,product_id:productId},200,origin);
+    }
+
     if (action === "get-flash-sale") {
       if (!canEditCatalog) return json({error:"No tienes permiso para gestionar las ofertas relámpago."},403,origin);
       const [{data:campaign,error:campaignError},{data:rows,error:productsError}] = await Promise.all([
