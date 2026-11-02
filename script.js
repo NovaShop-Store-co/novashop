@@ -993,7 +993,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   $("#resumeSavedCart")?.addEventListener("click",()=>{if(savedCartReminder)savedCartReminder.hidden=true;openCart();});
   $("#dismissSavedCart")?.addEventListener("click",()=>{if(savedCartReminder)savedCartReminder.hidden=true;});
   loadCatalogReviewStats();
-  window.NovaShopDB?.syncCatalog?.(products).then(async()=>{syncCartPricesFromProducts();populateCatalogCategoryFilters();renderCategories();renderProducts();await loadHomepageFlashSale();loadCatalogReviewStats();}).catch(err=>console.warn('Catálogo Supabase:',err));
+  window.NovaShopDB?.syncCatalog?.(products).then(async()=>{
+   syncCartPricesFromProducts();populateCatalogCategoryFilters();
+   const wantedSubcategory=new URLSearchParams(window.location.search).get("subcategory");
+   if(wantedSubcategory&&Array.from($("#subcategoryFilter")?.options||[]).some(option=>option.value===wantedSubcategory))$("#subcategoryFilter").value=wantedSubcategory;
+   renderCategories();renderProducts();await loadHomepageFlashSale();loadCatalogReviewStats();
+  }).catch(err=>console.warn('Catálogo Supabase:',err));
   $('#categoryFilter').addEventListener('change',()=>{updateSubcategoryFilter({preserve:false});renderProducts();});
   $('#subcategoryFilter')?.addEventListener('change',renderProducts);
   $('#audienceFilter')?.addEventListener('change',renderProducts); $('#sortSelect').addEventListener('change',renderProducts); $('#searchInput').addEventListener('input',renderProducts);
