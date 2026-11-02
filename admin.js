@@ -486,6 +486,7 @@ function renderHomepageFeaturedControl(){
  const eligible=products.filter(p=>p.is_active&&p.category!=="Streaming");
  const selected=eligible.find(p=>p.is_homepage_featured);
  const automatic=eligible.find(p=>p.old_price_cop)||eligible[0]||null;
+ const shown=selected||automatic;
  select.innerHTML='<option value="">Selección automática de NovaShop</option>'+eligible.map(p=>'<option value="'+Number(p.id)+'">'+esc(p.name)+' · '+money(p.price_cop)+'</option>').join("");
  select.value=selected?String(selected.id):"";
  const shown=selected||automatic;
