@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 600" preserveAspectRatio="xMidYMid slice">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071a38"/><stop offset=".45" stop-color="#174d89"/><stop offset="1" stop-color="#0a2349"/></linearGradient>
+ <radialGradient id="warm"><stop stop-color="#9ecbff" stop-opacity=".55"/><stop offset="1" stop-color="#9ecbff" stop-opacity="0"/></radialGradient>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#e8f3ff"/><stop offset=".48" stop-color="#a9cbed"/><stop offset="1" stop-color="#527ba9"/></linearGradient>
+ <linearGradient id="pine" x2="0" y2="1"><stop stop-color="#2e7950"/><stop offset="1" stop-color="#0c3827"/></linearGradient>
+ <linearGradient id="giftRed" x2="0" y2="1"><stop stop-color="#72b5ff"/><stop offset="1" stop-color="#164784"/></linearGradient>
+ <linearGradient id="giftGold" x2="0" y2="1"><stop stop-color="#eff7ff"/><stop offset="1" stop-color="#7799bf"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="12"/></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
+ <pattern id="grain" width="120" height="120" patternUnits="userSpaceOnUse"><circle cx="12" cy="20" r="1.3" fill="#e9f4ff" opacity=".17"/><circle cx="88" cy="73" r="1.1" fill="#e9f4ff" opacity=".15"/><circle cx="48" cy="104" r=".8" fill="#e9f4ff" opacity=".13"/></pattern>
+ <g id="flake" stroke="#eef7ff" stroke-width="3" stroke-linecap="round" fill="none" opacity=".85">
+  <path d="M0-22V22M-19-11L19 11M-19 11L19-11"/>
+  <path d="M0-22l-5 6m5-6l5 6M0 22l-5-6m5 6l5-6M-19-11l8 1m-8-1l3 8M19 11l-8-1m8 1l-3-8M-19 11l8-1m-8 1l3-8M19-11l-8 1m8-1l-3 8"/>
+ </g>
+ <g id="bauble">
+  <path d="M0-44v-13" stroke="#b8d8fa" stroke-width="3"/>
+  <path d="M-8-46h16v9H-8z" fill="#a8c9ed"/>
+  <circle cy="-19" r="23" fill="url(#gold)" stroke="#e6f2ff" stroke-width="2"/>
+  <path d="M-12-31q16-9 24 7" fill="none" stroke="#ffffff" stroke-width="3" opacity=".7"/>
+ </g>
+ <g id="star" fill="#d8ebff"><path d="M0-13L3.4-3.8 13 0 3.4 3.8 0 13-3.4 3.8-13 0-3.4-3.8z"/></g>
+</defs>
+<rect width="1920" height="600" fill="url(#bg)"/>
+<ellipse cx="120" cy="80" rx="370" ry="240" fill="url(#warm)"/>
+<ellipse cx="1800" cy="100" rx="380" ry="240" fill="url(#warm)"/>
+<ellipse cx="970" cy="310" rx="660" ry="240" fill="#102f59" opacity=".18"/>
+<rect width="1920" height="600" fill="url(#grain)"/>
+<!-- Fine icy-blue garland along the upper edge -->
+<path d="M0 4C260 80 340-26 580 26S950 77 1190 18 1570 9 1920 54" stroke="#a7d0fb" stroke-width="2" fill="none" opacity=".45"/>
+<path d="M0 12C245 88 360-12 590 38S960 84 1190 30 1570 20 1920 65" stroke="#eaf5ff" stroke-width="1" fill="none" opacity=".22"/>
+<!-- Evergreen boughs in the outer corners -->
+<g fill="none" stroke="url(#pine)" stroke-linecap="round">
+ <path d="M-25 90Q90 24 240 10M-12 132Q95 88 205 50M20 3Q110 72 214 124" stroke-width="17"/>
+ <path d="M1945 75Q1810 5 1685 3M1935 133Q1810 84 1714 46M1908 0Q1810 68 1710 130" stroke-width="17"/>
+</g>
+<g stroke="#4776a5" stroke-width="5" stroke-linecap="round">
+ <path d="M15 105l-28-34m50 21L14 47m77 1L52 12m91 9L110-18m111 37l-8-45M27 126l-9 39m50-57l13 47m73-80l23 43m-20-77l32 30"/>
+ <path d="M1900 102l28-34m-50 21l51-45m-77-1l39-36m-91 9l33-47m-111 37l8-45m194 145l9 39m-50-57l-13 47m-73-80l-23 43m20-77l-32 30"/>
+</g>
+<!-- Hanging lights -->
+<g>
+ <path d="M330 0v100M710 0v74M1230 0v92M1585 0v108" stroke="#d7a957" stroke-width="2" opacity=".8"/>
+ <circle cx="330" cy="110" r="12" fill="#c3e1ff" opacity=".8" filter="url(#glow)"/><circle cx="330" cy="110" r="5" fill="#e8f3ff"/>
+ <circle cx="710" cy="82" r="10" fill="#c3e1ff" opacity=".8" filter="url(#glow)"/><circle cx="710" cy="82" r="4" fill="#e8f3ff"/>
+ <circle cx="1230" cy="100" r="11" fill="#c3e1ff" opacity=".8" filter="url(#glow)"/><circle cx="1230" cy="100" r="4.5" fill="#e8f3ff"/>
+ <circle cx="1585" cy="116" r="12" fill="#c3e1ff" opacity=".8" filter="url(#glow)"/><circle cx="1585" cy="116" r="5" fill="#e8f3ff"/>
+ <use href="#bauble" transform="translate(178 105) scale(.92)"/>
+ <use href="#bauble" transform="translate(520 30) scale(.68)"/>
+ <use href="#bauble" transform="translate(1410 78) scale(.78)"/>
+ <use href="#bauble" transform="translate(1760 112) scale(.9)"/>
+</g>
+<!-- Delicate snowflakes and stars near the edges -->
+<g>
+ <use href="#flake" transform="translate(85 235) scale(1.0)"/>
+ <use href="#flake" transform="translate(425 150) scale(.52)"/>
+ <use href="#flake" transform="translate(1510 205) scale(.72)"/>
+ <use href="#flake" transform="translate(1830 310) scale(1.1)"/>
+ <use href="#flake" transform="translate(270 375) scale(.48)"/>
+ <use href="#flake" transform="translate(1665 420) scale(.54)"/>
+ <use href="#star" transform="translate(365 265) scale(.75)"/>
+ <use href="#star" transform="translate(1320 330) scale(.85)"/>
+ <use href="#star" transform="translate(1860 185) scale(.65)"/>
+ <use href="#star" transform="translate(75 430) scale(.55)"/>
+</g>
+<!-- Small snow dots: denser at the frame edges, center kept calm -->
+<g fill="#edf6ff">
+ <circle cx="40" cy="245" r="3" opacity=".7"/><circle cx="140" cy="295" r="2" opacity=".5"/><circle cx="220" cy="205" r="2.4" opacity=".55"/>
+ <circle cx="475" cy="95" r="2" opacity=".55"/><circle cx="600" cy="170" r="1.8" opacity=".4"/><circle cx="815" cy="48" r="2" opacity=".45"/>
+ <circle cx="1090" cy="88" r="2" opacity=".42"/><circle cx="1395" cy="40" r="2" opacity=".55"/><circle cx="1690" cy="260" r="2.5" opacity=".65"/>
+ <circle cx="1880" cy="385" r="3" opacity=".7"/><circle cx="1780" cy="480" r="2" opacity=".6"/><circle cx="1555" cy="520" r="2.3" opacity=".6"/>
+ <circle cx="340" cy="520" r="2" opacity=".55"/><circle cx="210" cy="465" r="3" opacity=".7"/><circle cx="55" cy="535" r="2.3" opacity=".65"/>
+</g>
+<!-- Gift boxes tucked into the lower corners -->
+<g transform="translate(55 420)">
+ <ellipse cx="95" cy="153" rx="112" ry="18" fill="#06162f" opacity=".4" filter="url(#soft)"/>
+ <rect x="6" y="69" width="124" height="82" rx="6" fill="url(#giftRed)" stroke="#f4c16d" stroke-width="3"/>
+ <rect x="-2" y="55" width="140" height="23" rx="5" fill="url(#gold)" stroke="#e6f2ff" stroke-width="2"/>
+ <rect x="59" y="55" width="22" height="96" fill="#f4d17b"/>
+ <path d="M70 56C20 26 35-7 64 16c15 12 12 28 6 40M71 56c50-30 33-63 4-40-15 12-10 27-4 40" fill="none" stroke="#f5d27c" stroke-width="9" stroke-linecap="round"/>
+ <circle cx="70" cy="57" r="7" fill="#e6f2ff"/>
+ <path d="M22 91h90" stroke="#d5eaff" stroke-width="2" opacity=".5"/>
+</g>
+<g transform="translate(1735 436) scale(.88)">
+ <ellipse cx="95" cy="153" rx="112" ry="18" fill="#06162f" opacity=".4" filter="url(#soft)"/>
+ <rect x="6" y="69" width="124" height="82" rx="6" fill="url(#giftGold)" stroke="#e6f2ff" stroke-width="3"/>
+ <rect x="-2" y="55" width="140" height="23" rx="5" fill="url(#giftRed)" stroke="#c5def8" stroke-width="2"/>
+ <rect x="59" y="55" width="22" height="96" fill="#235c9b"/>
+ <path d="M70 56C20 26 35-7 64 16c15 12 12 28 6 40M71 56c50-30 33-63 4-40-15 12-10 27-4 40" fill="none" stroke="#a6c9ef" stroke-width="9" stroke-linecap="round"/>
+ <circle cx="70" cy="57" r="7" fill="#e6f2ff"/>
+</g>
+<!-- Mini evergreen trees at the base, away from the content center -->
+<g fill="url(#pine)" stroke="#479367" stroke-width="2">
+ <path d="M12 500l35-75 35 75h-18l31 58H-1l31-58z"/>
+ <path d="M1840 506l30-68 31 68h-16l27 52h-85l27-52z"/>
+</g>
+<g fill="#f3c55f"><circle cx="47" cy="460" r="5"/><circle cx="65" cy="505" r="4"/><circle cx="1868" cy="469" r="5"/><circle cx="1882" cy="511" r="4"/></g>
+<!-- Foreground snow bank as a subtle bottom frame -->
+<path d="M0 575Q240 548 450 574T905 566T1350 576T1920 566V600H0z" fill="#eaf4ff" opacity=".1"/>
+<path d="M0 590Q320 570 650 589T1270 584T1920 590" stroke="#d9eaff" stroke-width="2" fill="none" opacity=".3"/>
+</svg>
