@@ -525,7 +525,7 @@ async function saveAdminHomepageFeatured(){
  }catch(error){
   if(notice){notice.textContent=error.message||"No se pudo actualizar el producto destacado.";notice.className="admin-status error";}
  }finally{
-  button.disabled=false;button.textContent="Guardar producto destacado";
+  button.disabled=false;button.textContent="Guardar selección e iniciar 12 h";
  }
 }
 async function loadProducts(){
