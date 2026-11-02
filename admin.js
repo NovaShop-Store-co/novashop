@@ -1192,7 +1192,7 @@ async function init(){
  productForm.addEventListener("input",()=>{if(productForm.elements.id.value)productForm.dataset.dirty="1";});
  productForm.addEventListener("change",event=>{
   if(productForm.elements.id.value)productForm.dataset.dirty="1";
-  if(event.target===productForm.elements.category)refreshAdminSubcategorySuggestions(productForm.elements.category.value);
+  if(event.target===productForm.elements.category){productForm.elements.subcategory.value="";refreshAdminSubcategorySuggestions(productForm.elements.category.value);}
   if(event.target===productForm.elements.delivery_type)syncPaymentMethodControls({resetPhysical:productForm.elements.delivery_type.value==="physical"});
   if(event.target===productForm.elements.printful_enabled)syncPaymentMethodControls();
   if(event.target===productForm.elements.video)renderCurrentMedia();
