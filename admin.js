@@ -489,11 +489,16 @@ function renderHomepageFeaturedControl(){
  const shown=selected||automatic;
  select.innerHTML='<option value="">Selección automática de NovaShop</option>'+eligible.map(p=>'<option value="'+Number(p.id)+'">'+esc(p.name)+' · '+money(p.price_cop)+'</option>').join("");
  select.value=selected?String(selected.id):"";
- const shown=selected||automatic;
  if(note){
-  note.textContent=selected
-   ? "Producto fijado: "+selected.name+". Su foto principal, nombre y precios se toman directamente de su ficha."
-   : "Sin selección manual. NovaShop elegirá automáticamente un producto destacado del catálogo.";
+  if(selected&&selected.old_price_cop!=null&&Number(selected.old_price_cop)>Number(selected.price_cop)){
+   const end=selected.homepage_featured_ends_at?new Date(selected.homepage_featured_ends_at):null;
+   const active=end&&!Number.isNaN(end.getTime())&&end.getTime()>Date.now();
+   note.textContent="Producto fijado: "+selected.name+". "+(active?"El temporizador HOT termina el "+end.toLocaleString("es-CO",{dateStyle:"short",timeStyle:"short"})+".":"No hay un temporizador HOT activo. Guarda la selección para iniciar o renovar las 12 horas.") ;
+  }else{
+   note.textContent=selected
+    ?"Producto fijado: "+selected.name+". Añade un precio anterior mayor que el actual en la ficha para activar OFERTA, HOT y el contador."
+    :"Sin selección manual. NovaShop elegirá automáticamente un producto destacado del catálogo.";
+  }
  }
  if(preview){
   preview.hidden=!shown;
@@ -504,6 +509,7 @@ function renderHomepageFeaturedControl(){
  const save=$("#saveAdminHomepageFeatured");
  if(save)save.disabled=!eligible.length;
 }
+
 async function saveAdminHomepageFeatured(){
  const select=$("#adminHomepageFeaturedSelect"),button=$("#saveAdminHomepageFeatured"),notice=$("#adminHomepageFeaturedStatus");
  if(!select||!button)return;
@@ -512,10 +518,10 @@ async function saveAdminHomepageFeatured(){
  button.disabled=true;button.textContent="Guardando…";
  if(notice){notice.textContent="Actualizando el producto destacado de la portada…";notice.className="admin-status";}
  try{
-  await call({action:"set-homepage-featured",product_id:productId});
+  await call({action:"set-homepage-featured",product_id:productId,restart_timer:productId!==null});
   products.forEach(p=>{p.is_homepage_featured=productId!==null&&Number(p.id)===productId;});
   renderHomepageFeaturedControl();
-  if(notice){notice.textContent=productId===null?"Selección automática restaurada.":"Producto destacado actualizado para todos los visitantes.";notice.className="admin-status success";}
+  if(notice){notice.textContent=productId===null?"Selección automática restaurada.": "Producto destacado guardado. Si tiene descuento, el contador HOT de 12 horas comienza ahora.";notice.className="admin-status success";}
  }catch(error){
   if(notice){notice.textContent=error.message||"No se pudo actualizar el producto destacado.";notice.className="admin-status error";}
  }finally{
