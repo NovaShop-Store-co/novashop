@@ -204,7 +204,7 @@ function renderFeaturedProduct(){
 
   link.href="producto.html?id="+featured.id;
   link.setAttribute("aria-label",(hasDiscount?"Oferta: ":"Producto destacado: ")+featured.name+(hasDiscount?". "+pct+"% de descuento.":"")+" Ver detalles y comprar.");
-  $("#featuredProductImage").src=(featured.images&&featured.images[0])||"images/streaming-placeholder.svg";
+  $("#featuredProductImage").src=featured.homepageFeaturedImageUrl||(featured.images&&featured.images[0])||"images/streaming-placeholder.svg";
   $("#featuredProductImage").alt=featured.name;
   if(badge){badge.textContent=hasDiscount?"OFERTA":"DESTACADO";badge.hidden=!hasDiscount;}
   $("#featuredProductName").textContent=featured.name;
