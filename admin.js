@@ -3,6 +3,7 @@
 const $=s=>document.querySelector(s), db=window.NovaShopDB;
 const money=n=>new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let homepageFeaturedImageFile=null, homepageFeaturedImagePreviewUrl=null;
 let products=[], editingImages=[], editingVideo=null, pendingVideoPreviewUrl=null, editingColorVariants=[], metrics=null, currentRole=null, adminUsers=[], adminOrders=[], adminCoupons=[], adminReviews=[], ordersOffset=0, ordersHasMore=false, ordersLoading=false, ordersReloadQueued=false, ordersTotalCount=0, ordersPage=1, ordersPageSize=10, ordersSearchTimer=null, productEditorReturnFocus=null, adminFlashSale=null, flashSaleAdminProducts=[], flashSaleSelectedIds=new Set();
 function status(text,kind="info"){const el=$("#adminStatus");el.textContent=text;el.className="admin-status "+kind;}
 function setAdminSection(name){
@@ -477,6 +478,20 @@ async function pauseAdminFlashSale(){
  catch(error){flashSaleNotice(error.message||"No se pudo detener la campaña.","error");}
  finally{if(button){button.disabled=false;button.textContent="Detener campaña";}}
 }
+function clearHomepageFeaturedImageDraft(){
+ if(homepageFeaturedImagePreviewUrl){URL.revokeObjectURL(homepageFeaturedImagePreviewUrl);homepageFeaturedImagePreviewUrl=null;}
+ homepageFeaturedImageFile=null;
+ const input=$("#adminHomepageFeaturedImageInput");if(input)input.value="";
+}
+function syncHomepageFeaturedImageControls(){
+ const select=$("#adminHomepageFeaturedSelect");
+ const selected=products.find(p=>p.is_homepage_featured);
+ const matches=!!selected&&select?.value===String(selected.id);
+ const save=$("#saveAdminHomepageFeaturedImage");
+ const reset=$("#resetAdminHomepageFeaturedImage");
+ if(save)save.disabled=!matches||!homepageFeaturedImageFile;
+ if(reset)reset.disabled=!matches||!selected?.homepage_featured_image_url;
+}
 function renderHomepageFeaturedControl(){
  const wrap=$("#adminHomepageFeaturedWrap"),select=$("#adminHomepageFeaturedSelect"),preview=$("#adminHomepageFeaturedPreview"),note=$("#adminHomepageFeaturedNote");
  if(!wrap||!select)return;
@@ -493,7 +508,7 @@ function renderHomepageFeaturedControl(){
   if(selected&&selected.old_price_cop!=null&&Number(selected.old_price_cop)>Number(selected.price_cop)){
    const end=selected.homepage_featured_ends_at?new Date(selected.homepage_featured_ends_at):null;
    const active=end&&!Number.isNaN(end.getTime())&&end.getTime()>Date.now();
-   note.textContent="Producto fijado: "+selected.name+". "+(active?"El temporizador HOT termina el "+end.toLocaleString("es-CO",{dateStyle:"short",timeStyle:"short"})+".":"No hay un temporizador HOT activo. Guarda la selección para iniciar o renovar las 12 horas.") ;
+   note.textContent="Producto fijado: "+selected.name+". "+(active?"El temporizador HOT termina el "+end.toLocaleString("es-CO",{dateStyle:"short",timeStyle:"short"})+".":"No hay un temporizador HOT activo. Guarda la selección para iniciar o renovar las 12 horas.");
   }else{
    note.textContent=selected
     ?"Producto fijado: "+selected.name+". Añade un precio anterior mayor que el actual en la ficha para activar OFERTA, HOT y el contador."
@@ -501,15 +516,16 @@ function renderHomepageFeaturedControl(){
   }
  }
  if(preview){
+  const imageUrl=homepageFeaturedImagePreviewUrl||selected?.homepage_featured_image_url||(shown?.images||[])[0]||"images/streaming-placeholder.svg";
   preview.hidden=!shown;
   preview.innerHTML=shown
-   ? '<img src="'+esc((shown.images||[])[0]||"images/streaming-placeholder.svg")+'" alt=""><div class="admin-homepage-featured-preview-copy"><strong>'+esc(shown.name)+'</strong><span>'+esc(shown.category||"Producto")+' · '+money(shown.price_cop)+'</span></div><span class="admin-homepage-featured-preview-state">'+(selected?"FIJADO":"AUTOMÁTICO")+'</span>'
+   ? '<img src="'+esc(imageUrl)+'" alt=""><div class="admin-homepage-featured-preview-copy"><strong>'+esc(shown.name)+'</strong><span>'+esc(shown.category||"Producto")+' · '+money(shown.price_cop)+'</span></div><span class="admin-homepage-featured-preview-state">'+(selected?"FIJADO":"AUTOMÁTICO")+'</span>'
    : '<div class="admin-help">No hay productos activos disponibles para destacar.</div>';
  }
  const save=$("#saveAdminHomepageFeatured");
  if(save)save.disabled=!eligible.length;
+ syncHomepageFeaturedImageControls();
 }
-
 async function saveAdminHomepageFeatured(){
  const select=$("#adminHomepageFeaturedSelect"),button=$("#saveAdminHomepageFeatured"),notice=$("#adminHomepageFeaturedStatus");
  if(!select||!button)return;
@@ -520,6 +536,7 @@ async function saveAdminHomepageFeatured(){
  try{
   await call({action:"set-homepage-featured",product_id:productId,restart_timer:productId!==null});
   products.forEach(p=>{p.is_homepage_featured=productId!==null&&Number(p.id)===productId;});
+  clearHomepageFeaturedImageDraft();
   renderHomepageFeaturedControl();
   if(notice){notice.textContent=productId===null?"Selección automática restaurada.": "Producto destacado guardado. Si tiene descuento, el contador HOT de 12 horas comienza ahora.";notice.className="admin-status success";}
  }catch(error){
@@ -527,6 +544,39 @@ async function saveAdminHomepageFeatured(){
  }finally{
   button.disabled=false;button.textContent="Guardar selección e iniciar 12 h";
  }
+}
+async function saveAdminHomepageFeaturedImage(){
+ const select=$("#adminHomepageFeaturedSelect"),button=$("#saveAdminHomepageFeaturedImage"),notice=$("#adminHomepageFeaturedImageStatus");
+ const selected=products.find(p=>p.is_homepage_featured);
+ if(!selected||select?.value!==String(selected.id)){if(notice){notice.textContent="Guarda primero la selección del producto destacado.";notice.className="admin-status error";}return;}
+ if(!homepageFeaturedImageFile){if(notice){notice.textContent="Selecciona una imagen PNG, WEBP, JPG o AVIF.";notice.className="admin-status error";}return;}
+ button.disabled=true;button.textContent="Subiendo imagen…";
+ try{
+  const imageUrl=await upload(homepageFeaturedImageFile);
+  await call({action:"set-homepage-featured-image",product_id:Number(selected.id),image_url:imageUrl});
+  selected.homepage_featured_image_url=imageUrl;
+  clearHomepageFeaturedImageDraft();
+  renderHomepageFeaturedControl();
+  if(notice){notice.textContent="Imagen exclusiva de portada guardada. La foto de la ficha del producto no se modificó.";notice.className="admin-status success";}
+ }catch(error){
+  if(notice){notice.textContent=error.message||"No se pudo guardar la imagen de portada.";notice.className="admin-status error";}
+ }finally{syncHomepageFeaturedImageControls();if(button){button.textContent="Guardar imagen de portada";}}
+}
+async function resetAdminHomepageFeaturedImage(){
+ const select=$("#adminHomepageFeaturedSelect"),button=$("#resetAdminHomepageFeaturedImage"),notice=$("#adminHomepageFeaturedImageStatus");
+ const selected=products.find(p=>p.is_homepage_featured);
+ if(!selected||select?.value!==String(selected.id)){if(notice){notice.textContent="Guarda primero la selección del producto destacado.";notice.className="admin-status error";}return;}
+ if(!selected.homepage_featured_image_url)return;
+ button.disabled=true;button.textContent="Restaurando…";
+ try{
+  await call({action:"set-homepage-featured-image",product_id:Number(selected.id),image_url:null});
+  selected.homepage_featured_image_url=null;
+  clearHomepageFeaturedImageDraft();
+  renderHomepageFeaturedControl();
+  if(notice){notice.textContent="Listo. La portada vuelve a utilizar la primera foto de la ficha del producto.";notice.className="admin-status success";}
+ }catch(error){
+  if(notice){notice.textContent=error.message||"No se pudo restaurar la foto del catálogo.";notice.className="admin-status error";}
+ }finally{syncHomepageFeaturedImageControls();if(button){button.textContent="Usar foto de la ficha";}}
 }
 async function loadProducts(){
  try{
@@ -1157,6 +1207,25 @@ async function init(){
  $("#adminFlashSaleForm")?.addEventListener("submit",saveAdminFlashSale);
  $("#pauseAdminFlashSale")?.addEventListener("click",pauseAdminFlashSale);
  $("#saveAdminHomepageFeatured")?.addEventListener("click",saveAdminHomepageFeatured);
+ $("#saveAdminHomepageFeaturedImage")?.addEventListener("click",saveAdminHomepageFeaturedImage);
+ $("#resetAdminHomepageFeaturedImage")?.addEventListener("click",resetAdminHomepageFeaturedImage);
+ $("#adminHomepageFeaturedSelect")?.addEventListener("change",()=>{
+  clearHomepageFeaturedImageDraft();syncHomepageFeaturedImageControls();
+  const notice=$("#adminHomepageFeaturedImageStatus");
+  if(notice){notice.textContent="Para editar la imagen, guarda primero el producto que elegiste en la portada.";notice.className="admin-status";}
+ });
+ $("#adminHomepageFeaturedImageInput")?.addEventListener("change",event=>{
+  const input=event.currentTarget,file=input.files?.[0]||null,notice=$("#adminHomepageFeaturedImageStatus");
+  if(!file){clearHomepageFeaturedImageDraft();syncHomepageFeaturedImageControls();return;}
+  const allowed=["image/png","image/webp","image/jpeg","image/avif"];
+  if(!allowed.includes(file.type)){if(notice){notice.textContent="Usa una imagen PNG, WEBP, JPG o AVIF.";notice.className="admin-status error";}input.value="";return;}
+  if(file.size>12*1024*1024){if(notice){notice.textContent="La imagen no puede superar 12 MB.";notice.className="admin-status error";}input.value="";return;}
+  if(homepageFeaturedImagePreviewUrl)URL.revokeObjectURL(homepageFeaturedImagePreviewUrl);
+  homepageFeaturedImageFile=file;homepageFeaturedImagePreviewUrl=URL.createObjectURL(file);
+  const image=$("#adminHomepageFeaturedPreview img");if(image)image.src=homepageFeaturedImagePreviewUrl;
+  if(notice){notice.textContent="Vista previa lista: "+file.name+". Recuerda guardar la imagen de portada.";notice.className="admin-status";}
+  syncHomepageFeaturedImageControls();
+ });
  $("#refreshAdminHomepageFeatured")?.addEventListener("click",()=>loadProducts());
  $("#adminFlashSaleProducts")?.addEventListener("change",event=>{
   const checkbox=event.target.closest("[data-flash-sale-select]");if(!checkbox)return;
