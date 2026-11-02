@@ -1,0 +1,198 @@
+/* NovaShop — winter blue / silver holiday skin. Visual layer only. */
+:root{
+ --xmas-red:#1b5796;
+ --xmas-red-deep:#103b70;
+ --xmas-red-dark:#071d3e;
+ --xmas-gold:#a9cbed;
+ --xmas-gold-light:#edf7ff;
+ --xmas-green:#285d8f;
+ --xmas-green-dark:#153c68;
+ --xmas-cream:#f6faff;
+ --xmas-cream-2:#eaf2fb;
+ --xmas-ink:#142b40;
+ --xmas-muted:#667d95;
+ --xmas-line:#dce8f5;
+ --xmas-shadow:0 12px 34px rgba(14,48,86,.10);
+ color-scheme:light;
+}
+html{background:#f6faff;scroll-behavior:smooth}
+body{background:#f6faff;color:#142b40}
+.announcement{background:linear-gradient(90deg,#061a37,#123e70 48%,#061a37);color:#eef7ff;border-bottom:1px solid rgba(195,225,255,.18)}
+.announcement-group b{color:#bcdcff}
+.site-header{background:rgba(248,251,255,.97);border-bottom:1px solid #dce8f5;box-shadow:0 5px 20px rgba(11,43,79,.07)}
+.brand{color:#102d4d}
+.brand>span:last-child>span{color:#2f70b5}
+.brand-mark{background:linear-gradient(145deg,#174d89,#082448);border:1px solid #a9cbed;color:#fff;box-shadow:0 4px 12px rgba(13,54,98,.15)}
+.main-nav a{color:#435e7a}
+.main-nav a:hover{color:#1b5796}
+.account-btn{border-color:#d8e5f2;background:#fff;color:#183a5d}
+.account-btn:hover{border-color:#8fb8e3;color:#174d89}
+.icon-btn{background:#eaf2fb;color:#174d89}
+.cart-btn{background:linear-gradient(110deg,#133f70,#0a2a50);border:1px solid #2c6094;color:#fff}
+.cart-btn b{background:#5a9bdb;box-shadow:0 0 0 2px #f8fbff}
+.search-bar-wrap{background:#f6faff;border-color:#dce8f5}
+.search-box{background:#fff;border-color:#d8e5f2}
+.search-box input{color:#142b40}
+.search-box input::placeholder{color:#8ca0b5}
+
+/* Icy blue panoramic Christmas hero. */
+.hero{
+ background-color:#0b2850;
+ background-image:linear-gradient(100deg,rgba(4,20,46,.48) 0%,rgba(12,48,91,.30) 48%,rgba(4,20,46,.43) 100%),url("assets/christmas-hero-blue.svg");
+ background-position:center,center;
+ background-size:cover,cover;
+ background-repeat:no-repeat,no-repeat;
+ border-bottom:5px solid #b9d7f5;
+}
+.hero::before{
+ content:"";display:block;opacity:.22;
+ background:
+ radial-gradient(circle at 7% 22%,rgba(235,247,255,.9) 0 2px,transparent 3px),
+ radial-gradient(circle at 22% 76%,rgba(199,226,255,.8) 0 1.5px,transparent 3px),
+ radial-gradient(circle at 47% 18%,rgba(235,247,255,.8) 0 2px,transparent 3px),
+ radial-gradient(circle at 72% 80%,rgba(199,226,255,.8) 0 1.5px,transparent 3px),
+ radial-gradient(circle at 91% 35%,rgba(235,247,255,.85) 0 2px,transparent 3px);
+}
+.hero::after{content:"✦    ❄    ✧    ❄";color:rgba(221,239,255,.68);opacity:.6}
+.hero-copy .eyebrow{border-color:rgba(191,220,250,.45);background:rgba(5,27,57,.48);color:#e7f3ff}
+.hero-copy .eyebrow::before{background:#c6e2ff;box-shadow:0 0 12px #b4d8ff}
+.hero h1{color:#f8fbff;text-shadow:0 5px 24px rgba(0,12,32,.32)}
+.hero h1 em{background:linear-gradient(100deg,#fff 0%,#dcedff 42%,#a9d1ff 75%,#f5faff 100%);background-clip:text;-webkit-background-clip:text;color:transparent}
+.hero-copy>p{color:#e0edfa}
+.hero-search-shell{border-color:rgba(202,227,252,.62);box-shadow:0 13px 32px rgba(2,15,37,.22)}
+.hero-search-shell:focus-within{border-color:#d7ebff;box-shadow:0 0 0 3px rgba(177,214,251,.24),0 13px 30px rgba(2,15,37,.2)}
+.hero-search-icon{color:#1b5796}
+.hero-search-submit{background:linear-gradient(110deg,#dceeff,#a9cbed);color:#12395f;box-shadow:0 5px 16px rgba(3,24,52,.2)}
+.hero-search-submit:hover{background:linear-gradient(110deg,#f2f8ff,#bddcff);color:#0c2c4e}
+.hero-search-caption{color:#d7e9fa}
+.hero-category-chip{border-color:rgba(216,235,255,.42);background:rgba(4,25,54,.4);color:#edf6ff}
+.hero-category-chip:hover,.hero-category-chip:focus-visible{border-color:#c5e1ff;background:rgba(180,215,250,.17);color:#fff}
+.hero-cta .btn{border-radius:999px}
+.btn-primary{background:linear-gradient(110deg,#e5f2ff,#a9cbed);color:#13385d;box-shadow:0 8px 20px rgba(3,19,43,.22)}
+.btn-primary:hover{background:linear-gradient(110deg,#f4f9ff,#c2ddf8)}
+.btn-ghost{border:1px solid rgba(222,239,255,.55);background:rgba(5,28,58,.42);color:#f5faff}
+.btn-ghost:hover{border-color:#d4eaff;background:rgba(191,220,250,.14)}
+.hero-digital-link{color:#d9ecff}
+.hero-digital-link span{color:#fff}
+.micro-trust{color:#e2effb}
+.hero-visual{perspective:1400px}
+.hero-card.main{border-color:rgba(198,225,255,.7);background:radial-gradient(ellipse at 52% 53%,rgba(100,158,218,.28),transparent 43%),radial-gradient(ellipse at 78% 25%,rgba(44,105,171,.3),transparent 40%),linear-gradient(145deg,#102f59,#061a37 75%);box-shadow:0 26px 68px rgba(0,12,34,.4),0 0 30px rgba(167,208,250,.16)}
+.hero-card.main::before{background:linear-gradient(90deg,#8fbae8,#eff7ff,#6e9dce,#d6eaff) border-box;filter:drop-shadow(0 0 11px rgba(170,211,250,.72))}
+.hero-card.main:hover{border-color:#e8f4ff;box-shadow:0 34px 80px rgba(0,12,34,.46),0 0 28px rgba(180,216,250,.26)}
+.hero-card.main:hover img{filter:drop-shadow(0 31px 24px rgba(0,0,0,.5)) drop-shadow(0 0 14px rgba(180,216,250,.22))}
+.hero-card.main:focus-visible{outline:3px solid #ddecff}
+.hero-badge{border-color:rgba(204,229,255,.6);background:rgba(8,34,69,.92);color:#eaf5ff}
+.featured-view-cta{border-color:rgba(206,229,252,.6);background:rgba(7,29,60,.9);color:#f4f9ff}
+.hero-caption-main>span{color:#fff}
+.hero-caption>strong{background:linear-gradient(110deg,#dceeff,#9ec6ed);color:#12395f}
+.featured-sale-prices b,.featured-sale-countdown{color:#fff}
+.featured-sale-controls{border-color:rgba(205,228,251,.48);background:rgba(7,29,60,.92)}
+.featured-sale-controls>button{background:#1b5796}
+#featuredSaleDots button[aria-current=true]{background:#d4eaff}
+.float-card{border-color:rgba(203,229,255,.48);background:rgba(8,34,69,.92);color:#f2f8ff;box-shadow:0 12px 28px rgba(0,12,34,.3)}
+
+/* Trust, categories and catalog surfaces. */
+.experience-strip{background:#fafdff;border-color:#dce8f5}
+.experience-item{border-color:#dce8f5}
+.experience-icon{background:#eaf3fc;color:#1b5796}
+.experience-item h2{color:#193c60}
+.experience-item p{color:#6d8298}
+.trust-band{background:linear-gradient(180deg,#edf5fd 0%,#fafdff 100%)}
+.trust-point{border-color:#dce8f5;background:#fff;box-shadow:0 5px 18px rgba(15,52,91,.04)}
+.trust-point:hover{border-color:#b9d5f2;box-shadow:0 12px 26px rgba(15,52,91,.08)}
+.trust-point-icon{background:#eaf3fc;color:#1b5796}
+.trust-point h2{color:#183c61}
+.trust-point p{color:#6c8298}
+.section,.benefits,.next-step-section{background:#fafdff}
+.section-head .eyebrow{color:#2a68a7}
+.section-head h2{color:#142f4d}
+.section-head p{color:#6d8298}
+.text-link{color:#1b5796}
+.text-link:hover{color:#0c315b}
+.category-card{border-color:#dce8f5;background:#eaf3fc}
+.category-card:nth-child(4n+1){--cat-border:#9bc5ee}
+.category-card:nth-child(4n+2){--cat-border:#c2d9ef}
+.category-card:nth-child(4n+3){--cat-border:#9ec4e7}
+.category-card:nth-child(4n){--cat-border:#b2cce6}
+#productos{background:#eef5fc;border-color:#dce8f5}
+#productos .section-head .eyebrow{color:#2b6eaf}
+#productos .toolbar select{border-color:#d7e4f2;background:#fff;color:#274867}
+#productos .toolbar select option{background:#fff;color:#142f4d}
+.catalog-filters,.catalog-discovery-bar{border-color:#d9e6f3;background:#fff}
+.catalog-filters label,.catalog-results-copy{color:#627c96}
+.catalog-results-copy strong{color:#183a5c}
+.catalog-filters input[type=number]{border-color:#d4e2f0;background:#fff;color:#1b3d60}
+.catalog-filter-check input{accent-color:#2b6eaf}
+.clear-catalog-btn{border-color:#d7e4f2;background:#fff;color:#536d87}
+.clear-catalog-btn:hover{border-color:#8fb7df;background:#f1f7fd;color:#1b5796}
+.product-card{border-color:#dce8f5;background:#fff;box-shadow:0 4px 15px rgba(15,52,91,.05)}
+.product-card:hover{border-color:#adcbea;box-shadow:0 15px 30px rgba(15,52,91,.12)}
+.product-media{background:linear-gradient(145deg,#fff,#edf4fb)}
+.product-title,.price{color:#173653}
+.category-label,.old-price{color:#8399af}
+.add-btn{border-color:#1b5796;background:linear-gradient(105deg,#164c83,#2f75b7);color:#fff}
+.add-btn:hover{filter:brightness(1.08);box-shadow:0 6px 16px rgba(27,87,150,.22)}
+.tag{background:#eaf3fc;color:#1d5b98;border-color:#d4e5f5}
+.favorite-toggle{border-color:#dce8f5;background:rgba(255,255,255,.96);color:#5c7690}
+.favorite-toggle.is-favorite{border-color:#e3bfd0;background:#fff4f8;color:#d13d75}
+.stock-label.sold-out{color:#1b5796}
+.empty-state{border-color:#c8dced;background:#fff;color:#5f7892}
+
+/* Winter gift finder: deep blue, ice-white cards, silver accents. */
+.christmas-gift-guide{background:radial-gradient(ellipse at 3% 50%,rgba(193,222,251,.18),transparent 28%),radial-gradient(ellipse at 96% 50%,rgba(193,222,251,.16),transparent 28%),linear-gradient(100deg,#071d3e,#174d89 48%,#071d3e);border-color:#b8d6f4;color:#f5faff}
+.christmas-gift-guide::before,.christmas-gift-guide::after{color:rgba(218,237,255,.72)}
+.christmas-kicker,.christmas-gift-foot{color:#d7eaff}
+.christmas-gift-heading h2{color:#f8fbff}
+.christmas-gift-heading p{color:#d9e9f8}
+.christmas-gift-links a{border-color:#d2e4f6;background:rgba(250,253,255,.97);color:#183959;box-shadow:0 7px 20px rgba(2,17,40,.18)}
+.christmas-gift-links a:hover{box-shadow:0 12px 24px rgba(2,17,40,.24)}
+.gift-emoji,.christmas-gift-links a:nth-child(2) .gift-emoji,.christmas-gift-links a:nth-child(3) .gift-emoji,.christmas-gift-links a:nth-child(4) .gift-emoji{background:#eaf3fc}
+.christmas-gift-links a>span:last-child,.christmas-gift-foot span{color:#2b6eaf}
+
+/* Calm reading areas and lower-page components. */
+.benefits-grid{border-color:#dce8f5;background:#fff;box-shadow:0 10px 30px rgba(15,52,91,.05)}
+.benefits article{border-color:#e3edf7}
+.benefits article>span{background:#eaf3fc;color:#1b5796}
+.benefits h3{color:#183a5c}.benefits p{color:#6d8298}
+.faq-section{background:#eff5fc;border-color:#dce8f5}
+.faq-grid details{border-color:#dce8f5;background:#fff;box-shadow:0 4px 14px rgba(15,52,91,.035)}
+.faq-grid details[open]{border-color:#9fc3e8;box-shadow:0 8px 20px rgba(15,52,91,.08)}
+.faq-grid summary{color:#183a5c}
+.faq-grid summary:after{color:#2b6eaf}
+.faq-grid details p{color:#617a94}
+.next-step-card{border:1px solid rgba(211,233,255,.28);background:radial-gradient(ellipse at 85% 20%,rgba(177,211,246,.18),transparent 34%),linear-gradient(110deg,#071d3e,#174d89 62%,#071d3e);box-shadow:0 18px 42px rgba(7,29,62,.2)}
+.next-step-card h2{color:#f8fbff}.next-step-card p{color:#d9e9f8}
+.site-footer{background:#06172f;color:#e4effa;border-top:1px solid rgba(173,209,245,.25)}
+.site-footer .brand{color:#f8fbff}
+.site-footer p,.site-footer a{color:#bdcfe2}
+.site-footer a:hover{color:#dcedff}
+.site-footer h4{color:#f1f7ff}
+.footer-bottom{border-top:1px solid rgba(202,227,252,.16);color:#a7bfd8}
+.floating-product-help{background:linear-gradient(110deg,#27a96f,#137b52);border:1px solid rgba(183,255,212,.5);box-shadow:0 9px 25px rgba(25,101,67,.25)}
+.floating-product-help:hover{filter:brightness(1.08);box-shadow:0 13px 30px rgba(25,101,67,.32)}
+
+/* Drawers, modals and keyboard focus stay legible in the blue palette. */
+.drawer-overlay{background:rgba(5,20,42,.58)}
+.cart-drawer{background:#fafdff;color:#173653;border-left:1px solid #d7e5f3}
+.drawer-head{border-color:#dce8f5}.drawer-head h2{color:#173653}
+.close-btn{background:#eaf3fc;color:#21486e}
+.cart-items{color:#173653}.cart-item{border-color:#e3edf7}
+.cart-item img{background:#eef5fc}.cart-item p{color:#6b8299}
+.qty-control{border-color:#d7e4f2}.qty-control button{background:#edf5fc;color:#173653}
+.qty-control span{color:#173653}.remove{color:#7890a8}
+.cart-footer{border-color:#dce8f5;background:#eff5fc}
+.subtotal{color:#58718a}.subtotal strong{color:#173653}
+.cart-footer small{color:#748ba2}
+.modal{background:rgba(5,20,42,.62)}
+.modal-card{border-color:#dce8f5;background:#fafdff;color:#173653;box-shadow:0 25px 70px rgba(4,22,47,.25)}
+.modal-card h2{color:#173653}.modal-card p{color:#6b8299}
+.modal-card input,.modal-card select,.modal-card textarea{border-color:#d7e4f2;background:#fff;color:#173653}
+.modal-card input::placeholder,.modal-card textarea::placeholder{color:#8da2b7}
+.toast{background:#0c2b50;color:#f4f9ff;border:1px solid rgba(190,220,250,.25);box-shadow:0 10px 28px rgba(5,23,48,.24)}
+:focus-visible{outline:3px solid #6aa8e5!important;outline-offset:3px!important}
+@media(max-width:800px){
+ .hero{background-position:center,center;background-size:cover,cover}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important}
+}
