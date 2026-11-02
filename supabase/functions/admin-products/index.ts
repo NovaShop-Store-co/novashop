@@ -97,7 +97,10 @@ Deno.serve(async (req: Request) => {
           return json({error:"Selecciona un producto válido."},400,origin);
         }
       }
-      const {data,error} = await admin.rpc("set_homepage_featured_product",{p_product_id:productId});
+      const {data,error} = await admin.rpc("set_homepage_featured_product",{
+        p_product_id:productId,
+        p_restart_timer:body.restart_timer===true
+      });
       if (error) throw error;
       return json({ok:true,product_id:productId},200,origin);
     }
@@ -749,6 +752,14 @@ Deno.serve(async (req: Request) => {
           matchedExistingByDropiId = true;
         }
       }
+      let previousOfferState: any = null;
+      if (id !== null) {
+        const {data:previous,error:previousError} = await admin.from("products")
+          .select("price_cop,old_price_cop,is_homepage_featured")
+          .eq("id",id).maybeSingle();
+        if (previousError) throw previousError;
+        previousOfferState = previous;
+      }
       const preserveExistingFields = (body.preserve_existing_fields === true || matchedExistingByDropiId) && id !== null;
       const preserveExistingVariants = (body.preserve_existing_variants === true || matchedExistingByDropiId) && id !== null;
       let existingProduct: any = null;
@@ -922,6 +933,18 @@ Deno.serve(async (req: Request) => {
       if (error) throw error;
       if (!data) return json({error:"No encontramos el producto que intentabas editar."},404,origin);
 
+      const previousOldPrice = previousOfferState?.old_price_cop==null ? null : Number(previousOfferState.old_price_cop);
+      const savedOldPrice = data.old_price_cop==null ? null : Number(data.old_price_cop);
+      const featuredDiscountChanged = previousOfferState &&
+        (Number(previousOfferState.price_cop)!==Number(data.price_cop) || previousOldPrice!==savedOldPrice);
+      if (data.is_homepage_featured===true && featuredDiscountChanged) {
+        const {error:timerError} = await admin.rpc("set_homepage_featured_product",{
+          p_product_id:Number(data.id),
+          p_restart_timer:true
+        });
+        if (timerError) throw timerError;
+      }
+
       if (!preserveExistingVariants || dropiVariants.length) {
         const {error:deleteVariantsError} = await admin.from("product_variants").delete().eq("product_id",data.id);
         if (deleteVariantsError) throw deleteVariantsError;
@@ -980,7 +1003,11 @@ Deno.serve(async (req: Request) => {
       if (!canEditCatalog) return json({error:"No tienes permiso para ocultar productos."},403,origin);
       const id = Number(body.id);
       if (!Number.isInteger(id) || id <= 0) return json({error:"Identificador de producto no válido."},400,origin);
-      const {data,error} = await admin.from("products").update({is_active:false,updated_at:new Date().toISOString()}).eq("id",id).select("id,name,is_active").maybeSingle();
+      const {data,error} = await admin.from("products").update({
+        is_active:false,is_homepage_featured:false,
+        homepage_featured_started_at:null,homepage_featured_ends_at:null,
+        updated_at:new Date().toISOString()
+      }).eq("id",id).select("id,name,is_active").maybeSingle();
       if (error) throw error;
       if (!data) return json({error:"No encontramos ese producto."},404,origin);
       return json({ok:true,product:data},200,origin);
