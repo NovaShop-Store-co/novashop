@@ -55,7 +55,7 @@
  }
  async function syncCatalog(localProducts){
   if(!client||!Array.isArray(localProducts))return localProducts;
-  const {data,error}=await client.from("products").select("id,name,category,price_cop,delivery_type,is_active,updated_at,old_price_cop,description,images,color_variants,size_variants,video_url,features,rating,reviews,tag,shipping,sort_order,stock_quantity,payment_methods,printful_enabled,target_audiences,is_homepage_featured,homepage_featured_started_at,homepage_featured_ends_at,homepage_featured_image_url").eq("is_active",true).order("sort_order");
+  const {data,error}=await client.from("products").select("id,name,category,subcategory,price_cop,delivery_type,is_active,updated_at,old_price_cop,description,images,color_variants,size_variants,video_url,features,rating,reviews,tag,shipping,sort_order,stock_quantity,payment_methods,printful_enabled,target_audiences,is_homepage_featured,homepage_featured_started_at,homepage_featured_ends_at,homepage_featured_image_url").eq("is_active",true).order("sort_order");
   if(error||!data)return localProducts;
   const catalogIds=data.map(row=>Number(row.id)).filter(Number.isSafeInteger);
   let publicVariants=[];
@@ -76,7 +76,7 @@
    let local=localProducts.find(p=>Number(p.id)===Number(row.id));
    const images=(row.images||[]).filter(Boolean);
    if(local){
-    local.name=row.name;local.category=row.category;
+    local.name=row.name;local.category=row.category;local.subcategory=row.subcategory||"";
     local.price=Number(row.price_cop);local.regularPrice=Number(row.price_cop);
     local.regularOldPrice=row.old_price_cop==null?null:Number(row.old_price_cop);
     local.oldPrice=local.regularOldPrice;local.flashSale=false;local.flashSaleEndsAt=null;local.flashSaleTitle="";
@@ -87,7 +87,7 @@
     local.tag=row.category==="Streaming"?"DIGITAL":(row.old_price_cop!=null?(row.tag||"OFERTA"):(row.tag||local.tag||"DESTACADO"));
     local.sortOrder=row.sort_order;local.stockQuantity=row.stock_quantity==null?null:Number(row.stock_quantity);local.targetAudiences=Array.isArray(row.target_audiences)?row.target_audiences:[];local.isHomepageFeatured=!!row.is_homepage_featured;local.homepageFeaturedImageUrl=row.homepage_featured_image_url||null;local.homepageFeaturedStartedAt=row.homepage_featured_started_at||null;local.homepageFeaturedEndsAt=row.homepage_featured_ends_at||null;
    }else{
-    localProducts.push({id:Number(row.id),name:row.name,category:row.category,price:Number(row.price_cop),regularPrice:Number(row.price_cop),
+    localProducts.push({id:Number(row.id),name:row.name,category:row.category,subcategory:row.subcategory||"",price:Number(row.price_cop),regularPrice:Number(row.price_cop),
      regularOldPrice:row.old_price_cop==null?null:Number(row.old_price_cop),oldPrice:row.old_price_cop==null?null:Number(row.old_price_cop),
      flashSale:false,flashSaleEndsAt:null,flashSaleTitle:"",rating:row.rating==null?null:Number(row.rating),
      reviews:Number(row.reviews)||0,tag:row.category==="Streaming"?"DIGITAL":(row.old_price_cop!=null?(row.tag||"OFERTA"):(row.tag||"NUEVO")),
