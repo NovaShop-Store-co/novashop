@@ -4,7 +4,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1">
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=52">
+<link rel="stylesheet" href="styles.css?v=53">
 <link rel="stylesheet" href="bulk-import.css?v=5">
 <style>
 .admin-page-wrap{max-width:1180px;margin:32px auto 70px;padding:0 20px}
@@ -363,6 +363,7 @@ body.product-editor-open{overflow:hidden}
 <input name="id" type="hidden">
 <label>Nombre del producto *<input name="name" required maxlength="140" placeholder="Ej. Lámpara minimalista"></label>
 <div class="admin-cols"><label>Categoría *<select name="category" required><option value="">Selecciona</option><option>Tecnología</option><option>Hogar</option><option>Moda</option><option>Accesorios</option><option>Oficina</option><option>Streaming</option><option>Belleza</option><option>Deportes</option><option>Otra</option></select></label><label>Tipo de entrega *<select name="delivery_type" required><option value="physical">Producto físico</option><option value="digital">Servicio digital</option></select></label></div>
+<div class="admin-cols admin-subcategory-row"><label>Subcategoría (opcional)<input name="subcategory" type="text" maxlength="80" list="adminSubcategorySuggestions" placeholder="Ej. Audífonos, Ropa deportiva, Cocina"><datalist id="adminSubcategorySuggestions"></datalist><span class="admin-help">Agrupa este producto dentro de su categoría principal. Puedes escribir una nueva o reutilizar una sugerencia existente.</span></label><div class="admin-help" style="align-self:center">Primero elige la categoría principal. Las sugerencias se actualizan automáticamente.</div></div>
 <label>ID del producto en Dropi (solo administración)<input name="dropi_product_id" type="text" maxlength="100" autocomplete="off" placeholder="Pega aquí el ID exacto de Dropi"><span class="admin-help">Úsalo solo para productos que no manejan combinaciones separadas. Si debajo cargas variantes de Dropi por corte, color y talla, cada pedido guardará el ID de la variante elegida. Los IDs y costos nunca se muestran a los clientes.</span></label>
 <fieldset class="admin-audience-field" style="border:1px solid #e0e7ed;border-radius:10px;padding:12px;margin:0;display:grid;gap:8px"><legend style="padding:0 5px;font-size:12px;font-weight:750;color:#40505d">Público objetivo (opcional)</legend><div style="display:flex;gap:18px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:7px"><input name="target_audiences" type="checkbox" value="hombre" style="width:16px;height:16px"> Hombre</label><label style="display:flex;align-items:center;gap:7px"><input name="target_audiences" type="checkbox" value="mujer" style="width:16px;height:16px"> Mujer</label></div><span class="admin-help">Marca ambos para la misma prenda apta para hombre y mujer. La tienda la mostrará una sola vez como Unisex y aparecerá al filtrar por cualquiera de los dos públicos.</span></fieldset>
 <div class="admin-cols"><label>Precio COP *<input name="price_cop" type="number" min="1" step="1" required placeholder="59900"></label><label>Precio anterior COP<input name="old_price_cop" type="number" min="1" step="1" placeholder="Opcional"></label></div>
@@ -430,5 +431,5 @@ body.product-editor-open{overflow:hidden}
  </div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=42"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=43"></script><script src="bulk-import.js?v=13"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=26"></script><script src="supabase-client.js?v=43"></script><script src="auth-nav.js?v=23"></script><script src="admin.js?v=44"></script><script src="bulk-import.js?v=13"></script>
 </body></html>
