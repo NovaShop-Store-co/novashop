@@ -796,7 +796,7 @@ Deno.serve(async (req: Request) => {
       const name = clean(body.name,140) || (preserveExistingFields ? clean(existingProduct?.name,140) : "");
       const category = clean(body.category,80) || (preserveExistingFields ? clean(existingProduct?.category,80) : "");
       const subcategory = body.subcategory == null
-        ? (preserveExistingFields ? clean(existingProduct?.subcategory,80) : "")
+        ? (preserveExistingFields && clean(existingProduct?.category,80)===category ? clean(existingProduct?.subcategory,80) : "")
         : clean(body.subcategory,80).replace(/\s+/g," ");
       const delivery = clean(body.delivery_type,20) || (preserveExistingFields ? clean(existingProduct?.delivery_type,20) : "");
       const rawDropiVariants = Array.isArray(body.dropi_variants) ? body.dropi_variants : [];
